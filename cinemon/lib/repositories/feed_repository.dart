@@ -279,4 +279,37 @@ class FeedRepository {
 
     return snapshot.docs.length;
   }
+
+  /// Update all activities for a user with new user data (photo, username)
+  /// Used to sync denormalized user data across activities
+  Future<int> syncUserDataToActivities({
+    required String userId,
+    String? username,
+    String? photoUrl,
+  }) async {
+    final snapshot = await _activitiesRef
+        .where('userId', isEqualTo: userId)
+        .get();
+
+    if (snapshot.docs.isEmpty) return 0;
+
+    final batch = _firestore.batch();
+    final updates = <String, dynamic>{};
+
+    if (username != null) {
+      updates['username'] = username;
+    }
+    if (photoUrl != null) {
+      updates['userPhotoUrl'] = photoUrl;
+    }
+
+    if (updates.isEmpty) return 0;
+
+    for (final doc in snapshot.docs) {
+      batch.update(doc.reference, updates);
+    }
+
+    await batch.commit();
+    return snapshot.docs.length;
+  }
 }

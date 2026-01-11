@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/friendship_model.dart';
+import '../../models/notification_model.dart';
 import '../../repositories/friendship_repository.dart';
 import '../auth/auth_provider.dart';
+import '../notification/notification_provider.dart';
 
 /// Provider for FriendshipRepository singleton
 final friendshipRepositoryProvider = Provider<FriendshipRepository>((ref) {
@@ -110,6 +112,15 @@ class FriendshipNotifier extends StateNotifier<AsyncValue<void>> {
         receiverPhotoUrl: receiverPhotoUrl,
       );
 
+      // Create notification for the receiver
+      _ref.read(notificationNotifierProvider.notifier).createNotification(
+        recipientId: receiverId,
+        actorId: currentUser.uid,
+        actorUsername: senderUsername ?? 'Someone',
+        actorPhotoUrl: senderPhotoUrl,
+        type: NotificationType.followRequest,
+      );
+
       state = const AsyncValue.data(null);
 
       // Refresh sent requests
@@ -121,11 +132,30 @@ class FriendshipNotifier extends StateNotifier<AsyncValue<void>> {
   }
 
   /// Accept a friend request
-  Future<void> acceptFriendRequest(String friendshipId) async {
+  Future<void> acceptFriendRequest(
+    String friendshipId, {
+    String? senderId,
+    String? senderUsername,
+    String? senderPhotoUrl,
+    String? receiverUsername,
+    String? receiverPhotoUrl,
+  }) async {
+    final currentUser = _ref.read(currentUserProvider);
     state = const AsyncValue.loading();
 
     try {
       await _friendshipRepo.acceptFriendRequest(friendshipId);
+
+      // Notify the sender that their request was accepted
+      if (senderId != null && currentUser != null) {
+        _ref.read(notificationNotifierProvider.notifier).createNotification(
+          recipientId: senderId,
+          actorId: currentUser.uid,
+          actorUsername: receiverUsername ?? 'Someone',
+          actorPhotoUrl: receiverPhotoUrl,
+          type: NotificationType.followAccepted,
+        );
+      }
 
       state = const AsyncValue.data(null);
 

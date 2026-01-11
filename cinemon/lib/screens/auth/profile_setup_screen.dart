@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 import '../../providers/feed/feed_provider.dart';
 import '../../providers/user/user_provider.dart';
 
@@ -30,15 +31,46 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(
       source: ImageSource.gallery,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 80,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 90,
     );
 
     if (pickedFile != null) {
-      setState(() {
-        _selectedImage = File(pickedFile.path);
-      });
+      // Crop the image to a circle-friendly square
+      final croppedFile = await ImageCropper().cropImage(
+        sourcePath: pickedFile.path,
+        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+        compressQuality: 80,
+        maxWidth: 512,
+        maxHeight: 512,
+        uiSettings: [
+          IOSUiSettings(
+            title: 'Crop Photo',
+            aspectRatioLockEnabled: true,
+            resetAspectRatioEnabled: false,
+            aspectRatioPickerButtonHidden: true,
+            rotateButtonsHidden: false,
+            rotateClockwiseButtonHidden: true,
+          ),
+          AndroidUiSettings(
+            toolbarTitle: 'Crop Photo',
+            toolbarColor: Colors.black,
+            toolbarWidgetColor: Colors.white,
+            backgroundColor: Colors.black,
+            activeControlsWidgetColor: Colors.white,
+            initAspectRatio: CropAspectRatioPreset.square,
+            lockAspectRatio: true,
+            hideBottomControls: false,
+          ),
+        ],
+      );
+
+      if (croppedFile != null) {
+        setState(() {
+          _selectedImage = File(croppedFile.path);
+        });
+      }
     }
   }
 
@@ -46,15 +78,22 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Get current profile and update with bio
       final profile = ref.read(currentUserProfileProvider).value;
       if (profile != null) {
         final userRepo = ref.read(userRepositoryProvider);
+        final controller = ref.read(profileSetupControllerProvider.notifier);
+
+        // Upload photo if selected
+        String? photoUrl = profile.photoUrl;
+        if (_selectedImage != null) {
+          photoUrl = await controller.uploadProfilePhoto(_selectedImage!);
+        }
+
         final updatedProfile = profile.copyWith(
           bio: _bioController.text.trim().isEmpty
               ? null
               : _bioController.text.trim(),
-          // Photo upload disabled for now
+          photoUrl: photoUrl,
         );
         await userRepo.updateUser(updatedProfile);
       }

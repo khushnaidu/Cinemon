@@ -15,6 +15,7 @@ import '../../screens/search_users_screen.dart';
 import '../../screens/friends_list_screen.dart';
 import '../../screens/film_detail_screen.dart';
 import '../../screens/profile/user_activity_screen.dart';
+import '../../screens/notifications_screen.dart';
 import '../../models/activity_model.dart';
 
 /// GoRouter configuration with auth guard
@@ -141,6 +142,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/search-users',
         name: 'search-users',
         builder: (context, state) => const SearchUsersScreen(),
+      ),
+      GoRoute(
+        path: '/notifications',
+        name: 'notifications',
+        builder: (context, state) => const NotificationsScreen(),
       ),
       GoRoute(
         path: '/film/:filmId/:mediaType',

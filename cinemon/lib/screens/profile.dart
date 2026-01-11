@@ -482,7 +482,14 @@ class _FollowButton extends ConsumerWidget {
                   width: 100,
                   onPressed: () async {
                     await ref.read(friendshipNotifierProvider.notifier)
-                        .acceptFriendRequest(friendship.id);
+                        .acceptFriendRequest(
+                          friendship.id,
+                          senderId: friendship.senderId,
+                          senderUsername: friendship.senderUsername,
+                          senderPhotoUrl: friendship.senderPhotoUrl,
+                          receiverUsername: friendship.receiverUsername,
+                          receiverPhotoUrl: friendship.receiverPhotoUrl,
+                        );
                     ref.invalidate(friendshipStatusProvider(targetUserId));
                     ref.invalidate(currentUserProfileProvider);
                     ref.invalidate(userProfileProvider(targetUserId));

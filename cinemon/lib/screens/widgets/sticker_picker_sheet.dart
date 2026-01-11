@@ -7,11 +7,17 @@ import '../../providers/feed/feed_provider.dart';
 class StickerPickerSheet extends ConsumerWidget {
   final String activityId;
   final String? currentStickerId;
+  final String? activityOwnerId;
+  final String? filmTitle;
+  final String? filmPosterPath;
 
   const StickerPickerSheet({
     super.key,
     required this.activityId,
     this.currentStickerId,
+    this.activityOwnerId,
+    this.filmTitle,
+    this.filmPosterPath,
   });
 
   @override
@@ -62,7 +68,7 @@ class StickerPickerSheet extends ConsumerWidget {
                     onPressed: () async {
                       await ref
                           .read(reactionNotifierProvider.notifier)
-                          .removeReaction(activityId);
+                          .removeReaction(activityId, activityOwnerId: activityOwnerId);
                       if (context.mounted) Navigator.pop(context);
                     },
                     child: const Text(
@@ -98,11 +104,17 @@ class StickerPickerSheet extends ConsumerWidget {
                     if (isSelected) {
                       await ref
                           .read(reactionNotifierProvider.notifier)
-                          .removeReaction(activityId);
+                          .removeReaction(activityId, activityOwnerId: activityOwnerId);
                     } else {
                       await ref
                           .read(reactionNotifierProvider.notifier)
-                          .setReaction(activityId, sticker.id);
+                          .setReaction(
+                            activityId,
+                            sticker.id,
+                            activityOwnerId: activityOwnerId,
+                            filmTitle: filmTitle,
+                            filmPosterPath: filmPosterPath,
+                          );
                     }
                     if (context.mounted) Navigator.pop(context);
                   },
@@ -183,6 +195,9 @@ Future<void> showStickerPicker({
   required BuildContext context,
   required String activityId,
   String? currentStickerId,
+  String? activityOwnerId,
+  String? filmTitle,
+  String? filmPosterPath,
 }) {
   return showModalBottomSheet(
     context: context,
@@ -190,6 +205,9 @@ Future<void> showStickerPicker({
     builder: (context) => StickerPickerSheet(
       activityId: activityId,
       currentStickerId: currentStickerId,
+      activityOwnerId: activityOwnerId,
+      filmTitle: filmTitle,
+      filmPosterPath: filmPosterPath,
     ),
   );
 }

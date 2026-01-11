@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/user_model.dart';
 import '../providers/user/user_provider.dart';
@@ -85,16 +86,47 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(
       source: ImageSource.gallery,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 80,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 90,
     );
 
     if (pickedFile != null) {
-      setState(() {
-        _selectedImage = File(pickedFile.path);
-        _hasChanges = true;
-      });
+      // Crop the image to a circle-friendly square
+      final croppedFile = await ImageCropper().cropImage(
+        sourcePath: pickedFile.path,
+        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+        compressQuality: 80,
+        maxWidth: 512,
+        maxHeight: 512,
+        uiSettings: [
+          IOSUiSettings(
+            title: 'Crop Photo',
+            aspectRatioLockEnabled: true,
+            resetAspectRatioEnabled: false,
+            aspectRatioPickerButtonHidden: true,
+            rotateButtonsHidden: false,
+            rotateClockwiseButtonHidden: true,
+          ),
+          AndroidUiSettings(
+            toolbarTitle: 'Crop Photo',
+            toolbarColor: Colors.black,
+            toolbarWidgetColor: Colors.white,
+            backgroundColor: Colors.black,
+            activeControlsWidgetColor: Colors.white,
+            initAspectRatio: CropAspectRatioPreset.square,
+            lockAspectRatio: true,
+            hideBottomControls: false,
+          ),
+        ],
+      );
+
+      if (croppedFile != null) {
+        setState(() {
+          _selectedImage = File(croppedFile.path);
+          _hasChanges = true;
+        });
+      }
     }
   }
 
@@ -128,6 +160,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     if (success && mounted) {
       // Refresh the profile data
       ref.invalidate(currentUserProfileProvider);
+
+      // Sync user data to all existing activities (updates old posts)
+      ref.invalidate(syncUserDataProvider(null));
+      await ref.read(syncUserDataProvider(null).future);
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Profile updated successfully'),

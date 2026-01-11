@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
-// import 'package:firebase_storage/firebase_storage.dart';  // Temporarily disabled
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/user_model.dart';
 import '../../repositories/user_repository.dart';
@@ -9,9 +9,6 @@ import '../feed/feed_provider.dart' show userRepositoryProvider;
 
 // Re-export userRepositoryProvider from feed_provider for convenience
 export '../feed/feed_provider.dart' show userRepositoryProvider;
-
-// Firebase Storage temporarily disabled due to iOS SDK version conflict
-// Photo upload will be skipped until resolved
 
 /// Provider to check if the current user has completed profile setup
 /// Returns true if profile exists with a username set, false otherwise
@@ -143,11 +140,27 @@ class ProfileSetupController extends StateNotifier<ProfileSetupState> {
   }
 
   /// Upload profile photo to Firebase Storage
-  /// NOTE: Temporarily disabled due to iOS SDK version conflict
   Future<String?> uploadProfilePhoto(File imageFile) async {
-    // TODO: Re-enable when Firebase Storage iOS issue is resolved
-    // For now, photo upload is skipped
-    return null;
+    final user = _currentUser;
+    if (user == null) return null;
+
+    try {
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('profile_photos')
+          .child('${user.uid}.jpg');
+
+      final uploadTask = await storageRef.putFile(
+        imageFile,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+
+      final downloadUrl = await uploadTask.ref.getDownloadURL();
+      return downloadUrl;
+    } catch (e) {
+      print('Error uploading profile photo: $e');
+      return null;
+    }
   }
 
   /// Complete profile setup - creates user document in Firestore
@@ -308,11 +321,27 @@ class EditProfileController extends StateNotifier<EditProfileState> {
   }
 
   /// Upload profile photo to Firebase Storage
-  /// NOTE: Temporarily disabled due to iOS SDK version conflict
   Future<String?> _uploadProfilePhoto(File imageFile) async {
-    // TODO: Re-enable when Firebase Storage iOS issue is resolved
-    // For now, photo upload is skipped
-    return null;
+    final user = _currentUser;
+    if (user == null) return null;
+
+    try {
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('profile_photos')
+          .child('${user.uid}.jpg');
+
+      final uploadTask = await storageRef.putFile(
+        imageFile,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+
+      final downloadUrl = await uploadTask.ref.getDownloadURL();
+      return downloadUrl;
+    } catch (e) {
+      print('Error uploading profile photo: $e');
+      return null;
+    }
   }
 
   /// Update user profile

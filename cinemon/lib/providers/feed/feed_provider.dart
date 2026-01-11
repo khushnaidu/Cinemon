@@ -1,12 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/activity_model.dart';
 import '../../models/film_model.dart';
+import '../../models/notification_model.dart';
 import '../../models/user_model.dart';
 import '../../repositories/feed_repository.dart';
 import '../../repositories/user_repository.dart';
 import '../../services/badge_service.dart';
 import '../auth/auth_provider.dart';
 import '../friendship/friendship_provider.dart';
+import '../notification/notification_provider.dart';
 
 /// Provider for FeedRepository singleton
 final feedRepositoryProvider = Provider<FeedRepository>((ref) {
@@ -310,7 +312,8 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
     try {
       final wasReview = activity.activityType == ActivityType.reviewed;
       final hasNewRating = newRating != null && newRating > 0;
-      final hasNewReview = newReviewText != null && newReviewText.trim().isNotEmpty;
+      final trimmedReviewText = newReviewText?.trim();
+      final hasNewReview = trimmedReviewText != null && trimmedReviewText.isNotEmpty;
       final isNowReview = hasNewRating || hasNewReview;
 
       // Determine new activity type
@@ -320,7 +323,7 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
       final updatedActivity = activity.copyWith(
         activityType: newActivityType,
         rating: hasNewRating ? newRating : null,
-        reviewText: hasNewReview ? newReviewText!.trim() : null,
+        reviewText: hasNewReview ? trimmedReviewText : null,
       );
 
       await _feedRepo.updateActivity(updatedActivity);
@@ -363,22 +366,57 @@ final createActivityProvider =
 /// State notifier for like/unlike actions
 class LikeNotifier extends StateNotifier<Set<String>> {
   final FeedRepository _feedRepo;
+  final UserRepository _userRepo;
   final String? _userId;
+  final Ref _ref;
 
-  LikeNotifier(this._feedRepo, this._userId) : super({});
+  LikeNotifier(this._feedRepo, this._userRepo, this._userId, this._ref) : super({});
 
-  /// Toggle like on an activity
-  Future<void> toggleLike(String activityId, bool isCurrentlyLiked) async {
+  /// Toggle like on an activity with notification
+  Future<void> toggleLike(
+    String activityId,
+    bool isCurrentlyLiked, {
+    String? activityOwnerId,
+    String? filmTitle,
+    String? filmPosterPath,
+  }) async {
     if (_userId == null) return;
 
     // Optimistic update
     if (isCurrentlyLiked) {
       state = {...state}..remove(activityId);
       await _feedRepo.unlikeActivity(activityId: activityId, userId: _userId!);
+
+      // Remove notification
+      if (activityOwnerId != null) {
+        _ref.read(notificationNotifierProvider.notifier).removeNotification(
+          recipientId: activityOwnerId,
+          type: NotificationType.like,
+          activityId: activityId,
+        );
+      }
     } else {
       state = {...state, activityId};
       await _feedRepo.likeActivity(activityId: activityId, userId: _userId!);
+
+      // Create notification
+      if (activityOwnerId != null && activityOwnerId != _userId) {
+        final userProfile = await _userRepo.getUser(_userId!);
+        _ref.read(notificationNotifierProvider.notifier).createNotification(
+          recipientId: activityOwnerId,
+          actorId: _userId!,
+          actorUsername: userProfile?.username ?? 'Someone',
+          actorPhotoUrl: userProfile?.photoUrl,
+          type: NotificationType.like,
+          activityId: activityId,
+          filmTitle: filmTitle,
+          filmPosterPath: filmPosterPath,
+        );
+      }
     }
+
+    // Refresh the feed to reflect the change
+    _ref.invalidate(homeFeedProvider);
   }
 }
 
@@ -386,8 +424,9 @@ class LikeNotifier extends StateNotifier<Set<String>> {
 final likeNotifierProvider =
     StateNotifierProvider<LikeNotifier, Set<String>>((ref) {
   final feedRepo = ref.watch(feedRepositoryProvider);
+  final userRepo = ref.watch(userRepositoryProvider);
   final currentUser = ref.watch(currentUserProvider);
-  return LikeNotifier(feedRepo, currentUser?.uid);
+  return LikeNotifier(feedRepo, userRepo, currentUser?.uid, ref);
 });
 
 /// Provider for comments on an activity
@@ -420,13 +459,20 @@ final syncReviewCountProvider =
 /// State notifier for managing reactions on activities
 class ReactionNotifier extends StateNotifier<Map<String, String>> {
   final FeedRepository _feedRepo;
+  final UserRepository _userRepo;
   final String? _userId;
   final Ref _ref;
 
-  ReactionNotifier(this._feedRepo, this._userId, this._ref) : super({});
+  ReactionNotifier(this._feedRepo, this._userRepo, this._userId, this._ref) : super({});
 
   /// Set a reaction on an activity (replaces any existing reaction)
-  Future<void> setReaction(String activityId, String stickerId) async {
+  Future<void> setReaction(
+    String activityId,
+    String stickerId, {
+    String? activityOwnerId,
+    String? filmTitle,
+    String? filmPosterPath,
+  }) async {
     if (_userId == null) return;
 
     // Optimistic update
@@ -438,6 +484,23 @@ class ReactionNotifier extends StateNotifier<Map<String, String>> {
         userId: _userId!,
         stickerId: stickerId,
       );
+
+      // Create notification
+      if (activityOwnerId != null && activityOwnerId != _userId) {
+        final userProfile = await _userRepo.getUser(_userId!);
+        _ref.read(notificationNotifierProvider.notifier).createNotification(
+          recipientId: activityOwnerId,
+          actorId: _userId!,
+          actorUsername: userProfile?.username ?? 'Someone',
+          actorPhotoUrl: userProfile?.photoUrl,
+          type: NotificationType.reaction,
+          activityId: activityId,
+          filmTitle: filmTitle,
+          filmPosterPath: filmPosterPath,
+          stickerId: stickerId,
+        );
+      }
+
       // Refresh the feed to get updated data
       _ref.invalidate(homeFeedProvider);
     } catch (e) {
@@ -449,7 +512,7 @@ class ReactionNotifier extends StateNotifier<Map<String, String>> {
   }
 
   /// Remove reaction from an activity
-  Future<void> removeReaction(String activityId) async {
+  Future<void> removeReaction(String activityId, {String? activityOwnerId}) async {
     if (_userId == null) return;
 
     // Store old value for potential rollback
@@ -465,6 +528,16 @@ class ReactionNotifier extends StateNotifier<Map<String, String>> {
         activityId: activityId,
         userId: _userId!,
       );
+
+      // Remove notification
+      if (activityOwnerId != null) {
+        _ref.read(notificationNotifierProvider.notifier).removeNotification(
+          recipientId: activityOwnerId,
+          type: NotificationType.reaction,
+          activityId: activityId,
+        );
+      }
+
       _ref.invalidate(homeFeedProvider);
     } catch (e) {
       // Revert on error
@@ -475,12 +548,24 @@ class ReactionNotifier extends StateNotifier<Map<String, String>> {
   }
 
   /// Toggle reaction: if same sticker, remove; otherwise, set new sticker
-  Future<void> toggleReaction(String activityId, String stickerId) async {
+  Future<void> toggleReaction(
+    String activityId,
+    String stickerId, {
+    String? activityOwnerId,
+    String? filmTitle,
+    String? filmPosterPath,
+  }) async {
     final currentReaction = state[activityId];
     if (currentReaction == stickerId) {
-      await removeReaction(activityId);
+      await removeReaction(activityId, activityOwnerId: activityOwnerId);
     } else {
-      await setReaction(activityId, stickerId);
+      await setReaction(
+        activityId,
+        stickerId,
+        activityOwnerId: activityOwnerId,
+        filmTitle: filmTitle,
+        filmPosterPath: filmPosterPath,
+      );
     }
   }
 }
@@ -489,8 +574,9 @@ class ReactionNotifier extends StateNotifier<Map<String, String>> {
 final reactionNotifierProvider =
     StateNotifierProvider<ReactionNotifier, Map<String, String>>((ref) {
   final feedRepo = ref.watch(feedRepositoryProvider);
+  final userRepo = ref.watch(userRepositoryProvider);
   final currentUser = ref.watch(currentUserProvider);
-  return ReactionNotifier(feedRepo, currentUser?.uid, ref);
+  return ReactionNotifier(feedRepo, userRepo, currentUser?.uid, ref);
 });
 
 /// State notifier for managing comments
@@ -506,6 +592,9 @@ class CommentNotifier extends StateNotifier<AsyncValue<void>> {
   Future<CommentModel?> addComment({
     required String activityId,
     required String content,
+    String? activityOwnerId,
+    String? filmTitle,
+    String? filmPosterPath,
   }) async {
     final currentUser = _ref.read(currentUserProvider);
     if (currentUser == null) {
@@ -531,6 +620,23 @@ class CommentNotifier extends StateNotifier<AsyncValue<void>> {
 
       final created = await _feedRepo.addComment(comment);
       state = const AsyncValue.data(null);
+
+      // Create notification
+      if (activityOwnerId != null && activityOwnerId != currentUser.uid) {
+        _ref.read(notificationNotifierProvider.notifier).createNotification(
+          recipientId: activityOwnerId,
+          actorId: currentUser.uid,
+          actorUsername: userProfile?.username ?? 'Someone',
+          actorPhotoUrl: userProfile?.photoUrl,
+          type: NotificationType.comment,
+          activityId: activityId,
+          filmTitle: filmTitle,
+          filmPosterPath: filmPosterPath,
+          commentPreview: content.trim().length > 50
+              ? '${content.trim().substring(0, 50)}...'
+              : content.trim(),
+        );
+      }
 
       // Refresh comments for this activity
       _ref.invalidate(activityCommentsProvider(activityId));
@@ -572,4 +678,28 @@ final commentNotifierProvider =
   final feedRepo = ref.watch(feedRepositoryProvider);
   final userRepo = ref.watch(userRepositoryProvider);
   return CommentNotifier(feedRepo, userRepo, ref);
+});
+
+/// Provider to sync current user's profile data to all their activities
+/// Call this after updating profile photo or username to update old posts
+final syncUserDataProvider = FutureProvider.family<int, void>((ref, _) async {
+  final currentUser = ref.watch(currentUserProvider);
+  if (currentUser == null) return 0;
+
+  final userRepo = ref.watch(userRepositoryProvider);
+  final feedRepo = ref.watch(feedRepositoryProvider);
+
+  final profile = await userRepo.getUser(currentUser.uid);
+  if (profile == null) return 0;
+
+  final count = await feedRepo.syncUserDataToActivities(
+    userId: currentUser.uid,
+    username: profile.username,
+    photoUrl: profile.photoUrl,
+  );
+
+  // Refresh the feed to show updated data
+  ref.invalidate(homeFeedProvider);
+
+  return count;
 });

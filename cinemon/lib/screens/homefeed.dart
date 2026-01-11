@@ -9,6 +9,7 @@ import '../models/activity_model.dart';
 import '../models/sticker_model.dart';
 import '../providers/auth/auth_provider.dart';
 import '../providers/feed/feed_provider.dart';
+import '../providers/notification/notification_provider.dart';
 import 'widgets/activity_detail_sheet.dart';
 import 'widgets/comments_sheet.dart';
 import 'widgets/sticker_picker_sheet.dart';
@@ -50,6 +51,7 @@ class _HomeFeedPageState extends ConsumerState<HomeFeedPage> {
   @override
   Widget build(BuildContext context) {
     final feedAsync = ref.watch(homeFeedProvider);
+    final unreadCount = ref.watch(unreadNotificationCountProvider);
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -68,6 +70,47 @@ class _HomeFeedPageState extends ConsumerState<HomeFeedPage> {
             fontSize: 24,
           ),
         ),
+        actions: [
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.favorite_border),
+                onPressed: () => context.push('/notifications'),
+                tooltip: 'Activity',
+              ),
+              unreadCount.when(
+                data: (count) => count > 0
+                    ? Positioned(
+                        right: 8,
+                        top: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          child: Text(
+                            count > 99 ? '99+' : '$count',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ],
       ),
       body: Container(
         decoration: const BoxDecoration(
@@ -567,6 +610,8 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
       builder: (context) => CommentsSheet(
         activityId: widget.activity.id,
         filmTitle: widget.activity.filmTitle,
+        activityOwnerId: widget.activity.userId,
+        filmPosterPath: widget.activity.filmPosterPath,
       ),
     );
   }
@@ -718,6 +763,9 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
                       context: context,
                       activityId: widget.activity.id,
                       currentStickerId: userReaction,
+                      activityOwnerId: widget.activity.userId,
+                      filmTitle: widget.activity.filmTitle,
+                      filmPosterPath: widget.activity.filmPosterPath,
                     ),
                   ),
                   // Comment button
@@ -738,6 +786,9 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
                       ref.read(likeNotifierProvider.notifier).toggleLike(
                         widget.activity.id,
                         isLiked,
+                        activityOwnerId: widget.activity.userId,
+                        filmTitle: widget.activity.filmTitle,
+                        filmPosterPath: widget.activity.filmPosterPath,
                       );
                     },
                   ),

@@ -8,11 +8,15 @@ import '../../providers/auth/auth_provider.dart';
 class CommentsSheet extends ConsumerStatefulWidget {
   final String activityId;
   final String filmTitle;
+  final String? activityOwnerId;
+  final String? filmPosterPath;
 
   const CommentsSheet({
     super.key,
     required this.activityId,
     required this.filmTitle,
+    this.activityOwnerId,
+    this.filmPosterPath,
   });
 
   @override
@@ -40,6 +44,9 @@ class _CommentsSheetState extends ConsumerState<CommentsSheet> {
     final result = await ref.read(commentNotifierProvider.notifier).addComment(
       activityId: widget.activityId,
       content: content,
+      activityOwnerId: widget.activityOwnerId,
+      filmTitle: widget.filmTitle,
+      filmPosterPath: widget.filmPosterPath,
     );
 
     if (mounted) {

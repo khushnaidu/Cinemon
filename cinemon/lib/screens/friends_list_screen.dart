@@ -590,7 +590,14 @@ class _PendingRequestsSheet extends ConsumerWidget {
                             onPressed: () {
                               ref
                                   .read(friendshipNotifierProvider.notifier)
-                                  .acceptFriendRequest(request.id);
+                                  .acceptFriendRequest(
+                                    request.id,
+                                    senderId: request.senderId,
+                                    senderUsername: request.senderUsername,
+                                    senderPhotoUrl: request.senderPhotoUrl,
+                                    receiverUsername: request.receiverUsername,
+                                    receiverPhotoUrl: request.receiverPhotoUrl,
+                                  );
                             },
                             icon: const Icon(Icons.check_circle, color: Colors.green),
                           ),
