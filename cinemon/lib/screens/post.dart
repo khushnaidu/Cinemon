@@ -1,36 +1,59 @@
+import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'dart:math';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:shimmer/shimmer.dart';
+import '../models/film_model.dart';
+import '../providers/movie/movie_provider.dart';
 
-class PostPage extends StatefulWidget {
+/// Movie search/lookup page - search for films and navigate to their detail page
+class MovieSearchPage extends ConsumerStatefulWidget {
+  const MovieSearchPage({super.key});
+
   @override
-  _PostPageState createState() => _PostPageState();
+  ConsumerState<MovieSearchPage> createState() => _MovieSearchPageState();
 }
 
-class _PostPageState extends State<PostPage> {
-  int _loadedRowCount = 8; // Initial number of rows loaded
+class _MovieSearchPageState extends ConsumerState<MovieSearchPage> {
+  final _searchController = TextEditingController();
+  Timer? _debounce;
+  bool _isSearching = false;
 
-  List<String> imageUrls = [
-    'https://m.media-amazon.com/images/M/MV5BM2Q5YjNjZWMtYThmYy00N2ZjLWE2NDctNmZjMmZjYWE2NjEwXkEyXkFqcGdeQXVyMTAzMDM4MjM0._V1_.jpg',
-    'https://m.media-amazon.com/images/M/MV5BZWMyYzFjYTYtNTRjYi00OGExLWE2YzgtOGRmYjAxZTU3NzBiXkEyXkFqcGdeQXVyMzQ0MzA0NTM@._V1_FMjpg_UX1000_.jpg',
-    'https://m.media-amazon.com/images/M/MV5BZDY1ZGM4OGItMWMyNS00MDAyLWE2Y2MtZTFhMTU0MGI5ZDFlXkEyXkFqcGdeQXVyMDc5ODIzMw@@._V1_FMjpg_UX1000_.jpg',
-    'https://m.media-amazon.com/images/M/MV5BZjQwYjU3OTYtMWVhMi00N2Y2LWEzMDgtMzViN2U4NWI1NmI3XkEyXkFqcGdeQXVyODk2NDQ3MTA@._V1_.jpg',
-    'https://m.media-amazon.com/images/M/MV5BNjU3N2QxNzYtMjk1NC00MTc4LTk1NTQtMmUxNTljM2I0NDA5XkEyXkFqcGdeQXVyODE5NzE3OTE@._V1_FMjpg_UX1000_.jpg',
-    'https://m.media-amazon.com/images/M/MV5BZTliNWJhM2YtNDc1MC00YTk1LWE2MGYtZmE4M2Y5ODdlNzQzXkEyXkFqcGdeQXVyMzY0MTE3NzU@._V1_FMjpg_UX1000_.jpg',
-    'https://m.media-amazon.com/images/M/MV5BZGUzYTI3M2EtZmM0Yy00NGUyLWI4ODEtN2Q3ZGJlYzhhZjU3XkEyXkFqcGdeQXVyNTM0OTY1OQ@@._V1_FMjpg_UX1000_.jpg',
-    'https://m.media-amazon.com/images/M/MV5BM2ZmMjEyZmYtOGM4YS00YTNhLWE3ZDMtNzQxM2RhNjBlODIyXkEyXkFqcGdeQXVyMTUzMTg2ODkz._V1_.jpg',
-    'https://m.media-amazon.com/images/M/MV5BYmM4MjBkNGMtZjE5Zi00ZDMwLWE5MjYtN2M0MTM2YTQ2MmNlXkEyXkFqcGdeQXVyMjkwOTAyMDU@._V1_.jpg',
-    'https://m.media-amazon.com/images/M/MV5BMjE1MzYzNjk3OF5BMl5BanBnXkFtZTgwMzk0MzYwNzE@._V1_QL75_UX190_CR0,2,190,281_.jpg',
-    'https://m.media-amazon.com/images/M/MV5BM2JmYzBlNWMtYTEwZC00MjVmLTlmYjEtN2UyMGJiYjcxYTVjXkEyXkFqcGdeQXVyMTkxNjUyNQ@@._V1_FMjpg_UX1000_.jpg',
-    'https://m.media-amazon.com/images/M/MV5BODc5YTBhMTItMjhkNi00ZTIxLWI0YjAtNTZmOTY0YjRlZGQ0XkEyXkFqcGdeQXVyODUwNjEzMzg@._V1_FMjpg_UX1000_.jpg',
-    'https://i0.wp.com/thenerdsofcolor.org/wp-content/uploads/2021/06/1622874_WM_MO_NoSuddenMove_KA_Publicity_v03.jpg?resize=720%2C1067&ssl=1',
-    'https://mlpnk72yciwc.i.optimole.com/cqhiHLc.IIZS~2ef73/w:auto/h:auto/q:75/https://bleedingcool.com/wp-content/uploads/2021/07/MALIGNANT-_-TW-FB.jpeg'
-  ];
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () {
+      setState(() {
+        _isSearching = query.isNotEmpty;
+      });
+      if (query.isNotEmpty) {
+        ref.read(searchNotifierProvider.notifier).search(query);
+      } else {
+        ref.read(searchNotifierProvider.notifier).clear();
+      }
+    });
+  }
+
+  void _onFilmSelected(FilmModel film) {
+    final mediaType = film.isMovie ? 'movie' : 'tv';
+    context.push('/film/${film.id}/$mediaType');
+  }
 
   @override
   Widget build(BuildContext context) {
+    final searchResults = ref.watch(searchNotifierProvider);
+    final trendingMovies = ref.watch(trendingMoviesProvider);
+
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -40,123 +63,256 @@ class _PostPageState extends State<PostPage> {
             ],
           ),
         ),
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(height: 56),
-            Align(
-              alignment: Alignment.topLeft,
-              child: _buildBackButton(context), // Back button
-            ),
-            SizedBox(height: 10),
-            _buildSearchBar(), // Search bar
-            SizedBox(height: 20),
-            Text(
-              'Popular Movies & Series',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 20), // Reduced gap between title and movie rows
-            Expanded(
-              child: NotificationListener<ScrollNotification>(
-                onNotification: (ScrollNotification scrollInfo) {
-                  if (scrollInfo.metrics.pixels ==
-                      scrollInfo.metrics.maxScrollExtent) {
-                    // Reached the bottom of the list
-                    setState(() {
-                      _loadedRowCount +=
-                          2; // Increase the number of loaded rows
-                    });
-                  }
-                  return true;
-                },
-                child: ListView.builder(
-                  itemCount: _loadedRowCount,
-                  itemBuilder: (context, index) {
-                    return _buildMovieRow();
-                  },
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text(
+                  'Search Films',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildSearchBar() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(30),
-      ),
-      child: TextField(
-        style: TextStyle(color: Colors.white),
-        cursorColor: Colors.white,
-        decoration: InputDecoration(
-          hintText: 'Search',
-          hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-          border: InputBorder.none,
-          icon: Icon(Icons.search, color: Colors.white),
-        ),
-      ),
-    );
-  }
+              // Search bar
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.2),
+                    ),
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: _onSearchChanged,
+                    style: const TextStyle(color: Colors.white),
+                    cursorColor: Colors.white,
+                    decoration: InputDecoration(
+                      hintText: 'Search movies & TV shows...',
+                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+                      border: InputBorder.none,
+                      prefixIcon: const Icon(Icons.search, color: Colors.white54),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, color: Colors.white54),
+                              onPressed: () {
+                                _searchController.clear();
+                                _onSearchChanged('');
+                              },
+                            )
+                          : null,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
 
-  Widget _buildBackButton(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.pop(context);
-      },
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Icon(
-          Icons.arrow_back,
-          color: Colors.white,
-          size: 24, // Adjust size of the back button
-        ),
-      ),
-    );
-  }
+              const SizedBox(height: 20),
 
-  Widget _buildMovieRow() {
-    // Shuffle the list of image URLs
-    List<String> shuffledImageUrls = List.from(imageUrls);
-    shuffledImageUrls.shuffle();
+              // Section title
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  _isSearching ? 'Search Results' : 'Trending This Week',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
 
-    return Container(
-      height: 200,
-      child: Row(
-        children: [
-          Expanded(child: _buildMoviePoster(shuffledImageUrls[0])),
-          SizedBox(width: 4),
-          Expanded(child: _buildMoviePoster(shuffledImageUrls[1])),
-          SizedBox(width: 4),
-          Expanded(child: _buildMoviePoster(shuffledImageUrls[2])),
-        ],
-      ),
-    );
-  }
+              const SizedBox(height: 12),
 
-  Widget _buildMoviePoster(String imageUrl) {
-    return Container(
-      height: 165,
-      width: 120,
-      child: Card(
-        color: Colors.grey,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.network(
-            imageUrl,
-            fit: BoxFit.cover,
+              // Results grid
+              Expanded(
+                child: _isSearching
+                    ? _buildSearchResults(searchResults)
+                    : _buildTrendingMovies(trendingMovies),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+
+  Widget _buildSearchResults(AsyncValue<List<FilmModel>> searchResults) {
+    return searchResults.when(
+      loading: () => _buildLoadingGrid(),
+      error: (error, _) => Center(
+        child: Text(
+          'Error: $error',
+          style: TextStyle(color: Colors.grey[400]),
+        ),
+      ),
+      data: (films) {
+        if (films.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.search_off, size: 64, color: Colors.grey[700]),
+                const SizedBox(height: 16),
+                Text(
+                  'No results found',
+                  style: TextStyle(color: Colors.grey[400], fontSize: 16),
+                ),
+              ],
+            ),
+          );
+        }
+        return _buildFilmGrid(films);
+      },
+    );
+  }
+
+  Widget _buildTrendingMovies(AsyncValue<List<FilmModel>> trendingMovies) {
+    return trendingMovies.when(
+      loading: () => _buildLoadingGrid(),
+      error: (error, _) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.grey[700]),
+            const SizedBox(height: 16),
+            Text(
+              'Failed to load movies',
+              style: TextStyle(color: Colors.grey[400], fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => ref.refresh(trendingMoviesProvider),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+      data: (films) => _buildFilmGrid(films),
+    );
+  }
+
+  Widget _buildFilmGrid(List<FilmModel> films) {
+    return GridView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        childAspectRatio: 0.65,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+      ),
+      itemCount: films.length,
+      itemBuilder: (context, index) {
+        final film = films[index];
+        return _FilmPosterCard(
+          film: film,
+          onTap: () => _onFilmSelected(film),
+        );
+      },
+    );
+  }
+
+  Widget _buildLoadingGrid() {
+    return GridView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        childAspectRatio: 0.65,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+      ),
+      itemCount: 12,
+      itemBuilder: (context, index) {
+        return Shimmer.fromColors(
+          baseColor: Colors.grey[900]!,
+          highlightColor: Colors.grey[800]!,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
+
+/// Film poster card widget
+class _FilmPosterCard extends StatelessWidget {
+  final FilmModel film;
+  final VoidCallback onTap;
+
+  const _FilmPosterCard({required this.film, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: film.posterUrl.isNotEmpty
+              ? CachedNetworkImage(
+                  imageUrl: film.posterUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
+                    color: Colors.grey[900],
+                    child: const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                  errorWidget: (context, url, error) => _buildPlaceholder(),
+                )
+              : _buildPlaceholder(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlaceholder() {
+    return Container(
+      color: Colors.grey[900],
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.movie, color: Colors.grey[700], size: 32),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              film.displayTitle,
+              style: TextStyle(color: Colors.grey[600], fontSize: 10),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

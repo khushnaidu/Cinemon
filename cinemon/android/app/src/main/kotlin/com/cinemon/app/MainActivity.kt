@@ -1,4 +1,4 @@
-package com.example.cinemon
+package com.cinemon.app
 
 import io.flutter.embedding.android.FlutterActivity
 

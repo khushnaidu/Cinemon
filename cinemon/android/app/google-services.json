@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "914960134900",
+    "project_id": "cinemon-5e0e1",
+    "storage_bucket": "cinemon-5e0e1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:914960134900:android:7f92c410f6c3aac62864a1",
+        "android_client_info": {
+          "package_name": "com.cinemon.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA-PeJ99xtuZeiuDvpkRWTnQcL-2yaKx0E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

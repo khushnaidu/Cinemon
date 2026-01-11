@@ -1,23 +1,33 @@
 import 'package:flutter/material.dart';
-import 'package:cinemon/screens/homefeed.dart';
-import 'package:cinemon/screens/post.dart';
-import 'package:cinemon/screens/profile.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cinemon/core/config/firebase_config.dart';
+import 'package:cinemon/core/routes/app_router.dart';
 
-void main() {
-  runApp(MyApp());
+void main() async {
+  // Required for Firebase initialization before runApp
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase
+  await FirebaseConfig.initialize();
+
+  // Run app wrapped with Riverpod's ProviderScope
+  runApp(
+    const ProviderScope(
+      child: MyApp(),
+    ),
+  );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
+  const MyApp({super.key});
+
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(goRouterProvider);
+
+    return MaterialApp.router(
       debugShowCheckedModeBanner: false,
-      initialRoute: '/home', // Set initial route to HomeFeedPage
-      routes: {
-        '/home': (context) => HomeFeedPage(),
-        '/post': (context) => PostPage(),
-        '/profile': (context) => ProfilePage(),
-      },
+      routerConfig: router,
       theme: ThemeData(
         brightness: Brightness.dark,
       ),
