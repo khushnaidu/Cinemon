@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
@@ -150,16 +151,16 @@ class _RecentPosterItem extends StatelessWidget {
                                 'https://image.tmdb.org/t/p/w300${activity.filmPosterPath}',
                             fit: BoxFit.cover,
                             placeholder: (_, __) => Container(
-                              color: const Color(0xFF1a1a2e),
+                              color: AppColors.surface,
                             ),
                             errorWidget: (_, __, ___) => Container(
-                              color: const Color(0xFF1a1a2e),
+                              color: AppColors.surface,
                               child: const Icon(Icons.movie,
                                   color: Colors.white24),
                             ),
                           )
                         : Container(
-                            color: const Color(0xFF1a1a2e),
+                            color: AppColors.surface,
                             child:
                                 const Icon(Icons.movie, color: Colors.white24),
                           ),

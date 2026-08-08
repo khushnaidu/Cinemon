@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_theme.dart';
 import '../../models/sticker_model.dart';
 
 /// Shows a detailed breakdown of all reactions
@@ -30,8 +31,8 @@ class ReactionsBreakdownSheet extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Color.fromARGB(255, 30, 30, 50),
-            Color.fromARGB(255, 15, 15, 30),
+            AppColors.surface,
+            AppColors.canvas,
           ],
         ),
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),

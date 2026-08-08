@@ -1,5 +1,7 @@
 import 'dart:math' as math;
+import '../../core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import '../widgets/app_search_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/person_model.dart';
@@ -489,7 +491,7 @@ class _PersonCard extends StatelessWidget {
                       imageUrl: person.profileUrl!,
                       fit: BoxFit.cover,
                       placeholder: (_, __) => Container(
-                        color: const Color(0xFF1a1a2e),
+                        color: AppColors.surface,
                       ),
                       errorWidget: (_, __, ___) => _buildPlaceholder(),
                     )
@@ -516,7 +518,7 @@ class _PersonCard extends StatelessWidget {
 
   Widget _buildPlaceholder() {
     return Container(
-      color: const Color(0xFF1a1a2e),
+      color: AppColors.surface,
       child: const Center(
         child: Icon(Icons.person, color: Colors.white24, size: 32),
       ),
@@ -574,7 +576,7 @@ class _FavoritePeoplePickerSheetState
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
       decoration: const BoxDecoration(
-        color: Color(0xFF0a0a14),
+        color: AppColors.canvas,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
@@ -639,24 +641,11 @@ class _FavoritePeoplePickerSheetState
           // Search bar
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: TextField(
+            child: AppSearchField(
               controller: _searchController,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: widget.isActors
-                    ? 'Search actors...'
-                    : 'Search directors...',
-                hintStyle: const TextStyle(color: Colors.white30),
-                prefixIcon: const Icon(Icons.search, color: Colors.white30),
-                filled: true,
-                fillColor: Colors.white.withOpacity(0.08),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              ),
+              placeholder: widget.isActors
+                  ? 'Search actors'
+                  : 'Search directors',
               onChanged: (value) {
                 ref.read(personSearchNotifierProvider.notifier).search(value);
               },
@@ -829,7 +818,7 @@ class _SelectedPersonChip extends ConsumerWidget {
                         fit: BoxFit.cover,
                       )
                     : Container(
-                        color: const Color(0xFF1a1a2e),
+                        color: AppColors.surface,
                         child: const Icon(Icons.person,
                             color: Colors.white24, size: 30),
                       ),
@@ -929,7 +918,7 @@ class _PersonSearchResult extends StatelessWidget {
                         fit: BoxFit.cover,
                       )
                     : Container(
-                        color: const Color(0xFF1a1a2e),
+                        color: AppColors.surface,
                         child: const Icon(Icons.person, color: Colors.white24),
                       ),
               ),

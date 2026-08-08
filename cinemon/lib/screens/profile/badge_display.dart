@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_theme.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/badge_model.dart';
@@ -485,7 +486,7 @@ class _FilmFrameBadge extends StatelessWidget {
       case BadgeType.reviews:
         return const Color(0xFFFCD34D);
       case BadgeType.genres:
-        return const Color(0xFFA78BFA);
+        return AppColors.info;
       case BadgeType.special:
         return const Color(0xFF34D399);
     }
@@ -518,7 +519,7 @@ class _BadgeDetailDialog extends StatelessWidget {
       case BadgeType.reviews:
         return const Color(0xFFFCD34D);
       case BadgeType.genres:
-        return const Color(0xFFA78BFA);
+        return AppColors.info;
       case BadgeType.special:
         return const Color(0xFF34D399);
     }
@@ -527,7 +528,7 @@ class _BadgeDetailDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF0a0a14),
+      backgroundColor: AppColors.canvas,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
       ),
@@ -801,7 +802,7 @@ class _BadgeCard extends StatelessWidget {
       case BadgeType.reviews:
         return const Color(0xFFFCD34D);
       case BadgeType.genres:
-        return const Color(0xFFA78BFA);
+        return AppColors.info;
       case BadgeType.special:
         return const Color(0xFF34D399);
     }
@@ -836,7 +837,7 @@ class AllBadgesSheet extends StatelessWidget {
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
       decoration: const BoxDecoration(
-        color: Color(0xFF0a0a14),
+        color: AppColors.canvas,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
@@ -891,7 +892,7 @@ class AllBadgesSheet extends StatelessWidget {
                 // Genre Badges
                 _buildSection(
                   'Genre Achievements',
-                  const Color(0xFFA78BFA),
+                  AppColors.info,
                   BadgeRegistry.genreBadges,
                 ),
                 const SizedBox(height: 28),

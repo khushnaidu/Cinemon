@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/sticker_model.dart';
 import '../../providers/feed/feed_provider.dart';
@@ -29,8 +30,8 @@ class StickerPickerSheet extends ConsumerWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Color.fromARGB(255, 30, 30, 50),
-            Color.fromARGB(255, 15, 15, 30),
+            AppColors.surface,
+            AppColors.canvas,
           ],
         ),
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),

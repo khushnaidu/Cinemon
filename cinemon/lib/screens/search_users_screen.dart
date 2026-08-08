@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
+import 'widgets/app_search_field.dart';
+import '../core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -57,7 +60,7 @@ class _SearchUsersScreenState extends ConsumerState<SearchUsersScreen> {
             end: Alignment.bottomCenter,
             colors: [
               Colors.black,
-              Color.fromARGB(255, 3, 1, 32),
+              AppColors.canvas,
             ],
           ),
         ),
@@ -70,42 +73,16 @@ class _SearchUsersScreenState extends ConsumerState<SearchUsersScreen> {
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      icon: const Icon(CupertinoIcons.back, color: AppColors.ink),
                       onPressed: () => context.pop(),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: TextField(
+                      child: AppSearchField(
                         controller: _searchController,
                         onChanged: _onSearchChanged,
+                        placeholder: 'Search users',
                         autofocus: true,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          hintText: 'Search users...',
-                          hintStyle: const TextStyle(color: Colors.white54),
-                          prefixIcon: const Icon(Icons.search, color: Colors.white54),
-                          suffixIcon: _searchController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear, color: Colors.white54),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    setState(() {
-                                      _searchQuery = '';
-                                    });
-                                  },
-                                )
-                              : null,
-                          filled: true,
-                          fillColor: Colors.white.withOpacity(0.1),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(25),
-                            borderSide: BorderSide.none,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 14,
-                          ),
-                        ),
                       ),
                     ),
                   ],
@@ -202,7 +179,7 @@ class _SearchUsersScreenState extends ConsumerState<SearchUsersScreen> {
             await Future.delayed(const Duration(milliseconds: 500));
           },
           color: Colors.white,
-          backgroundColor: const Color.fromARGB(255, 30, 30, 50),
+          backgroundColor: AppColors.surface,
           child: ListView.builder(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 16),

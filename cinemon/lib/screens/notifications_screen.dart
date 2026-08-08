@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import '../core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -49,7 +50,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, color: Colors.white),
-            color: const Color.fromARGB(255, 30, 30, 50),
+            color: AppColors.surface,
             onSelected: (value) {
               if (value == 'clear') {
                 _showClearConfirmation();
@@ -74,7 +75,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             end: Alignment.bottomCenter,
             colors: [
               Colors.black,
-              Color.fromARGB(255, 3, 1, 32),
+              AppColors.canvas,
             ],
           ),
         ),
@@ -107,7 +108,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 ref.invalidate(notificationsStreamProvider);
               },
               color: Colors.white,
-              backgroundColor: const Color.fromARGB(255, 30, 30, 50),
+              backgroundColor: AppColors.surface,
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 itemCount: notifications.length,
@@ -180,7 +181,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color.fromARGB(255, 30, 30, 50),
+        backgroundColor: AppColors.surface,
         title: const Text(
           'Clear all activity?',
           style: TextStyle(color: Colors.white),
@@ -379,23 +380,23 @@ class _NotificationTile extends StatelessWidget {
     switch (notification.type) {
       case NotificationType.like:
         icon = Icons.favorite;
-        color = Colors.red;
+        color = AppColors.destructive;
         break;
       case NotificationType.comment:
         icon = Icons.chat_bubble;
-        color = Colors.blue;
+        color = AppColors.info;
         break;
       case NotificationType.reaction:
         icon = Icons.add_reaction;
-        color = Colors.amber;
+        color = AppColors.gold;
         break;
       case NotificationType.followRequest:
         icon = Icons.person_add;
-        color = Colors.orange;
+        color = AppColors.gold;
         break;
       case NotificationType.followAccepted:
         icon = Icons.how_to_reg;
-        color = Colors.green;
+        color = AppColors.success;
         break;
     }
 

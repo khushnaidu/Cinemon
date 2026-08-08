@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_theme.dart';
+import '../widgets/app_search_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
@@ -36,7 +38,7 @@ class FavoriteFilmsSection extends ConsumerWidget {
             children: [
               ShaderMask(
                 shaderCallback: (bounds) => const LinearGradient(
-                  colors: [Color(0xFF9B8BF4), Color(0xFFE879F9)],
+                  colors: [AppColors.ink, AppColors.inkSecondary],
                 ).createShader(bounds),
                 child: const Text(
                   'favorite films',
@@ -112,8 +114,8 @@ class FavoriteFilmsSection extends ConsumerWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              const Color(0xFF9B8BF4).withOpacity(0.1),
-              const Color(0xFFE879F9).withOpacity(0.05),
+              AppColors.ink.withValues(alpha: 0.06),
+              Colors.transparent,
             ],
           ),
           borderRadius: BorderRadius.circular(16),
@@ -200,7 +202,7 @@ class _FilmCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF9B8BF4).withOpacity(0.3),
+                    color: Colors.black.withValues(alpha: 0.5),
                     blurRadius: 16,
                     offset: const Offset(0, 4),
                   ),
@@ -217,15 +219,15 @@ class _FilmCard extends StatelessWidget {
                             imageUrl: 'https://image.tmdb.org/t/p/w300${film.posterPath}',
                             fit: BoxFit.cover,
                             placeholder: (_, __) => Container(
-                              color: const Color(0xFF1a1a2e),
+                              color: AppColors.surface,
                             ),
                             errorWidget: (_, __, ___) => Container(
-                              color: const Color(0xFF1a1a2e),
+                              color: AppColors.surface,
                               child: const Icon(Icons.movie, color: Colors.white24),
                             ),
                           )
                         : Container(
-                            color: const Color(0xFF1a1a2e),
+                            color: AppColors.surface,
                             child: const Icon(Icons.movie, color: Colors.white24),
                           ),
                   ),
@@ -310,7 +312,7 @@ class _FavoriteFilmsPickerSheetState extends ConsumerState<FavoriteFilmsPickerSh
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
       decoration: const BoxDecoration(
-        color: Color(0xFF0a0a14),
+        color: AppColors.canvas,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
@@ -329,7 +331,7 @@ class _FavoriteFilmsPickerSheetState extends ConsumerState<FavoriteFilmsPickerSh
           // Title
           ShaderMask(
             shaderCallback: (bounds) => const LinearGradient(
-              colors: [Color(0xFF9B8BF4), Color(0xFFE879F9)],
+              colors: [AppColors.ink, AppColors.inkSecondary],
             ).createShader(bounds),
             child: const Text(
               'top 3 films',
@@ -400,21 +402,9 @@ class _FavoriteFilmsPickerSheetState extends ConsumerState<FavoriteFilmsPickerSh
           // Search bar
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: TextField(
+            child: AppSearchField(
               controller: _searchController,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: 'Search films...',
-                hintStyle: const TextStyle(color: Colors.white30),
-                prefixIcon: const Icon(Icons.search, color: Colors.white30),
-                filled: true,
-                fillColor: Colors.white.withOpacity(0.08),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              ),
+              placeholder: 'Search films',
               onChanged: (value) {
                 ref.read(searchNotifierProvider.notifier).search(value);
               },
@@ -458,7 +448,7 @@ class _FavoriteFilmsPickerSheetState extends ConsumerState<FavoriteFilmsPickerSh
               },
               loading: () => const Center(
                 child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF9B8BF4)),
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
                 ),
               ),
               error: (_, __) => const Center(
@@ -478,8 +468,8 @@ class _FavoriteFilmsPickerSheetState extends ConsumerState<FavoriteFilmsPickerSh
                 child: ElevatedButton(
                   onPressed: _save,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF9B8BF4),
-                    foregroundColor: Colors.white,
+                    backgroundColor: AppColors.accent,
+                    foregroundColor: AppColors.canvas,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
@@ -547,7 +537,7 @@ class _SelectedFilmChip extends ConsumerWidget {
               borderRadius: BorderRadius.circular(10),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF9B8BF4).withOpacity(0.3),
+                  color: Colors.black.withValues(alpha: 0.5),
                   blurRadius: 8,
                 ),
               ],
@@ -626,11 +616,11 @@ class _FilmSearchResult extends StatelessWidget {
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF9B8BF4).withOpacity(0.15)
+              ? AppColors.accent.withOpacity(0.15)
               : Colors.white.withOpacity(0.03),
           borderRadius: BorderRadius.circular(12),
           border: isSelected
-              ? Border.all(color: const Color(0xFF9B8BF4).withOpacity(0.5), width: 1)
+              ? Border.all(color: AppColors.accent.withOpacity(0.5), width: 1)
               : null,
         ),
         child: Row(
@@ -647,7 +637,7 @@ class _FilmSearchResult extends StatelessWidget {
                   : Container(
                       width: 45,
                       height: 65,
-                      color: const Color(0xFF1a1a2e),
+                      color: AppColors.surface,
                       child: const Icon(Icons.movie, color: Colors.white24, size: 20),
                     ),
             ),
@@ -675,7 +665,7 @@ class _FilmSearchResult extends StatelessWidget {
               ),
             ),
             if (isSelected)
-              const Icon(Icons.check_circle, color: Color(0xFF9B8BF4), size: 22)
+              const Icon(Icons.check_circle, color: AppColors.accent, size: 22)
             else if (canSelect)
               Icon(Icons.add_circle_outline, color: Colors.white.withOpacity(0.3), size: 22),
           ],

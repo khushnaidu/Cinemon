@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/theme/app_theme.dart';
 import 'package:go_router/go_router.dart';
 
 /// Placeholder screen for future post creation feature
@@ -16,7 +17,7 @@ class CreatePostScreen extends StatelessWidget {
             end: Alignment.bottomCenter,
             colors: [
               Colors.black,
-              Color.fromARGB(255, 3, 1, 32),
+              AppColors.canvas,
             ],
           ),
         ),
@@ -64,8 +65,8 @@ class CreatePostScreen extends StatelessWidget {
                             shape: BoxShape.circle,
                             gradient: LinearGradient(
                               colors: [
-                                Colors.purple.withOpacity(0.3),
-                                Colors.blue.withOpacity(0.3),
+                                AppColors.ink.withValues(alpha: 0.08),
+                                AppColors.ink.withValues(alpha: 0.02),
                               ],
                             ),
                           ),
@@ -78,7 +79,7 @@ class CreatePostScreen extends StatelessWidget {
                         const SizedBox(height: 32),
                         ShaderMask(
                           shaderCallback: (bounds) => const LinearGradient(
-                            colors: [Color(0xFF9B8BF4), Color(0xFFE879F9)],
+                            colors: [AppColors.ink, AppColors.inkSecondary],
                           ).createShader(bounds),
                           child: const Text(
                             'Coming Soon',

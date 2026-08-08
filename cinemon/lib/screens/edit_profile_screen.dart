@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../core/theme/app_theme.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -228,7 +229,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             end: Alignment.bottomCenter,
             colors: [
               Colors.black,
-              Color.fromARGB(255, 3, 1, 32),
+              AppColors.canvas,
             ],
           ),
         ),

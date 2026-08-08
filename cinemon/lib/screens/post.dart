@@ -1,6 +1,8 @@
 import 'dart:async';
+import '../core/theme/app_theme.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'widgets/app_search_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
@@ -59,7 +61,7 @@ class _MovieSearchPageState extends ConsumerState<MovieSearchPage> {
             end: Alignment.bottomCenter,
             colors: [
               Colors.black,
-              Color.fromARGB(255, 3, 1, 32),
+              AppColors.canvas,
             ],
           ),
         ),
@@ -83,39 +85,10 @@ class _MovieSearchPageState extends ConsumerState<MovieSearchPage> {
               // Search bar
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(30),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.2),
-                    ),
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: _onSearchChanged,
-                    style: const TextStyle(color: Colors.white),
-                    cursorColor: Colors.white,
-                    decoration: InputDecoration(
-                      hintText: 'Search movies & TV shows...',
-                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
-                      border: InputBorder.none,
-                      prefixIcon: const Icon(Icons.search, color: Colors.white54),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, color: Colors.white54),
-                              onPressed: () {
-                                _searchController.clear();
-                                _onSearchChanged('');
-                              },
-                            )
-                          : null,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 14,
-                      ),
-                    ),
-                  ),
+                child: AppSearchField(
+                  controller: _searchController,
+                  onChanged: _onSearchChanged,
+                  placeholder: 'Movies & TV shows',
                 ),
               ),
 

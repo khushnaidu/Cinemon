@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/activity_model.dart';
 import '../../providers/feed/feed_provider.dart';
@@ -181,15 +182,24 @@ class _CommentsSheetState extends ConsumerState<CommentsSheet> {
     final commentsAsync = ref.watch(activityCommentsProvider(widget.activityId));
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
+    // Unlike the other sheets, this one's `bottomInset` padding (see the
+    // input row below) sits on a *fixed* child of the Column rather than
+    // inside a scroll view. So when the keyboard opens the fixed children
+    // grow by the keyboard's height while this Container's height stays put,
+    // and Expanded gets squeezed toward zero — on a short screen or with a
+    // tall keyboard it goes negative and overflows. Capping the sheet to the
+    // space left above the keyboard keeps that from happening.
+    final maxHeight = MediaQuery.of(context).size.height - bottomInset;
+
     return Container(
-      height: MediaQuery.of(context).size.height * 0.7,
+      height: (MediaQuery.of(context).size.height * 0.7).clamp(0.0, maxHeight),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Color.fromARGB(255, 30, 30, 50),
-            Color.fromARGB(255, 15, 15, 30),
+            AppColors.surface,
+            AppColors.canvas,
           ],
         ),
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),

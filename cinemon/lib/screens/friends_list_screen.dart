@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../core/theme/app_theme.dart';
+import 'widgets/app_search_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
@@ -37,7 +39,7 @@ class _FriendsListScreenState extends ConsumerState<FriendsListScreen> {
             end: Alignment.bottomCenter,
             colors: [
               Colors.black,
-              Color.fromARGB(255, 3, 1, 32),
+              AppColors.canvas,
             ],
           ),
         ),
@@ -117,8 +119,8 @@ class _FriendsListScreenState extends ConsumerState<FriendsListScreen> {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            Colors.purple.withOpacity(0.3),
-                            Colors.blue.withOpacity(0.3),
+                            AppColors.ink.withValues(alpha: 0.08),
+                            AppColors.ink.withValues(alpha: 0.02),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(12),
@@ -167,45 +169,12 @@ class _FriendsListScreenState extends ConsumerState<FriendsListScreen> {
               // Search bar
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(30),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.2),
-                    ),
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (value) {
-                      setState(() {
-                        _searchQuery = value.toLowerCase();
-                      });
-                    },
-                    style: const TextStyle(color: Colors.white),
-                    cursorColor: Colors.white,
-                    decoration: InputDecoration(
-                      hintText: 'Search friends...',
-                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
-                      border: InputBorder.none,
-                      prefixIcon: const Icon(Icons.search, color: Colors.white54),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, color: Colors.white54),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() {
-                                  _searchQuery = '';
-                                });
-                              },
-                            )
-                          : null,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 14,
-                      ),
-                    ),
-                  ),
+                child: AppSearchField(
+                  controller: _searchController,
+                  onChanged: (value) {
+                    setState(() => _searchQuery = value.toLowerCase());
+                  },
+                  placeholder: 'Search friends',
                 ),
               ),
 
@@ -508,8 +477,8 @@ class _PendingRequestsSheet extends ConsumerWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Color.fromARGB(255, 30, 30, 50),
-            Color.fromARGB(255, 15, 15, 30),
+            AppColors.surface,
+            AppColors.canvas,
           ],
         ),
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),

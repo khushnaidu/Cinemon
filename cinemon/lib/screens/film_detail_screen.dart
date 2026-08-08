@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../models/activity_model.dart';
@@ -151,7 +152,7 @@ class _FilmDetailContent extends ConsumerWidget {
                 end: Alignment.bottomCenter,
                 colors: [
                   Colors.black,
-                  Color.fromARGB(255, 3, 1, 32),
+                  AppColors.canvas,
                 ],
               ),
             ),

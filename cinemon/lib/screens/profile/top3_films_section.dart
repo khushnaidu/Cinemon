@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
@@ -175,8 +176,8 @@ class Top3FilmsSection extends ConsumerWidget {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    const Color(0xFF9B8BF4).withValues(alpha: 0.1),
-                    const Color(0xFFE879F9).withValues(alpha: 0.05),
+                    AppColors.ink.withValues(alpha: 0.06),
+                    Colors.transparent,
                   ],
                 ),
                 borderRadius: BorderRadius.circular(16),
@@ -384,7 +385,7 @@ class _AnimatedFilmCardState extends State<_AnimatedFilmCard>
                       BoxShadow(
                         color: widget.isFirst
                             ? const Color(0xFFFF9800).withValues(alpha: 0.4)
-                            : const Color(0xFF9B8BF4).withValues(alpha: 0.3),
+                            : Colors.black.withValues(alpha: 0.5),
                         blurRadius: widget.isFirst ? 24 : 16,
                         offset: const Offset(0, 4),
                       ),
@@ -398,16 +399,16 @@ class _AnimatedFilmCardState extends State<_AnimatedFilmCard>
                                 'https://image.tmdb.org/t/p/w300${widget.film.posterPath}',
                             fit: BoxFit.cover,
                             placeholder: (_, __) => Container(
-                              color: const Color(0xFF1a1a2e),
+                              color: AppColors.surface,
                             ),
                             errorWidget: (_, __, ___) => Container(
-                              color: const Color(0xFF1a1a2e),
+                              color: AppColors.surface,
                               child: const Icon(Icons.movie,
                                   color: Colors.white24),
                             ),
                           )
                         : Container(
-                            color: const Color(0xFF1a1a2e),
+                            color: AppColors.surface,
                             child:
                                 const Icon(Icons.movie, color: Colors.white24),
                           ),

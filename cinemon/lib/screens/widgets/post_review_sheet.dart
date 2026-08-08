@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
@@ -68,8 +69,8 @@ class _PostReviewSheetState extends ConsumerState<PostReviewSheet> {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Color.fromARGB(255, 30, 30, 50),
-            Color.fromARGB(255, 15, 15, 30),
+            AppColors.surface,
+            AppColors.canvas,
           ],
         ),
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
