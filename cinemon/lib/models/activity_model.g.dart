@@ -9,23 +9,23 @@ part of 'activity_model.dart';
 _$ActivityModelImpl _$$ActivityModelImplFromJson(Map<String, dynamic> json) =>
     _$ActivityModelImpl(
       id: json['id'] as String,
-      userId: json['userId'] as String,
+      userId: json['user_id'] as String,
       username: json['username'] as String,
-      userPhotoUrl: json['userPhotoUrl'] as String?,
-      activityType: $enumDecode(_$ActivityTypeEnumMap, json['activityType']),
-      filmId: (json['filmId'] as num).toInt(),
-      filmTitle: json['filmTitle'] as String,
-      filmPosterPath: json['filmPosterPath'] as String?,
-      filmBackdropPath: json['filmBackdropPath'] as String?,
-      filmYear: json['filmYear'] as String?,
-      mediaType: json['mediaType'] as String? ?? 'movie',
+      userPhotoUrl: json['user_photo_url'] as String?,
+      activityType: $enumDecode(_$ActivityTypeEnumMap, json['activity_type']),
+      filmId: (json['film_id'] as num).toInt(),
+      filmTitle: json['film_title'] as String,
+      filmPosterPath: json['film_poster_path'] as String?,
+      filmBackdropPath: json['film_backdrop_path'] as String?,
+      filmYear: json['film_year'] as String?,
+      mediaType: json['media_type'] as String? ?? 'movie',
       rating: (json['rating'] as num?)?.toDouble(),
-      reviewText: json['reviewText'] as String?,
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      reviewText: json['review_text'] as String?,
+      createdAt: DateTime.parse(json['created_at'] as String),
       likes:
           (json['likes'] as List<dynamic>?)?.map((e) => e as String).toList() ??
               const [],
-      commentCount: (json['commentCount'] as num?)?.toInt() ?? 0,
+      commentCount: (json['comment_count'] as num?)?.toInt() ?? 0,
       reactions: (json['reactions'] as Map<String, dynamic>?)?.map(
             (k, e) => MapEntry(k, e as String),
           ) ??
@@ -35,21 +35,21 @@ _$ActivityModelImpl _$$ActivityModelImplFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$$ActivityModelImplToJson(_$ActivityModelImpl instance) =>
     <String, dynamic>{
       'id': instance.id,
-      'userId': instance.userId,
+      'user_id': instance.userId,
       'username': instance.username,
-      'userPhotoUrl': instance.userPhotoUrl,
-      'activityType': _$ActivityTypeEnumMap[instance.activityType]!,
-      'filmId': instance.filmId,
-      'filmTitle': instance.filmTitle,
-      'filmPosterPath': instance.filmPosterPath,
-      'filmBackdropPath': instance.filmBackdropPath,
-      'filmYear': instance.filmYear,
-      'mediaType': instance.mediaType,
+      'user_photo_url': instance.userPhotoUrl,
+      'activity_type': _$ActivityTypeEnumMap[instance.activityType]!,
+      'film_id': instance.filmId,
+      'film_title': instance.filmTitle,
+      'film_poster_path': instance.filmPosterPath,
+      'film_backdrop_path': instance.filmBackdropPath,
+      'film_year': instance.filmYear,
+      'media_type': instance.mediaType,
       'rating': instance.rating,
-      'reviewText': instance.reviewText,
-      'createdAt': instance.createdAt.toIso8601String(),
+      'review_text': instance.reviewText,
+      'created_at': instance.createdAt.toIso8601String(),
       'likes': instance.likes,
-      'commentCount': instance.commentCount,
+      'comment_count': instance.commentCount,
       'reactions': instance.reactions,
     };
 
@@ -61,21 +61,21 @@ const _$ActivityTypeEnumMap = {
 _$CommentModelImpl _$$CommentModelImplFromJson(Map<String, dynamic> json) =>
     _$CommentModelImpl(
       id: json['id'] as String,
-      activityId: json['activityId'] as String,
-      userId: json['userId'] as String,
+      activityId: json['activity_id'] as String,
+      userId: json['user_id'] as String,
       username: json['username'] as String,
-      userPhotoUrl: json['userPhotoUrl'] as String?,
+      userPhotoUrl: json['user_photo_url'] as String?,
       content: json['content'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      createdAt: DateTime.parse(json['created_at'] as String),
     );
 
 Map<String, dynamic> _$$CommentModelImplToJson(_$CommentModelImpl instance) =>
     <String, dynamic>{
       'id': instance.id,
-      'activityId': instance.activityId,
-      'userId': instance.userId,
+      'activity_id': instance.activityId,
+      'user_id': instance.userId,
       'username': instance.username,
-      'userPhotoUrl': instance.userPhotoUrl,
+      'user_photo_url': instance.userPhotoUrl,
       'content': instance.content,
-      'createdAt': instance.createdAt.toIso8601String(),
+      'created_at': instance.createdAt.toIso8601String(),
     };

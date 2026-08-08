@@ -287,21 +287,30 @@ class MovieRepository {
   }
 
   /// Get multiple films by their IDs
+  /// Tries to fetch as movie first, then TV if that fails
   /// Fetches each film in parallel for efficiency
-  Future<List<FilmModel>> getFilmsByIds(
-    List<int> ids, {
-    MediaType mediaType = MediaType.movie,
-  }) async {
+  Future<List<FilmModel>> getFilmsByIds(List<int> ids) async {
     if (ids.isEmpty) return [];
 
-    try {
-      final futures = ids.map((id) => getFilmDetails(id: id, mediaType: mediaType));
-      return await Future.wait(futures);
-    } catch (e) {
-      // If any single request fails, return empty list
-      // Could be enhanced to return partial results
-      return [];
+    final List<FilmModel> results = [];
+
+    for (final id in ids) {
+      try {
+        // Try as movie first
+        final film = await getMovieDetails(id);
+        results.add(film);
+      } catch (_) {
+        try {
+          // If movie fails, try as TV show
+          final tvShow = await getTvDetails(id);
+          results.add(tvShow);
+        } catch (_) {
+          // Skip this ID if both fail
+        }
+      }
     }
+
+    return results;
   }
 
   /// Search for people (actors, directors, etc.) by name

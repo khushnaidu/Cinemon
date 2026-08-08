@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cinemon/core/config/firebase_config.dart';
+import 'package:cinemon/core/config/supabase_config.dart';
 import 'package:cinemon/core/routes/app_router.dart';
 
 void main() async {
-  // Required for Firebase initialization before runApp
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase
-  await FirebaseConfig.initialize();
+  await SupabaseConfig.initialize();
 
   // Run app wrapped with Riverpod's ProviderScope
   runApp(

@@ -20,7 +20,7 @@ FriendshipModel _$FriendshipModelFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$FriendshipModel {
-  /// Document ID (format: {senderId}_{receiverId})
+  /// Row id (uuid)
   String get id => throw _privateConstructorUsedError;
 
   /// User who sent the friend request
@@ -233,7 +233,8 @@ class __$$FriendshipModelImplCopyWithImpl<$Res>
 }
 
 /// @nodoc
-@JsonSerializable()
+
+@JsonSerializable(fieldRename: FieldRename.snake)
 class _$FriendshipModelImpl extends _FriendshipModel {
   const _$FriendshipModelImpl(
       {required this.id,
@@ -251,7 +252,7 @@ class _$FriendshipModelImpl extends _FriendshipModel {
   factory _$FriendshipModelImpl.fromJson(Map<String, dynamic> json) =>
       _$$FriendshipModelImplFromJson(json);
 
-  /// Document ID (format: {senderId}_{receiverId})
+  /// Row id (uuid)
   @override
   final String id;
 
@@ -370,7 +371,7 @@ abstract class _FriendshipModel extends FriendshipModel {
 
   @override
 
-  /// Document ID (format: {senderId}_{receiverId})
+  /// Row id (uuid)
   String get id;
   @override
 
@@ -536,7 +537,8 @@ class __$$FriendInfoImplCopyWithImpl<$Res>
 }
 
 /// @nodoc
-@JsonSerializable()
+
+@JsonSerializable(fieldRename: FieldRename.snake)
 class _$FriendInfoImpl implements _FriendInfo {
   const _$FriendInfoImpl(
       {required this.userId,

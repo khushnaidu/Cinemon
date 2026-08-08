@@ -1,158 +1,145 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../core/config/supabase_config.dart';
 import '../models/notification_model.dart';
 
-/// Repository for notification operations with Firestore.
-///
-/// Handles creating, reading, and updating notifications.
+/// Repository for notification operations.
 class NotificationRepository {
-  final FirebaseFirestore _firestore;
+  final SupabaseClient _client;
 
-  NotificationRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  NotificationRepository({SupabaseClient? client})
+      : _client = client ?? SupabaseConfig.client;
 
-  /// Collection reference for notifications
-  CollectionReference<Map<String, dynamic>> get _notificationsRef =>
-      _firestore.collection('notifications');
+  SupabaseQueryBuilder get _notifications => _client.from('notifications');
 
-  /// Create a new notification
-  Future<NotificationModel> createNotification(NotificationModel notification) async {
-    final docRef = await _notificationsRef.add(notification.toFirestore());
-    return notification.copyWith(id: docRef.id);
+  /// Row plus the acting user's current username/photo.
+  static const _withActor =
+      '*, actor:profiles!notifications_actor_id_fkey(username, photo_url)';
+
+  /// Create a new notification.
+  Future<NotificationModel> createNotification(
+      NotificationModel notification) async {
+    final row = await _notifications
+        .insert(notification.toDbMap())
+        .select(_withActor)
+        .single();
+    return NotificationModel.fromRow(row);
   }
 
-  /// Get notifications for a user
+  /// Notifications for a user, newest first.
+  ///
+  /// [before] is a keyset cursor — pass the oldest `createdAt` you already
+  /// hold to fetch the next page.
   Future<List<NotificationModel>> getNotifications({
     required String userId,
     int limit = 50,
-    DocumentSnapshot? startAfter,
+    DateTime? before,
   }) async {
-    Query<Map<String, dynamic>> query = _notificationsRef
-        .where('recipientId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
-        .limit(limit);
-
-    if (startAfter != null) {
-      query = query.startAfterDocument(startAfter);
+    var query =
+        _notifications.select(_withActor).eq('recipient_id', userId);
+    if (before != null) {
+      query = query.lt('created_at', before.toIso8601String());
     }
 
-    final snapshot = await query.get();
-    return snapshot.docs.map((doc) => NotificationModel.fromFirestore(doc)).toList();
+    final rows = await query.order('created_at', ascending: false).limit(limit);
+    return rows.map(NotificationModel.fromRow).toList();
   }
 
-  /// Stream notifications for real-time updates
+  /// Real-time notification stream.
+  ///
+  /// `.stream()` cannot express the profile join, so it acts as a change
+  /// signal and the full query is re-run to hydrate actor details.
   Stream<List<NotificationModel>> watchNotifications({
     required String userId,
     int limit = 50,
   }) {
-    return _notificationsRef
-        .where('recipientId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
-        .limit(limit)
-        .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => NotificationModel.fromFirestore(doc)).toList());
+    return _client
+        .from('notifications')
+        .stream(primaryKey: ['id'])
+        .eq('recipient_id', userId)
+        .asyncMap((_) => getNotifications(userId: userId, limit: limit));
   }
 
-  /// Get unread notification count
+  /// Unread count.
   Future<int> getUnreadCount(String userId) async {
-    final snapshot = await _notificationsRef
-        .where('recipientId', isEqualTo: userId)
-        .where('isRead', isEqualTo: false)
-        .get();
-
-    return snapshot.docs.length;
+    final res = await _notifications
+        .select('id')
+        .eq('recipient_id', userId)
+        .eq('is_read', false)
+        .count(CountOption.exact);
+    return res.count;
   }
 
-  /// Stream unread notification count for real-time badge
+  /// Real-time unread count, for the badge.
   Stream<int> watchUnreadCount(String userId) {
-    return _notificationsRef
-        .where('recipientId', isEqualTo: userId)
-        .where('isRead', isEqualTo: false)
-        .snapshots()
-        .map((snapshot) => snapshot.docs.length);
+    return _client
+        .from('notifications')
+        .stream(primaryKey: ['id'])
+        .eq('recipient_id', userId)
+        .map((rows) => rows.where((r) => r['is_read'] == false).length);
   }
 
-  /// Mark a notification as read
+  /// Mark a notification as read.
   Future<void> markAsRead(String notificationId) async {
-    await _notificationsRef.doc(notificationId).update({'isRead': true});
+    await _notifications.update({'is_read': true}).eq('id', notificationId);
   }
 
-  /// Mark all notifications as read for a user
+  /// Mark all of a user's notifications as read — one statement, no batching.
   Future<void> markAllAsRead(String userId) async {
-    final snapshot = await _notificationsRef
-        .where('recipientId', isEqualTo: userId)
-        .where('isRead', isEqualTo: false)
-        .get();
-
-    if (snapshot.docs.isEmpty) return;
-
-    final batch = _firestore.batch();
-    for (final doc in snapshot.docs) {
-      batch.update(doc.reference, {'isRead': true});
-    }
-    await batch.commit();
+    await _notifications
+        .update({'is_read': true})
+        .eq('recipient_id', userId)
+        .eq('is_read', false);
   }
 
-  /// Delete a notification
+  /// Delete a notification.
   Future<void> deleteNotification(String notificationId) async {
-    await _notificationsRef.doc(notificationId).delete();
+    await _notifications.delete().eq('id', notificationId);
   }
 
-  /// Delete all notifications for a user
+  /// Delete all of a user's notifications.
   Future<void> deleteAllNotifications(String userId) async {
-    final snapshot = await _notificationsRef
-        .where('recipientId', isEqualTo: userId)
-        .get();
-
-    if (snapshot.docs.isEmpty) return;
-
-    final batch = _firestore.batch();
-    for (final doc in snapshot.docs) {
-      batch.delete(doc.reference);
-    }
-    await batch.commit();
+    await _notifications.delete().eq('recipient_id', userId);
   }
 
-  /// Check if a notification already exists (to prevent duplicates)
-  /// Used when user rapidly likes/unlikes
+  /// Whether a matching notification already exists (dedupes rapid
+  /// like/unlike toggling).
   Future<bool> notificationExists({
     required String recipientId,
     required String actorId,
     required NotificationType type,
     String? activityId,
   }) async {
-    Query<Map<String, dynamic>> query = _notificationsRef
-        .where('recipientId', isEqualTo: recipientId)
-        .where('actorId', isEqualTo: actorId)
-        .where('type', isEqualTo: type.name);
+    var query = _notifications
+        .select('id')
+        .eq('recipient_id', recipientId)
+        .eq('actor_id', actorId)
+        .eq('type', type.name);
 
-    if (activityId != null) {
-      query = query.where('activityId', isEqualTo: activityId);
-    }
+    query = activityId != null
+        ? query.eq('activity_id', activityId)
+        : query.isFilter('activity_id', null);
 
-    final snapshot = await query.limit(1).get();
-    return snapshot.docs.isNotEmpty;
+    final rows = await query.limit(1);
+    return rows.isNotEmpty;
   }
 
-  /// Delete a specific notification (for unlike/unreact scenarios)
+  /// Delete matching notifications (for unlike / un-react).
   Future<void> deleteNotificationByDetails({
     required String recipientId,
     required String actorId,
     required NotificationType type,
     String? activityId,
   }) async {
-    Query<Map<String, dynamic>> query = _notificationsRef
-        .where('recipientId', isEqualTo: recipientId)
-        .where('actorId', isEqualTo: actorId)
-        .where('type', isEqualTo: type.name);
+    var query = _notifications
+        .delete()
+        .eq('recipient_id', recipientId)
+        .eq('actor_id', actorId)
+        .eq('type', type.name);
 
     if (activityId != null) {
-      query = query.where('activityId', isEqualTo: activityId);
+      query = query.eq('activity_id', activityId);
     }
-
-    final snapshot = await query.get();
-    for (final doc in snapshot.docs) {
-      await doc.reference.delete();
-    }
+    await query;
   }
 }

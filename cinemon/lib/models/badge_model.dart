@@ -11,6 +11,7 @@ class BadgeModel {
   final String name;
   final String description;
   final String emoji;
+  final String? imagePath; // Path to badge image asset
   final BadgeType type;
   final int? requiredCount; // For milestone badges
 
@@ -19,6 +20,7 @@ class BadgeModel {
     required this.name,
     required this.description,
     required this.emoji,
+    this.imagePath,
     required this.type,
     this.requiredCount,
   });
@@ -34,6 +36,7 @@ class BadgeRegistry {
     name: 'First Take',
     description: 'Posted your first review',
     emoji: '\u{1F3AC}', // 🎬
+    imagePath: 'assets/badges/22.png',
     type: BadgeType.reviews,
     requiredCount: 1,
   );
@@ -43,6 +46,7 @@ class BadgeRegistry {
     name: 'Film Buff',
     description: 'Posted 10 reviews',
     emoji: '\u{1F3A5}', // 🎥
+    imagePath: 'assets/badges/24.png',
     type: BadgeType.reviews,
     requiredCount: 10,
   );
@@ -52,6 +56,7 @@ class BadgeRegistry {
     name: 'Cinephile',
     description: 'Posted 25 reviews',
     emoji: '\u{1F37F}', // 🍿
+    imagePath: 'assets/badges/23.png',
     type: BadgeType.reviews,
     requiredCount: 25,
   );
@@ -61,6 +66,7 @@ class BadgeRegistry {
     name: 'Film Critic',
     description: 'Posted 50 reviews',
     emoji: '\u{1F4DD}', // 📝
+    imagePath: 'assets/badges/25.png',
     type: BadgeType.reviews,
     requiredCount: 50,
   );
@@ -70,6 +76,7 @@ class BadgeRegistry {
     name: 'Master Critic',
     description: 'Posted 100 reviews',
     emoji: '\u{1F3C6}', // 🏆
+    // No image yet
     type: BadgeType.reviews,
     requiredCount: 100,
   );
@@ -80,6 +87,7 @@ class BadgeRegistry {
     name: 'Horror Fan',
     description: 'Reviewed your first horror film',
     emoji: '\u{1F47B}', // 👻
+    imagePath: 'assets/badges/28.png',
     type: BadgeType.genres,
   );
 
@@ -88,6 +96,7 @@ class BadgeRegistry {
     name: 'Comedy Lover',
     description: 'Reviewed 5 comedy films',
     emoji: '\u{1F602}', // 😂
+    imagePath: 'assets/badges/29.png',
     type: BadgeType.genres,
     requiredCount: 5,
   );
@@ -97,6 +106,7 @@ class BadgeRegistry {
     name: 'Action Hero',
     description: 'Reviewed 5 action films',
     emoji: '\u{1F4A5}', // 💥
+    imagePath: 'assets/badges/27.png',
     type: BadgeType.genres,
     requiredCount: 5,
   );
@@ -106,6 +116,7 @@ class BadgeRegistry {
     name: 'Romantic Soul',
     description: 'Reviewed 5 romance films',
     emoji: '\u{2764}\u{FE0F}', // ❤️
+    imagePath: 'assets/badges/26.png',
     type: BadgeType.genres,
     requiredCount: 5,
   );
@@ -116,6 +127,7 @@ class BadgeRegistry {
     name: 'Night Owl',
     description: 'Posted a review after midnight',
     emoji: '\u{1F989}', // 🦉
+    imagePath: 'assets/badges/20.png',
     type: BadgeType.special,
   );
 
@@ -124,6 +136,7 @@ class BadgeRegistry {
     name: 'Binge Watcher',
     description: 'Posted 3 reviews in one day',
     emoji: '\u{1F4FA}', // 📺
+    imagePath: 'assets/badges/21.png',
     type: BadgeType.special,
     requiredCount: 3,
   );
@@ -133,6 +146,7 @@ class BadgeRegistry {
     name: 'Early Adopter',
     description: 'Joined during the beta',
     emoji: '\u{2B50}', // ⭐
+    // No image yet
     type: BadgeType.special,
   );
 

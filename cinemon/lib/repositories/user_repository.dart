@@ -1,270 +1,213 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:io';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../core/config/supabase_config.dart';
 import '../models/user_model.dart';
 
-/// Repository for user profile operations with Firestore.
+/// Repository for user profile operations against the `profiles` table.
 ///
-/// Handles creating, reading, updating user profiles and searching users.
+/// Handles creating, reading, updating user profiles, avatar uploads,
+/// and searching users.
 class UserRepository {
-  final FirebaseFirestore _firestore;
+  final SupabaseClient _client;
 
-  UserRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  UserRepository({SupabaseClient? client})
+      : _client = client ?? SupabaseConfig.client;
 
-  /// Collection reference for users
-  CollectionReference<Map<String, dynamic>> get _usersRef =>
-      _firestore.collection('users');
+  SupabaseQueryBuilder get _users => _client.from('profiles');
 
-  /// Create a new user profile
+  /// Create a user profile.
+  ///
+  /// Normally unnecessary — the `on_auth_user_created` trigger inserts the
+  /// row at signup. Kept as an upsert for repair/backfill paths.
   Future<void> createUser(UserModel user) async {
-    await _usersRef.doc(user.uid).set(user.toJson());
+    await _users.upsert(user.toDbMap());
   }
 
-  /// Get user profile by UID
+  /// Get user profile by id.
   Future<UserModel?> getUser(String uid) async {
-    final doc = await _usersRef.doc(uid).get();
-    if (!doc.exists) return null;
-
-    final data = doc.data()!;
-    // Handle DateTime conversion from Firestore Timestamp
-    if (data['createdAt'] is Timestamp) {
-      data['createdAt'] = (data['createdAt'] as Timestamp).toDate().toIso8601String();
-    }
-    return UserModel.fromJson(data);
+    final row = await _users.select().eq('id', uid).maybeSingle();
+    return row == null ? null : UserModel.fromJson(row);
   }
 
-  /// Get user profile by username
+  /// Get user profile by username (case-insensitive).
   Future<UserModel?> getUserByUsername(String username) async {
-    final snapshot = await _usersRef
-        .where('username', isEqualTo: username.toLowerCase())
-        .limit(1)
-        .get();
-
-    if (snapshot.docs.isEmpty) return null;
-
-    final data = snapshot.docs.first.data();
-    if (data['createdAt'] is Timestamp) {
-      data['createdAt'] = (data['createdAt'] as Timestamp).toDate().toIso8601String();
-    }
-    return UserModel.fromJson(data);
+    final row =
+        await _users.select().ilike('username', username.trim()).maybeSingle();
+    return row == null ? null : UserModel.fromJson(row);
   }
 
-  /// Update user profile
+  /// Update user profile.
   Future<void> updateUser(UserModel user) async {
-    await _usersRef.doc(user.uid).update(user.toJson());
+    await _users.update(user.toDbMap()).eq('id', user.uid);
   }
 
-  /// Update specific user fields
+  /// Update specific user fields. Keys must be column names (snake_case).
   Future<void> updateUserFields({
     required String uid,
     required Map<String, dynamic> fields,
   }) async {
-    await _usersRef.doc(uid).update(fields);
+    await _users.update(fields).eq('id', uid);
   }
 
-  /// Check if username is available
+  /// Check if a username is free (case-insensitive).
   Future<bool> isUsernameAvailable(String username) async {
-    final snapshot = await _usersRef
-        .where('username', isEqualTo: username.toLowerCase())
-        .limit(1)
-        .get();
-    return snapshot.docs.isEmpty;
+    final trimmed = username.trim();
+    if (trimmed.isEmpty) return false;
+    final row = await _users.select('id').ilike('username', trimmed).maybeSingle();
+    return row == null;
   }
 
-  /// Search users by username (prefix search)
+  /// Search users by username prefix.
   Future<List<UserModel>> searchUsers(String query, {int limit = 20}) async {
-    if (query.trim().isEmpty) return [];
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return [];
 
-    final lowercaseQuery = query.toLowerCase();
+    // `%` is a LIKE wildcard — escape it so a literal % can't match everything.
+    final safe = trimmed.replaceAll('%', r'\%').replaceAll('_', r'\_');
+    final rows = await _users
+        .select()
+        .ilike('username', '$safe%')
+        .order('username')
+        .limit(limit);
 
-    // Firestore prefix search using range query
-    final snapshot = await _usersRef
-        .where('username', isGreaterThanOrEqualTo: lowercaseQuery)
-        .where('username', isLessThan: '$lowercaseQuery\uf8ff')
-        .limit(limit)
-        .get();
-
-    return snapshot.docs.map((doc) {
-      final data = doc.data();
-      if (data['createdAt'] is Timestamp) {
-        data['createdAt'] = (data['createdAt'] as Timestamp).toDate().toIso8601String();
-      }
-      return UserModel.fromJson(data);
-    }).toList();
+    return rows.map(UserModel.fromJson).toList();
   }
 
-  /// Get multiple users by UIDs
+  /// Get multiple users by id.
+  ///
+  /// No 30-item batching needed here — Postgres `in` has no such limit.
   Future<List<UserModel>> getUsersByIds(List<String> uids) async {
     if (uids.isEmpty) return [];
-
-    // Firestore 'whereIn' supports max 30 values
-    final results = <UserModel>[];
-
-    // Batch the queries if needed
-    for (var i = 0; i < uids.length; i += 30) {
-      final batch = uids.skip(i).take(30).toList();
-      final snapshot = await _usersRef.where('uid', whereIn: batch).get();
-
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        if (data['createdAt'] is Timestamp) {
-          data['createdAt'] = (data['createdAt'] as Timestamp).toDate().toIso8601String();
-        }
-        results.add(UserModel.fromJson(data));
-      }
-    }
-
-    return results;
+    final rows = await _users.select().inFilter('id', uids);
+    return rows.map(UserModel.fromJson).toList();
   }
 
-  /// Stream user profile for real-time updates
+  /// Stream a user profile for real-time updates.
   Stream<UserModel?> watchUser(String uid) {
-    return _usersRef.doc(uid).snapshots().map((doc) {
-      if (!doc.exists) return null;
-      final data = doc.data()!;
-      if (data['createdAt'] is Timestamp) {
-        data['createdAt'] = (data['createdAt'] as Timestamp).toDate().toIso8601String();
-      }
-      return UserModel.fromJson(data);
-    });
+    return _client
+        .from('profiles')
+        .stream(primaryKey: ['id'])
+        .eq('id', uid)
+        .map((rows) => rows.isEmpty ? null : UserModel.fromJson(rows.first));
   }
 
-  /// Increment review count for a user
-  Future<void> incrementReviewCount(String uid) async {
-    await _usersRef.doc(uid).update({
-      'reviewCount': FieldValue.increment(1),
-    });
-  }
-
-  /// Decrement review count for a user
-  Future<void> decrementReviewCount(String uid) async {
-    await _usersRef.doc(uid).update({
-      'reviewCount': FieldValue.increment(-1),
-    });
-  }
-
-  /// Delete user profile
+  /// Delete user profile.
   Future<void> deleteUser(String uid) async {
-    await _usersRef.doc(uid).delete();
+    await _users.delete().eq('id', uid);
   }
 
-  /// Set the review count directly (for syncing)
-  Future<void> setReviewCount(String uid, int count) async {
-    await _usersRef.doc(uid).update({
-      'reviewCount': count,
-    });
+  // ============ AVATARS ============
+
+  /// Upload a profile photo and return its public URL.
+  ///
+  /// Stored at `avatars/<uid>/avatar.<ext>` — the storage RLS policy requires
+  /// the first path segment to equal the caller's uid.
+  Future<String> uploadAvatar(String uid, File file) async {
+    final ext = file.path.split('.').last.toLowerCase();
+    final path = '$uid/avatar.$ext';
+
+    await _client.storage.from('avatars').upload(
+          path,
+          file,
+          fileOptions: const FileOptions(upsert: true),
+        );
+
+    // Bust the CDN cache so a re-upload to the same path actually shows up.
+    final url = _client.storage.from('avatars').getPublicUrl(path);
+    return '$url?v=${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  /// Remove a user's stored avatars.
+  Future<void> deleteAvatar(String uid) async {
+    final files = await _client.storage.from('avatars').list(path: uid);
+    if (files.isEmpty) return;
+    await _client.storage
+        .from('avatars')
+        .remove(files.map((f) => '$uid/${f.name}').toList());
   }
 
   // ============ FAVORITE FILMS ============
 
-  /// Add a favorite film (max 4)
-  Future<bool> addFavoriteFilm(String uid, int filmId) async {
-    final user = await getUser(uid);
-    if (user == null) return false;
+  /// Add a favorite film (max 4).
+  Future<bool> addFavoriteFilm(String uid, int filmId) =>
+      _addFavorite(uid, 'favorite_film_ids', filmId);
 
-    final currentFilms = List<int>.from(user.favoriteFilmIds);
-    if (currentFilms.length >= 4 || currentFilms.contains(filmId)) {
-      return false;
-    }
+  /// Remove a favorite film.
+  Future<void> removeFavoriteFilm(String uid, int filmId) =>
+      _removeFavorite(uid, 'favorite_film_ids', filmId);
 
-    currentFilms.add(filmId);
-    await _usersRef.doc(uid).update({'favoriteFilmIds': currentFilms});
-    return true;
-  }
-
-  /// Remove a favorite film
-  Future<void> removeFavoriteFilm(String uid, int filmId) async {
-    await _usersRef.doc(uid).update({
-      'favoriteFilmIds': FieldValue.arrayRemove([filmId]),
-    });
-  }
-
-  /// Reorder favorite films
-  Future<void> setFavoriteFilms(String uid, List<int> filmIds) async {
-    // Enforce max 4
-    final ids = filmIds.take(4).toList();
-    await _usersRef.doc(uid).update({'favoriteFilmIds': ids});
-  }
+  /// Reorder favorite films.
+  Future<void> setFavoriteFilms(String uid, List<int> filmIds) =>
+      updateUserFields(
+          uid: uid, fields: {'favorite_film_ids': filmIds.take(4).toList()});
 
   // ============ FAVORITE ACTORS ============
 
-  /// Add a favorite actor (max 4)
-  Future<bool> addFavoriteActor(String uid, int personId) async {
-    final user = await getUser(uid);
-    if (user == null) return false;
+  Future<bool> addFavoriteActor(String uid, int personId) =>
+      _addFavorite(uid, 'favorite_actor_ids', personId);
 
-    final currentActors = List<int>.from(user.favoriteActorIds);
-    if (currentActors.length >= 4 || currentActors.contains(personId)) {
-      return false;
-    }
+  Future<void> removeFavoriteActor(String uid, int personId) =>
+      _removeFavorite(uid, 'favorite_actor_ids', personId);
 
-    currentActors.add(personId);
-    await _usersRef.doc(uid).update({'favoriteActorIds': currentActors});
-    return true;
-  }
-
-  /// Remove a favorite actor
-  Future<void> removeFavoriteActor(String uid, int personId) async {
-    await _usersRef.doc(uid).update({
-      'favoriteActorIds': FieldValue.arrayRemove([personId]),
-    });
-  }
-
-  /// Reorder favorite actors
-  Future<void> setFavoriteActors(String uid, List<int> personIds) async {
-    final ids = personIds.take(4).toList();
-    await _usersRef.doc(uid).update({'favoriteActorIds': ids});
-  }
+  Future<void> setFavoriteActors(String uid, List<int> personIds) =>
+      updateUserFields(
+          uid: uid, fields: {'favorite_actor_ids': personIds.take(4).toList()});
 
   // ============ FAVORITE DIRECTORS ============
 
-  /// Add a favorite director (max 4)
-  Future<bool> addFavoriteDirector(String uid, int personId) async {
-    final user = await getUser(uid);
-    if (user == null) return false;
+  Future<bool> addFavoriteDirector(String uid, int personId) =>
+      _addFavorite(uid, 'favorite_director_ids', personId);
 
-    final currentDirectors = List<int>.from(user.favoriteDirectorIds);
-    if (currentDirectors.length >= 4 || currentDirectors.contains(personId)) {
-      return false;
-    }
+  Future<void> removeFavoriteDirector(String uid, int personId) =>
+      _removeFavorite(uid, 'favorite_director_ids', personId);
 
-    currentDirectors.add(personId);
-    await _usersRef.doc(uid).update({'favoriteDirectorIds': currentDirectors});
-    return true;
-  }
-
-  /// Remove a favorite director
-  Future<void> removeFavoriteDirector(String uid, int personId) async {
-    await _usersRef.doc(uid).update({
-      'favoriteDirectorIds': FieldValue.arrayRemove([personId]),
-    });
-  }
-
-  /// Reorder favorite directors
-  Future<void> setFavoriteDirectors(String uid, List<int> personIds) async {
-    final ids = personIds.take(4).toList();
-    await _usersRef.doc(uid).update({'favoriteDirectorIds': ids});
-  }
+  Future<void> setFavoriteDirectors(String uid, List<int> personIds) =>
+      updateUserFields(
+          uid: uid,
+          fields: {'favorite_director_ids': personIds.take(4).toList()});
 
   // ============ BADGES ============
 
-  /// Unlock a badge for a user
+  /// Unlock a badge. Returns false if already unlocked.
   Future<bool> unlockBadge(String uid, String badgeId) async {
     final user = await getUser(uid);
-    if (user == null) return false;
-
-    if (user.badgeIds.contains(badgeId)) {
-      return false; // Already unlocked
-    }
-
-    await _usersRef.doc(uid).update({
-      'badgeIds': FieldValue.arrayUnion([badgeId]),
-    });
+    if (user == null || user.badgeIds.contains(badgeId)) return false;
+    await updateUserFields(
+      uid: uid,
+      fields: {
+        'badge_ids': [...user.badgeIds, badgeId]
+      },
+    );
     return true;
   }
 
-  /// Get user's unlocked badge IDs
-  Future<List<String>> getUserBadgeIds(String uid) async {
-    final user = await getUser(uid);
-    return user?.badgeIds ?? [];
+  /// Get a user's unlocked badge ids.
+  Future<List<String>> getUserBadgeIds(String uid) async =>
+      (await getUser(uid))?.badgeIds ?? [];
+
+  // ============ INTERNAL ============
+
+  /// Read-modify-write on an int[] column, capped at 4 entries.
+  Future<bool> _addFavorite(String uid, String column, int id) async {
+    final row = await _users.select(column).eq('id', uid).maybeSingle();
+    if (row == null) return false;
+
+    final current = List<int>.from(row[column] as List? ?? const []);
+    if (current.length >= 4 || current.contains(id)) return false;
+
+    current.add(id);
+    await updateUserFields(uid: uid, fields: {column: current});
+    return true;
+  }
+
+  Future<void> _removeFavorite(String uid, String column, int id) async {
+    final row = await _users.select(column).eq('id', uid).maybeSingle();
+    if (row == null) return;
+
+    final current = List<int>.from(row[column] as List? ?? const [])
+      ..remove(id);
+    await updateUserFields(uid: uid, fields: {column: current});
   }
 }

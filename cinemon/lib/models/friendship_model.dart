@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'friendship_model.freezed.dart';
@@ -26,8 +25,9 @@ enum FriendshipStatus {
 class FriendshipModel with _$FriendshipModel {
   const FriendshipModel._();
 
+  @JsonSerializable(fieldRename: FieldRename.snake)
   const factory FriendshipModel({
-    /// Document ID (format: {senderId}_{receiverId})
+    /// Row id (uuid)
     required String id,
 
     /// User who sent the friend request
@@ -61,20 +61,7 @@ class FriendshipModel with _$FriendshipModel {
   factory FriendshipModel.fromJson(Map<String, dynamic> json) =>
       _$FriendshipModelFromJson(json);
 
-  /// Creates from Firestore document
-  factory FriendshipModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return FriendshipModel.fromJson({
-      ...data,
-      'id': doc.id,
-      'status': data['status'] ?? 'pending',
-      'createdAt': (data['createdAt'] as Timestamp).toDate().toIso8601String(),
-      'acceptedAt': data['acceptedAt'] != null
-          ? (data['acceptedAt'] as Timestamp).toDate().toIso8601String()
-          : null,
-    });
-  }
-
+  /// Creates from a `friendships` row
   /// Whether this friendship is active (accepted)
   bool get isAccepted => status == FriendshipStatus.accepted;
 
@@ -92,23 +79,22 @@ class FriendshipModel with _$FriendshipModel {
   }
 
   /// Generate document ID from two user IDs (alphabetically sorted for consistency)
+  /// The DB assigns a uuid primary key and enforces uniqueness on
+  /// (sender_id, receiver_id), so pairs are located by querying both
+  /// orderings rather than by reconstructing a composite id.
+  @Deprecated('Query by sender/receiver pair instead.')
   static String generateId(String userId1, String userId2) {
     final sorted = [userId1, userId2]..sort();
     return '${sorted[0]}_${sorted[1]}';
   }
 
-  /// Convert to Firestore data
-  Map<String, dynamic> toFirestore() {
+  /// Payload for inserting a row in `friendships`.
+  /// The sender_*/receiver_* display fields come from profile joins on read.
+  Map<String, dynamic> toDbMap() {
     return {
-      'senderId': senderId,
-      'receiverId': receiverId,
+      'sender_id': senderId,
+      'receiver_id': receiverId,
       'status': status.name,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'acceptedAt': acceptedAt != null ? Timestamp.fromDate(acceptedAt!) : null,
-      'senderUsername': senderUsername,
-      'senderPhotoUrl': senderPhotoUrl,
-      'receiverUsername': receiverUsername,
-      'receiverPhotoUrl': receiverPhotoUrl,
     };
   }
 }
@@ -116,6 +102,7 @@ class FriendshipModel with _$FriendshipModel {
 /// A simplified friend info model for displaying friend lists
 @freezed
 class FriendInfo with _$FriendInfo {
+  @JsonSerializable(fieldRename: FieldRename.snake)
   const factory FriendInfo({
     required String userId,
     required String username,

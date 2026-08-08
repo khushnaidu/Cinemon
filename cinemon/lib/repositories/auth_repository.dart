@@ -1,81 +1,86 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Repository for Firebase Authentication operations
+import '../core/config/supabase_config.dart';
+
+/// Repository for Supabase Authentication operations.
 ///
-/// This is the data layer - handles all direct Firebase Auth interactions.
-/// UI should never call Firebase directly, always go through this repository.
+/// This is the data layer — all direct auth interaction lives here.
+/// UI should never call Supabase directly, always go through this repository.
 class AuthRepository {
-  final FirebaseAuth _auth;
+  final SupabaseClient _client;
 
-  AuthRepository({FirebaseAuth? auth}) : _auth = auth ?? FirebaseAuth.instance;
+  AuthRepository({SupabaseClient? client})
+      : _client = client ?? SupabaseConfig.client;
 
-  /// Sign up a new user with email and password
+  GoTrueClient get _auth => _client.auth;
+
+  /// Sign up a new user with email and password.
   ///
-  /// Returns the Firebase User if successful
-  /// Throws FirebaseAuthException on failure (invalid email, weak password, etc.)
+  /// [username] is passed as user metadata; the `on_auth_user_created`
+  /// trigger reads it to seed the `profiles` row, so there is no window
+  /// where an auth user exists without a profile.
+  ///
+  /// Throws [AuthException] on failure.
   Future<User?> signUp({
     required String email,
     required String password,
+    String? username,
   }) async {
-    try {
-      final credential = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      return credential.user;
-    } on FirebaseAuthException catch (e) {
-      // Let the provider/UI handle the error
-      rethrow;
-    }
+    final response = await _auth.signUp(
+      email: email,
+      password: password,
+      data: username != null ? {'username': username.toLowerCase()} : null,
+      emailRedirectTo: SupabaseConfig.authRedirectUrl,
+    );
+    return response.user;
   }
 
-  /// Sign in an existing user with email and password
+  /// Sign in an existing user with email and password.
   ///
-  /// Returns the Firebase User if successful
-  /// Throws FirebaseAuthException on failure (wrong password, user not found, etc.)
+  /// Throws [AuthException] on failure.
   Future<User?> signIn({
     required String email,
     required String password,
   }) async {
-    try {
-      final credential = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      return credential.user;
-    } on FirebaseAuthException catch (e) {
-      rethrow;
-    }
+    final response = await _auth.signInWithPassword(
+      email: email,
+      password: password,
+    );
+    return response.user;
   }
 
-  /// Sign out the current user
-  Future<void> signOut() async {
-    await _auth.signOut();
-  }
+  /// Sign out the current user.
+  Future<void> signOut() => _auth.signOut();
 
-  /// Get the currently signed-in user (null if not signed in)
-  User? getCurrentUser() {
-    return _auth.currentUser;
-  }
+  /// The currently signed-in user, or null.
+  User? getCurrentUser() => _auth.currentUser;
 
-  /// Stream of auth state changes
+  /// Stream of the signed-in user; emits null when signed out.
   ///
-  /// Emits the current User when signed in, null when signed out
-  /// Use this to listen for auth state changes (login/logout)
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
-
-  /// Send password reset email
-  Future<void> sendPasswordResetEmail({required String email}) async {
-    try {
-      await _auth.sendPasswordResetEmail(email: email);
-    } on FirebaseAuthException catch (e) {
-      rethrow;
-    }
+  /// Supabase emits a rich [AuthState] (event + session); this narrows it to
+  /// just the user so nothing downstream needs to know about Supabase types.
+  ///
+  /// The current user is emitted synchronously up front: `onAuthStateChange`
+  /// is a broadcast stream that does not replay its `initialSession` event, so
+  /// a subscriber attaching after startup would otherwise sit at "no user"
+  /// until the next login — flashing the login screen on a warm launch.
+  Stream<User?> get authStateChanges async* {
+    yield _auth.currentUser;
+    yield* _auth.onAuthStateChange
+        .map((state) => state.session?.user)
+        .distinct((a, b) => a?.id == b?.id);
   }
 
-  /// Check if a user is currently signed in
+  /// Send a password reset email.
+  Future<void> sendPasswordResetEmail({required String email}) =>
+      _auth.resetPasswordForEmail(
+        email,
+        redirectTo: SupabaseConfig.authRedirectUrl,
+      );
+
+  /// Whether a user is currently signed in.
   bool get isSignedIn => _auth.currentUser != null;
 
-  /// Get current user's UID (null if not signed in)
-  String? get currentUserId => _auth.currentUser?.uid;
+  /// Current user's id, or null.
+  String? get currentUserId => _auth.currentUser?.id;
 }

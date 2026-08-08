@@ -157,7 +157,7 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
       final userProfile = await _userRepo.getUser(currentUser.uid);
 
       final activity = ActivityModel(
-        id: '', // Will be set by Firestore
+        id: '', // assigned by the database on insert
         userId: currentUser.uid,
         username: userProfile?.username ?? 'Unknown',
         userPhotoUrl: userProfile?.photoUrl,
@@ -222,8 +222,7 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
 
       final created = await _feedRepo.createActivity(activity);
 
-      // Increment user's review count
-      await _userRepo.incrementReviewCount(currentUser.uid);
+      // review_count is maintained by the activities_review_count_trg trigger
 
       // Check for badge unlocks
       // Get first genre ID if available
@@ -266,12 +265,9 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
     state = const AsyncValue.loading();
 
     try {
+      // Comments, likes and reactions cascade; review_count is
+      // decremented by the activities_review_count_trg trigger.
       await _feedRepo.deleteActivity(activityId);
-
-      // Decrement review count if it was a review
-      if (isReview) {
-        await _userRepo.decrementReviewCount(currentUser.uid);
-      }
 
       state = const AsyncValue.data(null);
 
@@ -327,15 +323,6 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
       );
 
       await _feedRepo.updateActivity(updatedActivity);
-
-      // Handle review count changes
-      if (!wasReview && isNowReview) {
-        // Upgraded from watched to review
-        await _userRepo.incrementReviewCount(currentUser.uid);
-      } else if (wasReview && !isNowReview) {
-        // Downgraded from review to watched
-        await _userRepo.decrementReviewCount(currentUser.uid);
-      }
 
       state = const AsyncValue.data(null);
 
@@ -443,11 +430,9 @@ final syncReviewCountProvider =
   final feedRepo = ref.watch(feedRepositoryProvider);
   final userRepo = ref.watch(userRepositoryProvider);
 
-  // Count actual reviews
+  // review_count is trigger-maintained now, so this only reports the
+  // authoritative count rather than writing it back.
   final actualCount = await feedRepo.countUserReviews(userId);
-
-  // Update the user's stored review count
-  await userRepo.setReviewCount(userId, actualCount);
 
   // Invalidate the profile to refresh with new count
   ref.invalidate(currentUserProfileProvider);
@@ -682,24 +667,12 @@ final commentNotifierProvider =
 
 /// Provider to sync current user's profile data to all their activities
 /// Call this after updating profile photo or username to update old posts
+/// Previously backfilled denormalized username/photo onto every activity.
+///
+/// Obsolete: `feed_activities` joins `profiles` at read time, so a profile
+/// edit is reflected everywhere immediately and there is nothing to sync.
+/// Kept as a no-op so existing call sites keep compiling.
+@Deprecated('Activities join profiles live; no backfill is needed.')
 final syncUserDataProvider = FutureProvider.family<int, void>((ref, _) async {
-  final currentUser = ref.watch(currentUserProvider);
-  if (currentUser == null) return 0;
-
-  final userRepo = ref.watch(userRepositoryProvider);
-  final feedRepo = ref.watch(feedRepositoryProvider);
-
-  final profile = await userRepo.getUser(currentUser.uid);
-  if (profile == null) return 0;
-
-  final count = await feedRepo.syncUserDataToActivities(
-    userId: currentUser.uid,
-    username: profile.username,
-    photoUrl: profile.photoUrl,
-  );
-
-  // Refresh the feed to show updated data
-  ref.invalidate(homeFeedProvider);
-
-  return count;
+  return 0;
 });

@@ -1,6 +1,6 @@
 import 'dart:io';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show User;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/user_model.dart';
 import '../../repositories/user_repository.dart';
@@ -139,31 +139,20 @@ class ProfileSetupController extends StateNotifier<ProfileSetupState> {
     }
   }
 
-  /// Upload profile photo to Firebase Storage
+  /// Upload profile photo to Supabase Storage; returns its public URL.
   Future<String?> uploadProfilePhoto(File imageFile) async {
     final user = _currentUser;
     if (user == null) return null;
 
     try {
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('profile_photos')
-          .child('${user.uid}.jpg');
-
-      final uploadTask = await storageRef.putFile(
-        imageFile,
-        SettableMetadata(contentType: 'image/jpeg'),
-      );
-
-      final downloadUrl = await uploadTask.ref.getDownloadURL();
-      return downloadUrl;
+      return await _userRepo.uploadAvatar(user.uid, imageFile);
     } catch (e) {
-      print('Error uploading profile photo: $e');
+      debugPrint('Error uploading profile photo: $e');
       return null;
     }
   }
 
-  /// Complete profile setup - creates user document in Firestore
+  /// Complete profile setup - fills in the auto-created profiles row
   Future<bool> completeProfileSetup({
     required String username,
     String? bio,
@@ -320,26 +309,15 @@ class EditProfileController extends StateNotifier<EditProfileState> {
     );
   }
 
-  /// Upload profile photo to Firebase Storage
+  /// Upload profile photo to Supabase Storage; returns its public URL.
   Future<String?> _uploadProfilePhoto(File imageFile) async {
     final user = _currentUser;
     if (user == null) return null;
 
     try {
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('profile_photos')
-          .child('${user.uid}.jpg');
-
-      final uploadTask = await storageRef.putFile(
-        imageFile,
-        SettableMetadata(contentType: 'image/jpeg'),
-      );
-
-      final downloadUrl = await uploadTask.ref.getDownloadURL();
-      return downloadUrl;
+      return await _userRepo.uploadAvatar(user.uid, imageFile);
     } catch (e) {
-      print('Error uploading profile photo: $e');
+      debugPrint('Error uploading profile photo: $e');
       return null;
     }
   }

@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'notification_model.freezed.dart';
@@ -29,8 +28,9 @@ enum NotificationType {
 class NotificationModel with _$NotificationModel {
   const NotificationModel._();
 
+  @JsonSerializable(fieldRename: FieldRename.snake)
   const factory NotificationModel({
-    /// Unique notification ID (Firestore document ID)
+    /// Unique notification ID (uuid primary key)
     required String id,
 
     /// User ID who receives this notification (activity owner)
@@ -73,32 +73,14 @@ class NotificationModel with _$NotificationModel {
   factory NotificationModel.fromJson(Map<String, dynamic> json) =>
       _$NotificationModelFromJson(json);
 
-  /// Creates from Firestore document
-  factory NotificationModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-
-    // Parse notification type from string
-    final typeStr = data['type'] as String? ?? 'like';
-    final type = NotificationType.values.firstWhere(
-      (e) => e.name == typeStr,
-      orElse: () => NotificationType.like,
-    );
-
-    return NotificationModel(
-      id: doc.id,
-      recipientId: data['recipientId'] as String,
-      actorId: data['actorId'] as String,
-      actorUsername: data['actorUsername'] as String,
-      actorPhotoUrl: data['actorPhotoUrl'] as String?,
-      type: type,
-      activityId: data['activityId'] as String?,
-      filmTitle: data['filmTitle'] as String?,
-      filmPosterPath: data['filmPosterPath'] as String?,
-      commentPreview: data['commentPreview'] as String?,
-      stickerId: data['stickerId'] as String?,
-      isRead: data['isRead'] as bool? ?? false,
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-    );
+  /// Creates from a `notifications` row joined to the actor's profile.
+  factory NotificationModel.fromRow(Map<String, dynamic> row) {
+    final actor = row['actor'] as Map<String, dynamic>?;
+    return NotificationModel.fromJson({
+      ...row,
+      'actor_username': row['actor_username'] ?? actor?['username'] ?? 'unknown',
+      'actor_photo_url': row['actor_photo_url'] ?? actor?['photo_url'],
+    }..remove('actor'));
   }
 
   /// Get display message based on notification type
@@ -142,21 +124,19 @@ class NotificationModel with _$NotificationModel {
     }
   }
 
-  /// Convert to Firestore data
-  Map<String, dynamic> toFirestore() {
+  /// Payload for inserting a row in `notifications`.
+  /// actor_username / actor_photo_url come from the profiles join on read.
+  Map<String, dynamic> toDbMap() {
     return {
-      'recipientId': recipientId,
-      'actorId': actorId,
-      'actorUsername': actorUsername,
-      'actorPhotoUrl': actorPhotoUrl,
+      'recipient_id': recipientId,
+      'actor_id': actorId,
       'type': type.name,
-      'activityId': activityId,
-      'filmTitle': filmTitle,
-      'filmPosterPath': filmPosterPath,
-      'commentPreview': commentPreview,
-      'stickerId': stickerId,
-      'isRead': isRead,
-      'createdAt': Timestamp.fromDate(createdAt),
+      'activity_id': activityId,
+      'film_title': filmTitle,
+      'film_poster_path': filmPosterPath,
+      'comment_preview': commentPreview,
+      'sticker_id': stickerId,
+      'is_read': isRead,
     };
   }
 }

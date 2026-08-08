@@ -20,7 +20,8 @@ UserModel _$UserModelFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$UserModel {
-  /// Firebase Auth UID - unique identifier
+  /// Supabase Auth user id — primary key of `profiles`
+  @JsonKey(name: 'id')
   String get uid => throw _privateConstructorUsedError;
 
   /// User's email address
@@ -32,7 +33,7 @@ mixin _$UserModel {
   /// Optional display name (can be different from username)
   String? get displayName => throw _privateConstructorUsedError;
 
-  /// Profile photo URL (Firebase Storage)
+  /// Profile photo URL (Supabase Storage, `avatars` bucket)
   String? get photoUrl => throw _privateConstructorUsedError;
 
   /// User bio/description
@@ -77,7 +78,7 @@ abstract class $UserModelCopyWith<$Res> {
       _$UserModelCopyWithImpl<$Res, UserModel>;
   @useResult
   $Res call(
-      {String uid,
+      {@JsonKey(name: 'id') String uid,
       String email,
       String username,
       String? displayName,
@@ -197,7 +198,7 @@ abstract class _$$UserModelImplCopyWith<$Res>
   @override
   @useResult
   $Res call(
-      {String uid,
+      {@JsonKey(name: 'id') String uid,
       String email,
       String username,
       String? displayName,
@@ -307,10 +308,11 @@ class __$$UserModelImplCopyWithImpl<$Res>
 }
 
 /// @nodoc
-@JsonSerializable()
+
+@JsonSerializable(fieldRename: FieldRename.snake)
 class _$UserModelImpl implements _UserModel {
   const _$UserModelImpl(
-      {required this.uid,
+      {@JsonKey(name: 'id') required this.uid,
       required this.email,
       required this.username,
       this.displayName,
@@ -334,8 +336,9 @@ class _$UserModelImpl implements _UserModel {
   factory _$UserModelImpl.fromJson(Map<String, dynamic> json) =>
       _$$UserModelImplFromJson(json);
 
-  /// Firebase Auth UID - unique identifier
+  /// Supabase Auth user id — primary key of `profiles`
   @override
+  @JsonKey(name: 'id')
   final String uid;
 
   /// User's email address
@@ -350,7 +353,7 @@ class _$UserModelImpl implements _UserModel {
   @override
   final String? displayName;
 
-  /// Profile photo URL (Firebase Storage)
+  /// Profile photo URL (Supabase Storage, `avatars` bucket)
   @override
   final String? photoUrl;
 
@@ -513,7 +516,7 @@ class _$UserModelImpl implements _UserModel {
 
 abstract class _UserModel implements UserModel {
   const factory _UserModel(
-      {required final String uid,
+      {@JsonKey(name: 'id') required final String uid,
       required final String email,
       required final String username,
       final String? displayName,
@@ -534,7 +537,8 @@ abstract class _UserModel implements UserModel {
 
   @override
 
-  /// Firebase Auth UID - unique identifier
+  /// Supabase Auth user id — primary key of `profiles`
+  @JsonKey(name: 'id')
   String get uid;
   @override
 
@@ -550,7 +554,7 @@ abstract class _UserModel implements UserModel {
   String? get displayName;
   @override
 
-  /// Profile photo URL (Firebase Storage)
+  /// Profile photo URL (Supabase Storage, `avatars` bucket)
   String? get photoUrl;
   @override
 

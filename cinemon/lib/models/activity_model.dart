@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'activity_model.freezed.dart';
@@ -21,8 +20,9 @@ enum ActivityType {
 class ActivityModel with _$ActivityModel {
   const ActivityModel._();
 
+  @JsonSerializable(fieldRename: FieldRename.snake)
   const factory ActivityModel({
-    /// Unique activity ID (Firestore document ID)
+    /// Unique activity ID (uuid primary key)
     required String id,
 
     /// User ID who created this activity
@@ -75,40 +75,26 @@ class ActivityModel with _$ActivityModel {
     @Default({}) Map<String, String> reactions,
   }) = _ActivityModel;
 
-  /// Creates an ActivityModel from Firestore document
   factory ActivityModel.fromJson(Map<String, dynamic> json) =>
       _$ActivityModelFromJson(json);
 
-  /// Creates from Firestore document with ID
-  factory ActivityModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-
-    // Parse activityType from string
-    final activityTypeStr = data['activityType'] as String? ?? 'watched';
-    final activityType = ActivityType.values.firstWhere(
-      (e) => e.name == activityTypeStr,
-      orElse: () => ActivityType.watched,
-    );
-
-    return ActivityModel(
-      id: doc.id,
-      userId: data['userId'] as String,
-      username: data['username'] as String,
-      userPhotoUrl: data['userPhotoUrl'] as String?,
-      activityType: activityType,
-      filmId: data['filmId'] as int,
-      filmTitle: data['filmTitle'] as String,
-      filmPosterPath: data['filmPosterPath'] as String?,
-      filmBackdropPath: data['filmBackdropPath'] as String?,
-      filmYear: data['filmYear'] as String?,
-      mediaType: data['mediaType'] as String? ?? 'movie',
-      rating: (data['rating'] as num?)?.toDouble(),
-      reviewText: data['reviewText'] as String?,
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      likes: List<String>.from(data['likes'] ?? []),
-      commentCount: data['commentCount'] as int? ?? 0,
-      reactions: Map<String, String>.from(data['reactions'] ?? {}),
-    );
+  /// Creates from a `feed_activities` view row.
+  ///
+  /// Rows from the plain `activities` table lack the joined columns
+  /// (username, likes, reactions); those are defaulted here so a bare
+  /// table row still deserializes instead of throwing.
+  factory ActivityModel.fromRow(Map<String, dynamic> row) {
+    return ActivityModel.fromJson({
+      ...row,
+      'username': row['username'] ?? 'unknown',
+      'likes': List<String>.from(row['likes'] as List? ?? const []),
+      'reactions':
+          Map<String, String>.from(row['reactions'] as Map? ?? const {}),
+      // Postgres `numeric` can arrive as num or String depending on driver
+      'rating': row['rating'] == null
+          ? null
+          : double.tryParse(row['rating'].toString()),
+    });
   }
 
   /// Whether this activity has a rating
@@ -160,25 +146,23 @@ class ActivityModel with _$ActivityModel {
     }
   }
 
-  /// Convert to Firestore document data
-  Map<String, dynamic> toFirestore() {
+  /// Payload for inserting/updating a row in `activities`.
+  ///
+  /// username / user_photo_url / likes / reactions are deliberately absent:
+  /// they are view-only columns assembled by `feed_activities` from joins,
+  /// and comment_count is trigger-maintained. Writing them would fail.
+  Map<String, dynamic> toDbMap() {
     return {
-      'userId': userId,
-      'username': username,
-      'userPhotoUrl': userPhotoUrl,
-      'activityType': activityType.name,
-      'filmId': filmId,
-      'filmTitle': filmTitle,
-      'filmPosterPath': filmPosterPath,
-      'filmBackdropPath': filmBackdropPath,
-      'filmYear': filmYear,
-      'mediaType': mediaType,
+      'user_id': userId,
+      'activity_type': activityType.name,
+      'film_id': filmId,
+      'film_title': filmTitle,
+      'film_poster_path': filmPosterPath,
+      'film_backdrop_path': filmBackdropPath,
+      'film_year': filmYear,
+      'media_type': mediaType,
       'rating': rating,
-      'reviewText': reviewText,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'likes': likes,
-      'commentCount': commentCount,
-      'reactions': reactions,
+      'review_text': reviewText,
     };
   }
 }
@@ -188,6 +172,7 @@ class ActivityModel with _$ActivityModel {
 class CommentModel with _$CommentModel {
   const CommentModel._();
 
+  @JsonSerializable(fieldRename: FieldRename.snake)
   const factory CommentModel({
     /// Comment ID
     required String id,
@@ -214,16 +199,6 @@ class CommentModel with _$CommentModel {
   factory CommentModel.fromJson(Map<String, dynamic> json) =>
       _$CommentModelFromJson(json);
 
-  /// Creates from Firestore document
-  factory CommentModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return CommentModel.fromJson({
-      ...data,
-      'id': doc.id,
-      'createdAt': (data['createdAt'] as Timestamp).toDate().toIso8601String(),
-    });
-  }
-
   /// Get relative time string
   String get relativeTime {
     final now = DateTime.now();
@@ -240,15 +215,13 @@ class CommentModel with _$CommentModel {
     }
   }
 
-  /// Convert to Firestore data
-  Map<String, dynamic> toFirestore() {
+  /// Payload for inserting a row in `comments`.
+  /// username / user_photo_url come from the profiles join on read.
+  Map<String, dynamic> toDbMap() {
     return {
-      'activityId': activityId,
-      'userId': userId,
-      'username': username,
-      'userPhotoUrl': userPhotoUrl,
+      'activity_id': activityId,
+      'user_id': userId,
       'content': content,
-      'createdAt': Timestamp.fromDate(createdAt),
     };
   }
 }

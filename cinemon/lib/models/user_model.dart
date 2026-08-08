@@ -3,15 +3,19 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'user_model.freezed.dart';
 part 'user_model.g.dart';
 
-/// Represents a Cinémon user profile stored in Firestore.
-/// 
+/// Represents a Cinémon user profile — the `public.profiles` table.
+///
 /// Contains all user data including profile info, social stats, and badges.
 /// Uses Freezed for immutability and automatic JSON serialization.
+///
+/// `fieldRename: snake` maps Dart camelCase to Postgres snake_case columns
+/// (displayName <-> display_name), so rows round-trip without hand-mapping.
 @freezed
 class UserModel with _$UserModel {
+  @JsonSerializable(fieldRename: FieldRename.snake)
   const factory UserModel({
-    /// Firebase Auth UID - unique identifier
-    required String uid,
+    /// Supabase Auth user id — primary key of `profiles`
+    @JsonKey(name: 'id') required String uid,
     
     /// User's email address
     required String email,
@@ -22,7 +26,7 @@ class UserModel with _$UserModel {
     /// Optional display name (can be different from username)
     String? displayName,
     
-    /// Profile photo URL (Firebase Storage)
+    /// Profile photo URL (Supabase Storage, `avatars` bucket)
     String? photoUrl,
     
     /// User bio/description
@@ -56,19 +60,26 @@ class UserModel with _$UserModel {
     required DateTime createdAt,
   }) = _UserModel;
 
-  /// Creates a UserModel from Firestore document data
+  /// Creates a UserModel from a `profiles` row
   factory UserModel.fromJson(Map<String, dynamic> json) => 
       _$UserModelFromJson(json);
 }
 
-/// Extension for Firestore-specific operations
-extension UserModelFirestore on UserModel {
-  /// Converts to Firestore-compatible map
-  /// Handles DateTime conversion for Firestore Timestamps
-  Map<String, dynamic> toFirestore() {
-    final json = toJson();
-    // Firestore stores DateTime as Timestamp, but we keep it as ISO string
-    // for simplicity. If needed, convert here.
+/// Extension for database-specific operations
+extension UserModelDb on UserModel {
+  /// Columns that are maintained by DB triggers, not the client.
+  /// Sending them in an update is a no-op at best and a lost-update race
+  /// at worst, so they are stripped before writing.
+  static const _serverManaged = {
+    'review_count',
+    'follower_count',
+    'following_count',
+    'created_at',
+  };
+
+  /// Converts to a payload safe to `upsert` into `profiles`.
+  Map<String, dynamic> toDbMap() {
+    final json = toJson()..removeWhere((k, _) => _serverManaged.contains(k));
     return json;
   }
 

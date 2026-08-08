@@ -1,315 +1,234 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../core/config/supabase_config.dart';
 import '../models/activity_model.dart';
 
-/// Repository for feed/activity operations with Firestore.
+/// Repository for feed/activity operations.
 ///
-/// Handles creating, reading, updating, and deleting activities (posts).
+/// Reads go through the `feed_activities` view, which joins the author's
+/// current username/photo and aggregates likes + reactions. Writes go to the
+/// underlying `activities` table.
 class FeedRepository {
-  final FirebaseFirestore _firestore;
+  final SupabaseClient _client;
 
-  FeedRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  FeedRepository({SupabaseClient? client})
+      : _client = client ?? SupabaseConfig.client;
 
-  /// Collection reference for activities
-  CollectionReference<Map<String, dynamic>> get _activitiesRef =>
-      _firestore.collection('activities');
+  static const _view = 'feed_activities';
+  static const _table = 'activities';
 
-  /// Collection reference for comments (subcollection)
-  CollectionReference<Map<String, dynamic>> _commentsRef(String activityId) =>
-      _activitiesRef.doc(activityId).collection('comments');
-
-  /// Create a new activity post
+  /// Create a new activity post.
   Future<ActivityModel> createActivity(ActivityModel activity) async {
-    final docRef = await _activitiesRef.add(activity.toFirestore());
-    return activity.copyWith(id: docRef.id);
+    final row =
+        await _client.from(_table).insert(activity.toDbMap()).select().single();
+    // Re-read through the view so the returned model carries username/likes.
+    return (await getActivity(row['id'] as String))!;
   }
 
-  /// Get a single activity by ID
+  /// Get a single activity by id.
   Future<ActivityModel?> getActivity(String activityId) async {
-    final doc = await _activitiesRef.doc(activityId).get();
-    if (!doc.exists) return null;
-    return ActivityModel.fromFirestore(doc);
+    final row =
+        await _client.from(_view).select().eq('id', activityId).maybeSingle();
+    return row == null ? null : ActivityModel.fromRow(row);
   }
 
-  /// Get activities for the home feed (from specific user IDs)
-  /// Returns activities from friends, paginated
+  /// Home feed: activities from the given users, newest first.
+  ///
+  /// Pagination is keyset-based on `created_at` — pass the oldest timestamp
+  /// you already have as [before]. Unlike offset paging this can't skip or
+  /// duplicate rows when new posts land mid-scroll.
   Future<List<ActivityModel>> getFeedActivities({
     required List<String> userIds,
     int limit = 20,
-    DocumentSnapshot? startAfter,
+    DateTime? before,
   }) async {
     if (userIds.isEmpty) return [];
 
-    // Firestore 'whereIn' supports max 30 values
-    // If more friends, we'd need to batch queries
-    final limitedUserIds = userIds.take(30).toList();
-
-    try {
-      Query<Map<String, dynamic>> query = _activitiesRef
-          .where('userId', whereIn: limitedUserIds)
-          .orderBy('createdAt', descending: true)
-          .limit(limit);
-
-      if (startAfter != null) {
-        query = query.startAfterDocument(startAfter);
-      }
-
-      final snapshot = await query.get();
-      return snapshot.docs.map((doc) => ActivityModel.fromFirestore(doc)).toList();
-    } catch (e) {
-      // If composite index doesn't exist, fall back to simple query without ordering
-      // This allows the app to work while the index is being created
-      print('Firestore composite index needed. Falling back to unordered query: $e');
-
-      final snapshot = await _activitiesRef
-          .where('userId', whereIn: limitedUserIds)
-          .limit(limit)
-          .get();
-
-      final activities = snapshot.docs
-          .map((doc) => ActivityModel.fromFirestore(doc))
-          .toList();
-
-      // Sort client-side as fallback
-      activities.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      return activities;
+    var query = _client.from(_view).select().inFilter('user_id', userIds);
+    if (before != null) {
+      query = query.lt('created_at', before.toIso8601String());
     }
+
+    final rows = await query.order('created_at', ascending: false).limit(limit);
+    return rows.map(ActivityModel.fromRow).toList();
   }
 
-  /// Get activities for a specific user (their profile)
+  /// Activities for one user (their profile grid).
   Future<List<ActivityModel>> getUserActivities({
     required String userId,
     int limit = 20,
-    DocumentSnapshot? startAfter,
+    DateTime? before,
   }) async {
-    try {
-      Query<Map<String, dynamic>> query = _activitiesRef
-          .where('userId', isEqualTo: userId)
-          .orderBy('createdAt', descending: true)
-          .limit(limit);
-
-      if (startAfter != null) {
-        query = query.startAfterDocument(startAfter);
-      }
-
-      // Add timeout to prevent indefinite blocking if index is missing
-      final snapshot = await query.get().timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => throw Exception('Query timeout - index may be building'),
-      );
-      return snapshot.docs.map((doc) => ActivityModel.fromFirestore(doc)).toList();
-    } catch (e) {
-      print('getUserActivities error: $e');
-      return []; // Return empty on error instead of freezing
+    var query = _client.from(_view).select().eq('user_id', userId);
+    if (before != null) {
+      query = query.lt('created_at', before.toIso8601String());
     }
+
+    final rows = await query.order('created_at', ascending: false).limit(limit);
+    return rows.map(ActivityModel.fromRow).toList();
   }
 
-  /// Get activities for a specific film
+  /// Activities for a specific film.
   Future<List<ActivityModel>> getFilmActivities({
     required int filmId,
     int limit = 20,
-    DocumentSnapshot? startAfter,
+    DateTime? before,
   }) async {
-    try {
-      Query<Map<String, dynamic>> query = _activitiesRef
-          .where('filmId', isEqualTo: filmId)
-          .orderBy('createdAt', descending: true)
-          .limit(limit);
-
-      if (startAfter != null) {
-        query = query.startAfterDocument(startAfter);
-      }
-
-      // Add timeout to prevent indefinite blocking if index is missing
-      final snapshot = await query.get().timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => throw Exception('Query timeout - index may be building'),
-      );
-      return snapshot.docs.map((doc) => ActivityModel.fromFirestore(doc)).toList();
-    } catch (e) {
-      print('getFilmActivities error: $e');
-      return []; // Return empty on error
+    var query = _client.from(_view).select().eq('film_id', filmId);
+    if (before != null) {
+      query = query.lt('created_at', before.toIso8601String());
     }
+
+    final rows = await query.order('created_at', ascending: false).limit(limit);
+    return rows.map(ActivityModel.fromRow).toList();
   }
 
-  /// Stream of activities for real-time feed updates
+  /// Real-time feed stream.
+  ///
+  /// Realtime can only subscribe to tables, not views, so this listens to
+  /// `activities` and re-reads through the view to hydrate joined fields.
   Stream<List<ActivityModel>> watchFeedActivities({
     required List<String> userIds,
     int limit = 20,
   }) {
     if (userIds.isEmpty) return Stream.value([]);
 
-    final limitedUserIds = userIds.take(30).toList();
-
-    return _activitiesRef
-        .where('userId', whereIn: limitedUserIds)
-        .orderBy('createdAt', descending: true)
+    return _client
+        .from(_table)
+        .stream(primaryKey: ['id'])
+        .order('created_at', ascending: false)
         .limit(limit)
-        .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => ActivityModel.fromFirestore(doc)).toList());
+        .asyncMap((_) => getFeedActivities(userIds: userIds, limit: limit));
   }
 
-  /// Update an activity
+  /// Update an activity.
   Future<void> updateActivity(ActivityModel activity) async {
-    await _activitiesRef.doc(activity.id).update(activity.toFirestore());
+    await _client.from(_table).update(activity.toDbMap()).eq('id', activity.id);
   }
 
-  /// Delete an activity
+  /// Delete an activity. Comments, likes and reactions cascade in the DB.
   Future<void> deleteActivity(String activityId) async {
-    // Delete all comments first
-    final comments = await _commentsRef(activityId).get();
-    for (final doc in comments.docs) {
-      await doc.reference.delete();
-    }
-    // Then delete the activity
-    await _activitiesRef.doc(activityId).delete();
+    await _client.from(_table).delete().eq('id', activityId);
   }
 
-  /// Like an activity
+  /// Like an activity. Idempotent.
   Future<void> likeActivity({
     required String activityId,
     required String userId,
   }) async {
-    await _activitiesRef.doc(activityId).update({
-      'likes': FieldValue.arrayUnion([userId]),
-    });
+    await _client.from('activity_likes').upsert(
+      {'activity_id': activityId, 'user_id': userId},
+      onConflict: 'activity_id,user_id',
+    );
   }
 
-  /// Unlike an activity
+  /// Unlike an activity.
   Future<void> unlikeActivity({
     required String activityId,
     required String userId,
   }) async {
-    await _activitiesRef.doc(activityId).update({
-      'likes': FieldValue.arrayRemove([userId]),
-    });
+    await _client
+        .from('activity_likes')
+        .delete()
+        .eq('activity_id', activityId)
+        .eq('user_id', userId);
   }
 
-  /// Add or update a reaction on an activity
-  /// Each user can only have one reaction per activity
+  /// Add or replace a user's reaction (one sticker per user per activity).
   Future<void> setReaction({
     required String activityId,
     required String userId,
     required String stickerId,
   }) async {
-    await _activitiesRef.doc(activityId).update({
-      'reactions.$userId': stickerId,
-    });
+    await _client.from('activity_reactions').upsert(
+      {
+        'activity_id': activityId,
+        'user_id': userId,
+        'sticker_id': stickerId,
+      },
+      onConflict: 'activity_id,user_id',
+    );
   }
 
-  /// Remove a user's reaction from an activity
+  /// Remove a user's reaction.
   Future<void> removeReaction({
     required String activityId,
     required String userId,
   }) async {
-    await _activitiesRef.doc(activityId).update({
-      'reactions.$userId': FieldValue.delete(),
-    });
+    await _client
+        .from('activity_reactions')
+        .delete()
+        .eq('activity_id', activityId)
+        .eq('user_id', userId);
   }
 
-  /// Add a comment to an activity
+  /// Add a comment. `comment_count` is maintained by a DB trigger.
   Future<CommentModel> addComment(CommentModel comment) async {
-    final docRef = await _commentsRef(comment.activityId).add(comment.toFirestore());
-
-    // Increment comment count
-    await _activitiesRef.doc(comment.activityId).update({
-      'commentCount': FieldValue.increment(1),
-    });
-
-    return comment.copyWith(id: docRef.id);
+    final row = await _client
+        .from('comments')
+        .insert(comment.toDbMap())
+        .select('*, profiles!inner(username, photo_url)')
+        .single();
+    return _commentFromRow(row);
   }
 
-  /// Get comments for an activity
+  /// Comments for an activity, oldest first.
   Future<List<CommentModel>> getComments({
     required String activityId,
     int limit = 50,
   }) async {
-    final snapshot = await _commentsRef(activityId)
-        .orderBy('createdAt', descending: false)
-        .limit(limit)
-        .get();
+    final rows = await _client
+        .from('comments')
+        .select('*, profiles!inner(username, photo_url)')
+        .eq('activity_id', activityId)
+        .order('created_at')
+        .limit(limit);
 
-    return snapshot.docs.map((doc) => CommentModel.fromFirestore(doc)).toList();
+    return rows.map(_commentFromRow).toList();
   }
 
-  /// Delete a comment
+  /// Delete a comment. `comment_count` is maintained by a DB trigger.
   Future<void> deleteComment({
     required String activityId,
     required String commentId,
   }) async {
-    await _commentsRef(activityId).doc(commentId).delete();
-
-    // Decrement comment count
-    await _activitiesRef.doc(activityId).update({
-      'commentCount': FieldValue.increment(-1),
-    });
+    await _client.from('comments').delete().eq('id', commentId);
   }
 
-  /// Check if user has already posted about a film
+  /// The user's existing post about a film, if any.
   Future<ActivityModel?> getUserFilmActivity({
     required String userId,
     required int filmId,
   }) async {
-    try {
-      final snapshot = await _activitiesRef
-          .where('userId', isEqualTo: userId)
-          .where('filmId', isEqualTo: filmId)
-          .limit(1)
-          .get()
-          .timeout(
-            const Duration(seconds: 10),
-            onTimeout: () => throw Exception('Query timeout - index may be building'),
-          );
+    final rows = await _client
+        .from(_view)
+        .select()
+        .eq('user_id', userId)
+        .eq('film_id', filmId)
+        .limit(1);
 
-      if (snapshot.docs.isEmpty) return null;
-      return ActivityModel.fromFirestore(snapshot.docs.first);
-    } catch (e) {
-      print('getUserFilmActivity error: $e');
-      return null; // Return null on error
-    }
+    return rows.isEmpty ? null : ActivityModel.fromRow(rows.first);
   }
 
-  /// Count the number of reviews a user has posted
+  /// Number of reviews a user has posted.
   Future<int> countUserReviews(String userId) async {
-    final snapshot = await _activitiesRef
-        .where('userId', isEqualTo: userId)
-        .where('activityType', isEqualTo: 'reviewed')
-        .get();
-
-    return snapshot.docs.length;
+    final rows = await _client
+        .from(_table)
+        .select('id')
+        .eq('user_id', userId)
+        .eq('activity_type', 'reviewed')
+        .count(CountOption.exact);
+    return rows.count;
   }
 
-  /// Update all activities for a user with new user data (photo, username)
-  /// Used to sync denormalized user data across activities
-  Future<int> syncUserDataToActivities({
-    required String userId,
-    String? username,
-    String? photoUrl,
-  }) async {
-    final snapshot = await _activitiesRef
-        .where('userId', isEqualTo: userId)
-        .get();
-
-    if (snapshot.docs.isEmpty) return 0;
-
-    final batch = _firestore.batch();
-    final updates = <String, dynamic>{};
-
-    if (username != null) {
-      updates['username'] = username;
-    }
-    if (photoUrl != null) {
-      updates['userPhotoUrl'] = photoUrl;
-    }
-
-    if (updates.isEmpty) return 0;
-
-    for (final doc in snapshot.docs) {
-      batch.update(doc.reference, updates);
-    }
-
-    await batch.commit();
-    return snapshot.docs.length;
+  /// Flattens the nested `profiles` join into the denormalized fields
+  /// CommentModel still exposes to the UI.
+  CommentModel _commentFromRow(Map<String, dynamic> row) {
+    final profile = row['profiles'] as Map<String, dynamic>?;
+    return CommentModel.fromJson({
+      ...row,
+      'username': profile?['username'] ?? 'unknown',
+      'user_photo_url': profile?['photo_url'],
+    });
   }
 }

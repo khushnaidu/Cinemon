@@ -339,7 +339,8 @@ class __$$ActivityModelImplCopyWithImpl<$Res>
 }
 
 /// @nodoc
-@JsonSerializable()
+
+@JsonSerializable(fieldRename: FieldRename.snake)
 class _$ActivityModelImpl extends _ActivityModel {
   const _$ActivityModelImpl(
       {required this.id,
@@ -804,7 +805,8 @@ class __$$CommentModelImplCopyWithImpl<$Res>
 }
 
 /// @nodoc
-@JsonSerializable()
+
+@JsonSerializable(fieldRename: FieldRename.snake)
 class _$CommentModelImpl extends _CommentModel {
   const _$CommentModelImpl(
       {required this.id,

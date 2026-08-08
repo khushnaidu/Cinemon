@@ -278,7 +278,8 @@ class __$$NotificationModelImplCopyWithImpl<$Res>
 }
 
 /// @nodoc
-@JsonSerializable()
+
+@JsonSerializable(fieldRename: FieldRename.snake)
 class _$NotificationModelImpl extends _NotificationModel {
   const _$NotificationModelImpl(
       {required this.id,

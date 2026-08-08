@@ -70,14 +70,29 @@ final personSearchNotifierProvider =
 // FAVORITE FILMS
 // =============================================================================
 
+/// Helper to create a stable key from film IDs list
+/// This ensures Riverpod family provider uses proper equality comparison
+String _filmIdsKey(List<int> ids) => ids.join(',');
+
+/// Helper to parse film IDs from key string
+List<int> _parseFilmIdsKey(String key) {
+  if (key.isEmpty) return [];
+  return key.split(',').map((s) => int.parse(s)).toList();
+}
+
 /// Provider for fetching favorite films with full data
-/// Takes a list of film IDs and returns FilmModel objects
+/// Uses a string key for stable equality comparison in Riverpod family
 final favoriteFilmsDataProvider =
-    FutureProvider.family<List<FilmModel>, List<int>>((ref, filmIds) async {
+    FutureProvider.family<List<FilmModel>, String>((ref, filmIdsKey) async {
+  final filmIds = _parseFilmIdsKey(filmIdsKey);
   if (filmIds.isEmpty) return [];
   final repository = ref.watch(movieRepositoryProvider);
   return repository.getFilmsByIds(filmIds);
 });
+
+/// Convenience function to watch favorite films by ID list
+/// Converts list to stable string key for the provider
+String favoriteFilmsKey(List<int> filmIds) => _filmIdsKey(filmIds);
 
 /// Provider for current user's favorite films
 final currentUserFavoriteFilmsProvider = FutureProvider<List<FilmModel>>((ref) async {
@@ -87,19 +102,50 @@ final currentUserFavoriteFilmsProvider = FutureProvider<List<FilmModel>>((ref) a
   final filmIds = userProfile.favoriteFilmIds;
   if (filmIds.isEmpty) return [];
 
-  return ref.watch(favoriteFilmsDataProvider(filmIds).future);
+  return ref.watch(favoriteFilmsDataProvider(favoriteFilmsKey(filmIds)).future);
 });
 
 // =============================================================================
 // FAVORITE PEOPLE (ACTORS & DIRECTORS)
 // =============================================================================
 
-/// Provider for fetching people by their IDs
-final peopleByIdsProvider =
-    FutureProvider.family<List<PersonModel>, List<int>>((ref, personIds) async {
+/// Helper to create a stable key from person IDs list
+String _personIdsKey(List<int> ids) => ids.join(',');
+
+/// Helper to parse person IDs from key string
+List<int> _parsePersonIdsKey(String key) {
+  if (key.isEmpty) return [];
+  return key.split(',').map((s) => int.parse(s)).toList();
+}
+
+/// Provider for fetching people by their IDs (uses string key for stable equality)
+final _peopleByIdsKeyProvider =
+    FutureProvider.family<List<PersonModel>, String>((ref, personIdsKey) async {
+  final personIds = _parsePersonIdsKey(personIdsKey);
   if (personIds.isEmpty) return [];
   final repository = ref.watch(movieRepositoryProvider);
   return repository.getPeopleByIds(personIds);
+});
+
+/// Convenience function to create key for peopleByIdsProvider
+String peopleByIdsKey(List<int> personIds) => _personIdsKey(personIds);
+
+/// Provider for fetching people by their IDs (wrapper for easy use)
+final peopleByIdsProvider =
+    FutureProvider.family<List<PersonModel>, List<int>>((ref, personIds) async {
+  if (personIds.isEmpty) return [];
+  return ref.watch(_peopleByIdsKeyProvider(peopleByIdsKey(personIds)).future);
+});
+
+/// Provider for fetching a single person by ID
+final personByIdProvider =
+    FutureProvider.family<PersonModel?, int>((ref, personId) async {
+  final repository = ref.watch(movieRepositoryProvider);
+  try {
+    return await repository.getPersonDetails(personId);
+  } catch (e) {
+    return null;
+  }
 });
 
 /// Provider for current user's favorite actors

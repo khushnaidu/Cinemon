@@ -1,8 +1,16 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'
+    show User, AuthException, PostgrestException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../repositories/auth_repository.dart';
-import '../../repositories/user_repository.dart';
-import '../../models/user_model.dart';
+
+/// Bridges Supabase's `User.id` to the `uid` name used throughout the app.
+///
+/// UserModel exposes `uid` (it maps to `profiles.id`), so keeping one name for
+/// "the current user's identifier" avoids a mix of `.id` and `.uid` at call
+/// sites — and avoids a rename sweep that could not distinguish the two types.
+extension SupabaseUserCompat on User {
+  String get uid => id;
+}
 
 /// Provider for AuthRepository instance
 ///
@@ -11,7 +19,7 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository();
 });
 
-/// Stream provider that watches Firebase auth state changes
+/// Stream provider that watches Supabase auth state changes
 ///
 /// Emits User when signed in, null when signed out
 /// Use this to check if user is authenticated:
@@ -91,7 +99,7 @@ class AuthController extends StateNotifier<AuthState> {
     try {
       await _authRepository.signIn(email: email, password: password);
       state = state.copyWith(isLoading: false);
-    } on FirebaseAuthException catch (e) {
+    } on AuthException catch (e) {
       state = state.copyWith(
         isLoading: false,
         errorMessage: _getErrorMessage(e),
@@ -105,6 +113,9 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   /// Sign up with email and password
+  ///
+  /// The `on_auth_user_created` DB trigger creates the matching `profiles`
+  /// row from the username metadata, so there is no second write here.
   Future<void> signUp({
     required String email,
     required String password,
@@ -113,26 +124,21 @@ class AuthController extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
-      final user = await _authRepository.signUp(email: email, password: password);
-
-      // Create user profile in Firestore with username
-      if (user != null) {
-        final userRepo = UserRepository();
-        final userModel = UserModel(
-          uid: user.uid,
-          email: email,
-          username: username.toLowerCase(),
-          displayName: username,
-          createdAt: DateTime.now(),
-        );
-        await userRepo.createUser(userModel);
-      }
-
+      await _authRepository.signUp(
+        email: email,
+        password: password,
+        username: username,
+      );
       state = state.copyWith(isLoading: false);
-    } on FirebaseAuthException catch (e) {
+    } on AuthException catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: _getErrorMessage(e));
+    } on PostgrestException catch (e) {
+      // unique_violation from the profiles.username index
       state = state.copyWith(
         isLoading: false,
-        errorMessage: _getErrorMessage(e),
+        errorMessage: e.code == '23505'
+            ? 'That username is already taken'
+            : 'Could not create your profile',
       );
     } catch (e) {
       state = state.copyWith(
@@ -164,7 +170,7 @@ class AuthController extends StateNotifier<AuthState> {
     try {
       await _authRepository.sendPasswordResetEmail(email: email);
       state = state.copyWith(isLoading: false);
-    } on FirebaseAuthException catch (e) {
+    } on AuthException catch (e) {
       state = state.copyWith(
         isLoading: false,
         errorMessage: _getErrorMessage(e),
@@ -172,26 +178,34 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
-  /// Convert Firebase auth errors to user-friendly messages
-  String _getErrorMessage(FirebaseAuthException e) {
-    switch (e.code) {
-      case 'user-not-found':
-        return 'No user found with this email';
-      case 'wrong-password':
-        return 'Wrong password';
-      case 'email-already-in-use':
-        return 'An account already exists with this email';
-      case 'weak-password':
-        return 'Password is too weak';
-      case 'invalid-email':
-        return 'Invalid email address';
-      case 'user-disabled':
-        return 'This account has been disabled';
-      case 'too-many-requests':
-        return 'Too many attempts. Please try again later';
-      default:
-        return 'Authentication error: ${e.message}';
+  /// Convert Supabase auth errors to user-friendly messages
+  String _getErrorMessage(AuthException e) {
+    final msg = e.message.toLowerCase();
+
+    if (msg.contains('invalid login credentials')) {
+      return 'Incorrect email or password';
     }
+    if (msg.contains('email not confirmed')) {
+      return 'Please confirm your email before signing in';
+    }
+    if (msg.contains('already registered') ||
+        msg.contains('already been registered')) {
+      return 'An account already exists with this email';
+    }
+    if (msg.contains('password') && msg.contains('at least')) {
+      return 'Password must be at least 6 characters';
+    }
+    if (msg.contains('unable to validate email') ||
+        msg.contains('invalid email')) {
+      return 'Invalid email address';
+    }
+    if (msg.contains('rate limit') || e.statusCode == '429') {
+      return 'Too many attempts. Please try again later';
+    }
+    if (msg.contains('user not found')) {
+      return 'No user found with this email';
+    }
+    return e.message;
   }
 
   /// Clear error message
