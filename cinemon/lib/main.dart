@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cinemon/core/config/supabase_config.dart';
 import 'package:cinemon/core/routes/app_router.dart';
+import 'package:cinemon/core/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,9 +27,7 @@ class MyApp extends ConsumerWidget {
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       routerConfig: router,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-      ),
+      theme: AppTheme.dark,
     );
   }
 }
