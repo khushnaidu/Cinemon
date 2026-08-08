@@ -2,22 +2,23 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Supabase configuration and initialization.
 ///
-/// The publishable key is safe to ship in the client — it carries no
-/// privileges of its own. Row Level Security is what actually guards the
-/// data. Never put the *secret* / service-role key in here.
+/// Values are injected at build time and have no defaults, so which backend a
+/// build points at is always an explicit choice — a release can't silently
+/// ship pointing at a dev project, or vice versa.
 ///
-/// Both values can be overridden at build time without touching source:
-///   flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_KEY=...
+///   flutter run --dart-define-from-file=dart_defines.json
+///
+/// Copy `dart_defines.example.json` to `dart_defines.json` and fill it in;
+/// that file is gitignored.
+///
+/// The publishable key is safe to ship in the client — it carries no
+/// privileges of its own, and Row Level Security is what actually guards the
+/// data. Never put the *secret* / service-role key in here: it bypasses RLS
+/// entirely and would be extractable from the app bundle.
 class SupabaseConfig {
-  static const String url = String.fromEnvironment(
-    'SUPABASE_URL',
-    defaultValue: 'https://juarrrjrlxsymrxvsdcu.supabase.co',
-  );
+  static const String url = String.fromEnvironment('SUPABASE_URL');
 
-  static const String publishableKey = String.fromEnvironment(
-    'SUPABASE_KEY',
-    defaultValue: 'sb_publishable_F7Ju3Gc5UB-nND3aE2Pq_g_m-9edP-U',
-  );
+  static const String publishableKey = String.fromEnvironment('SUPABASE_KEY');
 
   /// Deep link the auth emails (confirmation, password reset, magic link)
   /// send the user back to.
@@ -29,7 +30,34 @@ class SupabaseConfig {
   /// phone and leaves the user staring at a browser error.
   static const String authRedirectUrl = 'cinemon://login-callback';
 
+  /// Whether both build-time values were supplied.
+  static bool get isConfigured => url.isNotEmpty && publishableKey.isNotEmpty;
+
   static Future<void> initialize() async {
+    if (!isConfigured) {
+      final missing = [
+        if (url.isEmpty) 'SUPABASE_URL',
+        if (publishableKey.isEmpty) 'SUPABASE_KEY',
+      ].join(', ');
+      throw StateError(
+        'Missing build-time config: $missing.\n'
+        'Run with:  flutter run --dart-define-from-file=dart_defines.json\n'
+        '(copy dart_defines.example.json and fill in the values from\n'
+        ' Supabase -> Project Settings -> API)',
+      );
+    }
+
+    // A service-role key bypasses RLS completely. Shipping one in a client
+    // would expose every row to anyone who unzips the app, so fail loudly
+    // rather than start up with it.
+    if (publishableKey.contains('service_role') ||
+        publishableKey.startsWith('sb_secret_')) {
+      throw StateError(
+        'SUPABASE_KEY looks like a secret/service-role key. Use the '
+        'publishable (anon) key in client builds.',
+      );
+    }
+
     await Supabase.initialize(
       url: url,
       anonKey: publishableKey,

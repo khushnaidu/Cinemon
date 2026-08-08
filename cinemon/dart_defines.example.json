@@ -1,0 +1,5 @@
+{
+  "_comment": "Copy to dart_defines.json and fill in. Values come from Supabase -> Project Settings -> API. Use the PUBLISHABLE (anon) key, never the secret/service-role key.",
+  "SUPABASE_URL": "https://<project-ref>.supabase.co",
+  "SUPABASE_KEY": "sb_publishable_..."
+}
