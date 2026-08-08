@@ -44,64 +44,9 @@ class NotificationNotifier extends StateNotifier<AsyncValue<void>> {
   NotificationNotifier(this._notificationRepo, this._userId, this._ref)
       : super(const AsyncValue.data(null));
 
-  /// Create a notification (called when someone likes/comments/reacts)
-  Future<void> createNotification({
-    required String recipientId,
-    required String actorId,
-    required String actorUsername,
-    String? actorPhotoUrl,
-    required NotificationType type,
-    String? activityId,
-    String? filmTitle,
-    String? filmPosterPath,
-    String? commentPreview,
-    String? stickerId,
-  }) async {
-    // Don't notify yourself
-    if (recipientId == actorId) return;
-
-    try {
-      final notification = NotificationModel(
-        id: '',
-        recipientId: recipientId,
-        actorId: actorId,
-        actorUsername: actorUsername,
-        actorPhotoUrl: actorPhotoUrl,
-        type: type,
-        activityId: activityId,
-        filmTitle: filmTitle,
-        filmPosterPath: filmPosterPath,
-        commentPreview: commentPreview,
-        stickerId: stickerId,
-        createdAt: DateTime.now(),
-      );
-
-      await _notificationRepo.createNotification(notification);
-    } catch (e) {
-      // Silently fail - notifications are not critical
-      print('Error creating notification: $e');
-    }
-  }
-
-  /// Remove a notification (for unlike/unreact)
-  Future<void> removeNotification({
-    required String recipientId,
-    required NotificationType type,
-    String? activityId,
-  }) async {
-    if (_userId == null) return;
-
-    try {
-      await _notificationRepo.deleteNotificationByDetails(
-        recipientId: recipientId,
-        actorId: _userId!,
-        type: type,
-        activityId: activityId,
-      );
-    } catch (e) {
-      print('Error removing notification: $e');
-    }
-  }
+  // Creating and retracting notifications is handled by database triggers on
+  // activity_likes / activity_reactions / comments / friendships. Liking a
+  // post *is* the notification; there is no second call to make here.
 
   /// Mark a notification as read
   Future<void> markAsRead(String notificationId) async {

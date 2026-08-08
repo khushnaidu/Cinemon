@@ -44,9 +44,6 @@ class _CommentsSheetState extends ConsumerState<CommentsSheet> {
     final result = await ref.read(commentNotifierProvider.notifier).addComment(
       activityId: widget.activityId,
       content: content,
-      activityOwnerId: widget.activityOwnerId,
-      filmTitle: widget.filmTitle,
-      filmPosterPath: widget.filmPosterPath,
     );
 
     if (mounted) {

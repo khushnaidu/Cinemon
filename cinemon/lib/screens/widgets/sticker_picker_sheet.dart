@@ -68,7 +68,7 @@ class StickerPickerSheet extends ConsumerWidget {
                     onPressed: () async {
                       await ref
                           .read(reactionNotifierProvider.notifier)
-                          .removeReaction(activityId, activityOwnerId: activityOwnerId);
+                          .removeReaction(activityId);
                       if (context.mounted) Navigator.pop(context);
                     },
                     child: const Text(
@@ -104,17 +104,11 @@ class StickerPickerSheet extends ConsumerWidget {
                     if (isSelected) {
                       await ref
                           .read(reactionNotifierProvider.notifier)
-                          .removeReaction(activityId, activityOwnerId: activityOwnerId);
+                          .removeReaction(activityId);
                     } else {
                       await ref
                           .read(reactionNotifierProvider.notifier)
-                          .setReaction(
-                            activityId,
-                            sticker.id,
-                            activityOwnerId: activityOwnerId,
-                            filmTitle: filmTitle,
-                            filmPosterPath: filmPosterPath,
-                          );
+                          .setReaction(activityId, sticker.id);
                     }
                     if (context.mounted) Navigator.pop(context);
                   },

@@ -1,14 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/activity_model.dart';
 import '../../models/film_model.dart';
-import '../../models/notification_model.dart';
 import '../../models/user_model.dart';
 import '../../repositories/feed_repository.dart';
 import '../../repositories/user_repository.dart';
 import '../../services/badge_service.dart';
 import '../auth/auth_provider.dart';
 import '../friendship/friendship_provider.dart';
-import '../notification/notification_provider.dart';
 
 /// Provider for FeedRepository singleton
 final feedRepositoryProvider = Provider<FeedRepository>((ref) {
@@ -353,53 +351,26 @@ final createActivityProvider =
 /// State notifier for like/unlike actions
 class LikeNotifier extends StateNotifier<Set<String>> {
   final FeedRepository _feedRepo;
-  final UserRepository _userRepo;
   final String? _userId;
   final Ref _ref;
 
-  LikeNotifier(this._feedRepo, this._userRepo, this._userId, this._ref) : super({});
+  LikeNotifier(this._feedRepo, this._userId, this._ref) : super({});
 
-  /// Toggle like on an activity with notification
-  Future<void> toggleLike(
-    String activityId,
-    bool isCurrentlyLiked, {
-    String? activityOwnerId,
-    String? filmTitle,
-    String? filmPosterPath,
-  }) async {
+  /// Toggle like on an activity.
+  ///
+  /// The recipient's notification is created (and retracted on unlike) by a
+  /// trigger on `activity_likes`, so there is nothing to do here beyond the
+  /// like itself.
+  Future<void> toggleLike(String activityId, bool isCurrentlyLiked) async {
     if (_userId == null) return;
 
     // Optimistic update
     if (isCurrentlyLiked) {
       state = {...state}..remove(activityId);
       await _feedRepo.unlikeActivity(activityId: activityId, userId: _userId!);
-
-      // Remove notification
-      if (activityOwnerId != null) {
-        _ref.read(notificationNotifierProvider.notifier).removeNotification(
-          recipientId: activityOwnerId,
-          type: NotificationType.like,
-          activityId: activityId,
-        );
-      }
     } else {
       state = {...state, activityId};
       await _feedRepo.likeActivity(activityId: activityId, userId: _userId!);
-
-      // Create notification
-      if (activityOwnerId != null && activityOwnerId != _userId) {
-        final userProfile = await _userRepo.getUser(_userId!);
-        _ref.read(notificationNotifierProvider.notifier).createNotification(
-          recipientId: activityOwnerId,
-          actorId: _userId!,
-          actorUsername: userProfile?.username ?? 'Someone',
-          actorPhotoUrl: userProfile?.photoUrl,
-          type: NotificationType.like,
-          activityId: activityId,
-          filmTitle: filmTitle,
-          filmPosterPath: filmPosterPath,
-        );
-      }
     }
 
     // Refresh the feed to reflect the change
@@ -411,9 +382,8 @@ class LikeNotifier extends StateNotifier<Set<String>> {
 final likeNotifierProvider =
     StateNotifierProvider<LikeNotifier, Set<String>>((ref) {
   final feedRepo = ref.watch(feedRepositoryProvider);
-  final userRepo = ref.watch(userRepositoryProvider);
   final currentUser = ref.watch(currentUserProvider);
-  return LikeNotifier(feedRepo, userRepo, currentUser?.uid, ref);
+  return LikeNotifier(feedRepo, currentUser?.uid, ref);
 });
 
 /// Provider for comments on an activity
@@ -428,7 +398,6 @@ final activityCommentsProvider =
 final syncReviewCountProvider =
     FutureProvider.family<int, String>((ref, userId) async {
   final feedRepo = ref.watch(feedRepositoryProvider);
-  final userRepo = ref.watch(userRepositoryProvider);
 
   // review_count is trigger-maintained now, so this only reports the
   // authoritative count rather than writing it back.
@@ -444,20 +413,16 @@ final syncReviewCountProvider =
 /// State notifier for managing reactions on activities
 class ReactionNotifier extends StateNotifier<Map<String, String>> {
   final FeedRepository _feedRepo;
-  final UserRepository _userRepo;
   final String? _userId;
   final Ref _ref;
 
-  ReactionNotifier(this._feedRepo, this._userRepo, this._userId, this._ref) : super({});
+  ReactionNotifier(this._feedRepo, this._userId, this._ref) : super({});
 
-  /// Set a reaction on an activity (replaces any existing reaction)
-  Future<void> setReaction(
-    String activityId,
-    String stickerId, {
-    String? activityOwnerId,
-    String? filmTitle,
-    String? filmPosterPath,
-  }) async {
+  /// Set a reaction on an activity (replaces any existing reaction).
+  ///
+  /// A trigger on `activity_reactions` raises the notification; swapping
+  /// stickers updates that one row rather than stacking a new one.
+  Future<void> setReaction(String activityId, String stickerId) async {
     if (_userId == null) return;
 
     // Optimistic update
@@ -470,22 +435,6 @@ class ReactionNotifier extends StateNotifier<Map<String, String>> {
         stickerId: stickerId,
       );
 
-      // Create notification
-      if (activityOwnerId != null && activityOwnerId != _userId) {
-        final userProfile = await _userRepo.getUser(_userId!);
-        _ref.read(notificationNotifierProvider.notifier).createNotification(
-          recipientId: activityOwnerId,
-          actorId: _userId!,
-          actorUsername: userProfile?.username ?? 'Someone',
-          actorPhotoUrl: userProfile?.photoUrl,
-          type: NotificationType.reaction,
-          activityId: activityId,
-          filmTitle: filmTitle,
-          filmPosterPath: filmPosterPath,
-          stickerId: stickerId,
-        );
-      }
-
       // Refresh the feed to get updated data
       _ref.invalidate(homeFeedProvider);
     } catch (e) {
@@ -497,7 +446,7 @@ class ReactionNotifier extends StateNotifier<Map<String, String>> {
   }
 
   /// Remove reaction from an activity
-  Future<void> removeReaction(String activityId, {String? activityOwnerId}) async {
+  Future<void> removeReaction(String activityId) async {
     if (_userId == null) return;
 
     // Store old value for potential rollback
@@ -514,15 +463,6 @@ class ReactionNotifier extends StateNotifier<Map<String, String>> {
         userId: _userId!,
       );
 
-      // Remove notification
-      if (activityOwnerId != null) {
-        _ref.read(notificationNotifierProvider.notifier).removeNotification(
-          recipientId: activityOwnerId,
-          type: NotificationType.reaction,
-          activityId: activityId,
-        );
-      }
-
       _ref.invalidate(homeFeedProvider);
     } catch (e) {
       // Revert on error
@@ -533,24 +473,12 @@ class ReactionNotifier extends StateNotifier<Map<String, String>> {
   }
 
   /// Toggle reaction: if same sticker, remove; otherwise, set new sticker
-  Future<void> toggleReaction(
-    String activityId,
-    String stickerId, {
-    String? activityOwnerId,
-    String? filmTitle,
-    String? filmPosterPath,
-  }) async {
+  Future<void> toggleReaction(String activityId, String stickerId) async {
     final currentReaction = state[activityId];
     if (currentReaction == stickerId) {
-      await removeReaction(activityId, activityOwnerId: activityOwnerId);
+      await removeReaction(activityId);
     } else {
-      await setReaction(
-        activityId,
-        stickerId,
-        activityOwnerId: activityOwnerId,
-        filmTitle: filmTitle,
-        filmPosterPath: filmPosterPath,
-      );
+      await setReaction(activityId, stickerId);
     }
   }
 }
@@ -559,9 +487,8 @@ class ReactionNotifier extends StateNotifier<Map<String, String>> {
 final reactionNotifierProvider =
     StateNotifierProvider<ReactionNotifier, Map<String, String>>((ref) {
   final feedRepo = ref.watch(feedRepositoryProvider);
-  final userRepo = ref.watch(userRepositoryProvider);
   final currentUser = ref.watch(currentUserProvider);
-  return ReactionNotifier(feedRepo, userRepo, currentUser?.uid, ref);
+  return ReactionNotifier(feedRepo, currentUser?.uid, ref);
 });
 
 /// State notifier for managing comments
@@ -573,13 +500,13 @@ class CommentNotifier extends StateNotifier<AsyncValue<void>> {
   CommentNotifier(this._feedRepo, this._userRepo, this._ref)
       : super(const AsyncValue.data(null));
 
-  /// Add a comment to an activity
+  /// Add a comment to an activity.
+  ///
+  /// A trigger on `comments` notifies the activity's author, preview text
+  /// included.
   Future<CommentModel?> addComment({
     required String activityId,
     required String content,
-    String? activityOwnerId,
-    String? filmTitle,
-    String? filmPosterPath,
   }) async {
     final currentUser = _ref.read(currentUserProvider);
     if (currentUser == null) {
@@ -605,23 +532,6 @@ class CommentNotifier extends StateNotifier<AsyncValue<void>> {
 
       final created = await _feedRepo.addComment(comment);
       state = const AsyncValue.data(null);
-
-      // Create notification
-      if (activityOwnerId != null && activityOwnerId != currentUser.uid) {
-        _ref.read(notificationNotifierProvider.notifier).createNotification(
-          recipientId: activityOwnerId,
-          actorId: currentUser.uid,
-          actorUsername: userProfile?.username ?? 'Someone',
-          actorPhotoUrl: userProfile?.photoUrl,
-          type: NotificationType.comment,
-          activityId: activityId,
-          filmTitle: filmTitle,
-          filmPosterPath: filmPosterPath,
-          commentPreview: content.trim().length > 50
-              ? '${content.trim().substring(0, 50)}...'
-              : content.trim(),
-        );
-      }
 
       // Refresh comments for this activity
       _ref.invalidate(activityCommentsProvider(activityId));

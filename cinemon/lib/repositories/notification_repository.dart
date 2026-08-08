@@ -16,15 +16,11 @@ class NotificationRepository {
   static const _withActor =
       '*, actor:profiles!notifications_actor_id_fkey(username, photo_url)';
 
-  /// Create a new notification.
-  Future<NotificationModel> createNotification(
-      NotificationModel notification) async {
-    final row = await _notifications
-        .insert(notification.toDbMap())
-        .select(_withActor)
-        .single();
-    return NotificationModel.fromRow(row);
-  }
+  // Notifications are created by database triggers, never from here — see
+  // `14. NOTIFICATION TRIGGERS` in schema.sql. A client can't write one
+  // anyway: a notification is always for someone else, and the select policy
+  // only exposes a row to its recipient, so an insert that reads itself back
+  // is rolled back by RLS. This repository is read/dismiss only.
 
   /// Notifications for a user, newest first.
   ///
@@ -102,44 +98,6 @@ class NotificationRepository {
     await _notifications.delete().eq('recipient_id', userId);
   }
 
-  /// Whether a matching notification already exists (dedupes rapid
-  /// like/unlike toggling).
-  Future<bool> notificationExists({
-    required String recipientId,
-    required String actorId,
-    required NotificationType type,
-    String? activityId,
-  }) async {
-    var query = _notifications
-        .select('id')
-        .eq('recipient_id', recipientId)
-        .eq('actor_id', actorId)
-        .eq('type', type.name);
-
-    query = activityId != null
-        ? query.eq('activity_id', activityId)
-        : query.isFilter('activity_id', null);
-
-    final rows = await query.limit(1);
-    return rows.isNotEmpty;
-  }
-
-  /// Delete matching notifications (for unlike / un-react).
-  Future<void> deleteNotificationByDetails({
-    required String recipientId,
-    required String actorId,
-    required NotificationType type,
-    String? activityId,
-  }) async {
-    var query = _notifications
-        .delete()
-        .eq('recipient_id', recipientId)
-        .eq('actor_id', actorId)
-        .eq('type', type.name);
-
-    if (activityId != null) {
-      query = query.eq('activity_id', activityId);
-    }
-    await query;
-  }
+  // Retracting a notification on unlike / un-react is likewise the trigger's
+  // job: deleting the like row deletes the notification with it.
 }

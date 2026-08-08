@@ -786,9 +786,6 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
                       ref.read(likeNotifierProvider.notifier).toggleLike(
                         widget.activity.id,
                         isLiked,
-                        activityOwnerId: widget.activity.userId,
-                        filmTitle: widget.activity.filmTitle,
-                        filmPosterPath: widget.activity.filmPosterPath,
                       );
                     },
                   ),
