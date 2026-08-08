@@ -19,7 +19,7 @@ class FavoriteFilmsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final filmsAsync = ref.watch(favoriteFilmsDataProvider(filmIds));
+    final filmsAsync = ref.watch(favoriteFilmsDataProvider(favoriteFilmsKey(filmIds)));
 
     // Don't show section if empty and not own profile
     if (filmIds.isEmpty && !isOwnProfile) {
@@ -332,7 +332,7 @@ class _FavoriteFilmsPickerSheetState extends ConsumerState<FavoriteFilmsPickerSh
               colors: [Color(0xFF9B8BF4), Color(0xFFE879F9)],
             ).createShader(bounds),
             child: const Text(
-              'favorite films',
+              'top 3 films',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 22,
@@ -343,27 +343,53 @@ class _FavoriteFilmsPickerSheetState extends ConsumerState<FavoriteFilmsPickerSh
           ),
           const SizedBox(height: 4),
           Text(
-            '${_selectedFilmIds.length}/4 selected',
+            '${_selectedFilmIds.length}/3 selected',
             style: const TextStyle(
               color: Colors.white38,
               fontSize: 13,
             ),
           ),
-          const SizedBox(height: 20),
-          // Current selections (if any)
+          const SizedBox(height: 4),
+          const Text(
+            'Select in order: 1st, 2nd, 3rd place',
+            style: TextStyle(
+              color: Colors.white24,
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Current selections with rank badges
           if (_selectedFilmIds.isNotEmpty) ...[
             SizedBox(
-              height: 100,
+              height: 110,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemCount: _selectedFilmIds.length,
                 itemBuilder: (context, index) {
+                  final rankLabel = index == 0 ? '1st' : (index == 1 ? '2nd' : '3rd');
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: _SelectedFilmChip(
-                      filmId: _selectedFilmIds[index],
-                      onRemove: () => _removeFilm(_selectedFilmIds[index]),
+                    child: Column(
+                      children: [
+                        Text(
+                          rankLabel,
+                          style: TextStyle(
+                            color: index == 0
+                                ? const Color(0xFFFF9800)  // Orange for 1st
+                                : (index == 1
+                                    ? const Color(0xFFE91E63)  // Pink for 2nd
+                                    : const Color(0xFF9C27B0)), // Purple for 3rd
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        _SelectedFilmChip(
+                          filmId: _selectedFilmIds[index],
+                          onRemove: () => _removeFilm(_selectedFilmIds[index]),
+                        ),
+                      ],
                     ),
                   );
                 },
@@ -424,7 +450,7 @@ class _FavoriteFilmsPickerSheetState extends ConsumerState<FavoriteFilmsPickerSh
                     return _FilmSearchResult(
                       film: film,
                       isSelected: isSelected,
-                      canSelect: _selectedFilmIds.length < 4,
+                      canSelect: _selectedFilmIds.length < 3,
                       onTap: () => _toggleFilm(film),
                     );
                   },
@@ -477,7 +503,7 @@ class _FavoriteFilmsPickerSheetState extends ConsumerState<FavoriteFilmsPickerSh
     setState(() {
       if (_selectedFilmIds.contains(film.id)) {
         _selectedFilmIds.remove(film.id);
-      } else if (_selectedFilmIds.length < 4) {
+      } else if (_selectedFilmIds.length < 3) {
         _selectedFilmIds.add(film.id);
       }
     });

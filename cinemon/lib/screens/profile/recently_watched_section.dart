@@ -58,7 +58,8 @@ class RecentlyWatchedSection extends ConsumerWidget {
                       extra: username,
                     ),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(16),
@@ -94,7 +95,7 @@ class RecentlyWatchedSection extends ConsumerWidget {
                 },
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 4),
           ],
         );
       },
@@ -113,7 +114,8 @@ class _RecentPosterItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        final mediaType = activity.mediaType.isNotEmpty ? activity.mediaType : 'movie';
+        final mediaType =
+            activity.mediaType.isNotEmpty ? activity.mediaType : 'movie';
         context.push('/film/${activity.filmId}/$mediaType');
       },
       child: SizedBox(
@@ -141,21 +143,25 @@ class _RecentPosterItem extends StatelessWidget {
                   // Poster
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: (activity.filmPosterPath != null && activity.filmPosterPath!.isNotEmpty)
+                    child: (activity.filmPosterPath != null &&
+                            activity.filmPosterPath!.isNotEmpty)
                         ? CachedNetworkImage(
-                            imageUrl: 'https://image.tmdb.org/t/p/w300${activity.filmPosterPath}',
+                            imageUrl:
+                                'https://image.tmdb.org/t/p/w300${activity.filmPosterPath}',
                             fit: BoxFit.cover,
                             placeholder: (_, __) => Container(
                               color: const Color(0xFF1a1a2e),
                             ),
                             errorWidget: (_, __, ___) => Container(
                               color: const Color(0xFF1a1a2e),
-                              child: const Icon(Icons.movie, color: Colors.white24),
+                              child: const Icon(Icons.movie,
+                                  color: Colors.white24),
                             ),
                           )
                         : Container(
                             color: const Color(0xFF1a1a2e),
-                            child: const Icon(Icons.movie, color: Colors.white24),
+                            child:
+                                const Icon(Icons.movie, color: Colors.white24),
                           ),
                   ),
                   // Gradient overlay at bottom
@@ -186,7 +192,8 @@ class _RecentPosterItem extends StatelessWidget {
                       bottom: 8,
                       right: 8,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 3),
                         decoration: BoxDecoration(
                           color: Colors.amber.withOpacity(0.9),
                           borderRadius: BorderRadius.circular(6),
@@ -194,7 +201,8 @@ class _RecentPosterItem extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.star, color: Colors.black87, size: 12),
+                            const Icon(Icons.star,
+                                color: Colors.black87, size: 12),
                             const SizedBox(width: 2),
                             Text(
                               activity.rating!.toStringAsFixed(1),

@@ -1,8 +1,162 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/person_model.dart';
 import '../../providers/user/favorites_provider.dart';
+
+// =============================================================================
+// PARALLAX STAR FIELD
+// =============================================================================
+
+/// A star in the parallax field
+class _Star {
+  final double x; // 0.0 - 1.0 relative position
+  final double y; // 0.0 - 1.0 relative position
+  final double size;
+  final double opacity;
+  final double parallaxFactor; // How much this star moves relative to scroll
+
+  const _Star({
+    required this.x,
+    required this.y,
+    required this.size,
+    required this.opacity,
+    required this.parallaxFactor,
+  });
+}
+
+/// Generates a list of stars with consistent positions (seeded random)
+List<_Star> _generateStars(int count, int seed) {
+  final random = math.Random(seed);
+  return List.generate(count, (index) {
+    return _Star(
+      x: random.nextDouble(),
+      y: random.nextDouble(),
+      size: 0.5 + random.nextDouble() * 1.5, // 0.5 - 2.0
+      opacity: 0.3 + random.nextDouble() * 0.5, // 0.3 - 0.8
+      parallaxFactor: 0.1 + random.nextDouble() * 0.3, // 0.1 - 0.4
+    );
+  });
+}
+
+/// Custom painter for the star field
+class _StarFieldPainter extends CustomPainter {
+  final List<_Star> stars;
+  final double scrollOffset;
+  final Color starColor;
+
+  _StarFieldPainter({
+    required this.stars,
+    required this.scrollOffset,
+    this.starColor = Colors.white,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final star in stars) {
+      // Calculate parallax offset based on scroll
+      final parallaxY = (scrollOffset * star.parallaxFactor) % size.height;
+
+      // Star position with parallax
+      final x = star.x * size.width;
+      var y = (star.y * size.height) - parallaxY;
+
+      // Wrap around for continuous effect
+      if (y < 0) y += size.height;
+      if (y > size.height) y -= size.height;
+
+      final paint = Paint()
+        ..color = starColor.withOpacity(star.opacity)
+        ..style = PaintingStyle.fill;
+
+      canvas.drawCircle(Offset(x, y), star.size, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _StarFieldPainter oldDelegate) {
+    return oldDelegate.scrollOffset != scrollOffset;
+  }
+}
+
+/// Widget that displays a parallax star field background
+class ParallaxStarField extends StatefulWidget {
+  final Widget child;
+  final int starCount;
+  final int seed;
+  final Color starColor;
+
+  const ParallaxStarField({
+    super.key,
+    required this.child,
+    this.starCount = 30,
+    this.seed = 42,
+    this.starColor = Colors.white,
+  });
+
+  @override
+  State<ParallaxStarField> createState() => _ParallaxStarFieldState();
+}
+
+class _ParallaxStarFieldState extends State<ParallaxStarField> {
+  late List<_Star> _stars;
+  double _scrollOffset = 0;
+  ScrollPosition? _scrollPosition;
+
+  @override
+  void initState() {
+    super.initState();
+    _stars = _generateStars(widget.starCount, widget.seed);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Get the scroll position from the nearest Scrollable ancestor
+    final scrollable = Scrollable.maybeOf(context);
+    if (scrollable != null) {
+      _scrollPosition?.removeListener(_onScroll);
+      _scrollPosition = scrollable.position;
+      _scrollPosition?.addListener(_onScroll);
+      _onScroll(); // Initial update
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollPosition?.removeListener(_onScroll);
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollPosition != null && mounted) {
+      setState(() {
+        _scrollOffset = _scrollPosition!.pixels;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        // Star field background
+        Positioned.fill(
+          child: CustomPaint(
+            painter: _StarFieldPainter(
+              stars: _stars,
+              scrollOffset: _scrollOffset,
+              starColor: widget.starColor,
+            ),
+          ),
+        ),
+        // Content
+        widget.child,
+      ],
+    );
+  }
+}
 
 /// Section displaying favorite actors or directors as horizontal scroll
 class FavoritePeopleSection extends ConsumerWidget {
@@ -36,35 +190,131 @@ class FavoritePeopleSection extends ConsumerWidget {
         ? ref.watch(peopleByIdsProvider(personIds))
         : const AsyncValue<List<PersonModel>>.data([]);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Stylized section header with edit button
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Row(
-            children: [
-              ShaderMask(
-                shaderCallback: (bounds) => LinearGradient(
-                  colors: _gradientColors,
-                ).createShader(bounds),
-                child: Text(
-                  isActors ? 'favorite actors' : 'favorite directors',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    fontStyle: FontStyle.italic,
-                    letterSpacing: -0.5,
+    // Different layouts for actors (with PNG title + overlap) vs directors
+    if (isActors) {
+      return ParallaxStarField(
+        starCount: 45,
+        seed: 123, // Different seed for actors
+        child: Column(
+          children: [
+            // Stack layout for actors - cards overlap the title
+            SizedBox(
+              height: 430,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // Title PNG
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: Image.asset(
+                      'assets/images/favoriteactors.png',
+                      width: MediaQuery.of(context).size.width,
+                      fit: BoxFit.fitWidth,
+                    ),
+                  ),
+                  // Actor cards - slightly overlapping the title
+                  Positioned(
+                    top: 250,
+                    left: 0,
+                    right: 0,
+                    height: 190,
+                    child: peopleAsync.when(
+                      data: (people) => people.isEmpty
+                          ? _buildEmptyState()
+                          : _buildPeopleList(people),
+                      loading: () => _buildLoadingState(),
+                      error: (_, __) => _buildEmptyState(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Edit button below the stack
+            if (isOwnProfile)
+              Padding(
+                padding: const EdgeInsets.only(right: 24, top: 8),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: GestureDetector(
+                    onTap: () => _showPeoplePicker(context, ref),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        personIds.isEmpty ? 'add' : 'edit',
+                        style: const TextStyle(
+                          color: Colors.white60,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
-              const Spacer(),
-              if (isOwnProfile)
-                GestureDetector(
+          ],
+        ),
+      );
+    }
+
+    // Directors layout - same as actors with PNG title
+    return ParallaxStarField(
+      starCount: 45,
+      seed: 456, // Different seed for directors
+      child: Column(
+        children: [
+          // Stack layout for directors - cards overlap the title
+          SizedBox(
+            height: 250,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Title PNG
+                Positioned(
+                  top: -150,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Image.asset(
+                    'assets/images/directors.png',
+                    width: MediaQuery.of(context).size.width,
+                    fit: BoxFit.fitWidth,
+                  ),
+                ),
+                // Director cards - slightly overlapping the title
+                Positioned(
+                  top: 75,
+                  left: 0,
+                  right: 0,
+                  height: 190,
+                  child: peopleAsync.when(
+                    data: (people) => people.isEmpty
+                        ? _buildEmptyState()
+                        : _buildPeopleList(people),
+                    loading: () => _buildLoadingState(),
+                    error: (_, __) => _buildEmptyState(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Edit button below the stack
+          if (isOwnProfile)
+            Padding(
+              padding: const EdgeInsets.only(right: 24, top: 8),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: GestureDetector(
                   onTap: () => _showPeoplePicker(context, ref),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(16),
@@ -79,23 +329,11 @@ class FavoritePeopleSection extends ConsumerWidget {
                     ),
                   ),
                 ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        // People horizontal scroll
-        SizedBox(
-          height: 140,
-          child: peopleAsync.when(
-            data: (people) => people.isEmpty
-                ? _buildEmptyState()
-                : _buildPeopleList(people),
-            loading: () => _buildLoadingState(),
-            error: (_, __) => _buildEmptyState(),
-          ),
-        ),
-        const SizedBox(height: 28),
-      ],
+              ),
+            ),
+          const SizedBox(height: 20),
+        ],
+      ),
     );
   }
 
@@ -171,9 +409,9 @@ class FavoritePeopleSection extends ConsumerWidget {
             children: [
               Container(
                 width: 90,
-                height: 90,
+                height: 130,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(45),
                   color: Colors.white.withOpacity(0.05),
                 ),
               ),
@@ -223,60 +461,48 @@ class _PersonCard extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Circular photo with colored border
+          // Pill-shaped photo with colored glow
           Container(
             width: 90,
-            height: 90,
+            height: 130,
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  accentColor,
-                  accentColor.withOpacity(0.6),
-                ],
-              ),
+              borderRadius: BorderRadius.circular(45),
               boxShadow: [
+                // Subtle colored glow
                 BoxShadow(
-                  color: accentColor.withOpacity(0.4),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
+                  color: accentColor.withOpacity(0.15),
+                  blurRadius: 8,
+                  spreadRadius: 0,
+                ),
+                // Subtle dark shadow for depth
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 6,
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(3),
-              child: Container(
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Color(0xFF0a0a14),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(2),
-                  child: ClipOval(
-                    child: person.profilePath != null
-                        ? CachedNetworkImage(
-                            imageUrl: person.profileUrl!,
-                            fit: BoxFit.cover,
-                            placeholder: (_, __) => Container(
-                              color: const Color(0xFF1a1a2e),
-                            ),
-                            errorWidget: (_, __, ___) => _buildPlaceholder(),
-                          )
-                        : _buildPlaceholder(),
-                  ),
-                ),
-              ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(45),
+              child: person.profilePath != null
+                  ? CachedNetworkImage(
+                      imageUrl: person.profileUrl!,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(
+                        color: const Color(0xFF1a1a2e),
+                      ),
+                      errorWidget: (_, __, ___) => _buildPlaceholder(),
+                    )
+                  : _buildPlaceholder(),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           // Name
           Text(
             person.name,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w500,
             ),
             maxLines: 2,
@@ -292,7 +518,7 @@ class _PersonCard extends StatelessWidget {
     return Container(
       color: const Color(0xFF1a1a2e),
       child: const Center(
-        child: Icon(Icons.person, color: Colors.white24, size: 36),
+        child: Icon(Icons.person, color: Colors.white24, size: 32),
       ),
     );
   }
@@ -312,10 +538,12 @@ class FavoritePeoplePickerSheet extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<FavoritePeoplePickerSheet> createState() => _FavoritePeoplePickerSheetState();
+  ConsumerState<FavoritePeoplePickerSheet> createState() =>
+      _FavoritePeoplePickerSheetState();
 }
 
-class _FavoritePeoplePickerSheetState extends ConsumerState<FavoritePeoplePickerSheet> {
+class _FavoritePeoplePickerSheetState
+    extends ConsumerState<FavoritePeoplePickerSheet> {
   final _searchController = TextEditingController();
   late List<int> _selectedPersonIds;
 
@@ -327,6 +555,10 @@ class _FavoritePeoplePickerSheetState extends ConsumerState<FavoritePeoplePicker
   void initState() {
     super.initState();
     _selectedPersonIds = List.from(widget.currentPersonIds);
+    // Clear any previous search results
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(personSearchNotifierProvider.notifier).clear();
+    });
   }
 
   @override
@@ -411,7 +643,9 @@ class _FavoritePeoplePickerSheetState extends ConsumerState<FavoritePeoplePicker
               controller: _searchController,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: widget.isActors ? 'Search actors...' : 'Search directors...',
+                hintText: widget.isActors
+                    ? 'Search actors...'
+                    : 'Search directors...',
                 hintStyle: const TextStyle(color: Colors.white30),
                 prefixIcon: const Icon(Icons.search, color: Colors.white30),
                 filled: true,
@@ -420,7 +654,8 @@ class _FavoritePeoplePickerSheetState extends ConsumerState<FavoritePeoplePicker
                   borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               ),
               onChanged: (value) {
                 ref.read(personSearchNotifierProvider.notifier).search(value);
@@ -432,13 +667,15 @@ class _FavoritePeoplePickerSheetState extends ConsumerState<FavoritePeoplePicker
           Expanded(
             child: searchResults.when(
               data: (people) {
-                // Filter by department
+                // Filter by department - be lenient, exclude opposite department
                 final filtered = _searchController.text.isNotEmpty
                     ? people.where((p) {
                         if (widget.isActors) {
-                          return p.knownForDepartment == 'Acting' || p.knownForDepartment == null;
+                          // For actors: show everyone except directors
+                          return p.knownForDepartment != 'Directing';
                         } else {
-                          return p.knownForDepartment == 'Directing' || p.knownForDepartment == null;
+                          // For directors: show everyone except actors
+                          return p.knownForDepartment != 'Acting';
                         }
                       }).toList()
                     : people;
@@ -446,7 +683,9 @@ class _FavoritePeoplePickerSheetState extends ConsumerState<FavoritePeoplePicker
                 if (filtered.isEmpty && _searchController.text.isNotEmpty) {
                   return Center(
                     child: Text(
-                      widget.isActors ? 'No actors found' : 'No directors found',
+                      widget.isActors
+                          ? 'No actors found'
+                          : 'No directors found',
                       style: const TextStyle(color: Colors.white38),
                     ),
                   );
@@ -454,7 +693,9 @@ class _FavoritePeoplePickerSheetState extends ConsumerState<FavoritePeoplePicker
                 if (filtered.isEmpty) {
                   return Center(
                     child: Text(
-                      widget.isActors ? 'Search for an actor' : 'Search for a director',
+                      widget.isActors
+                          ? 'Search for an actor'
+                          : 'Search for a director',
                       style: const TextStyle(color: Colors.white38),
                     ),
                   );
@@ -560,12 +801,11 @@ class _SelectedPersonChip extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final personAsync = ref.watch(peopleByIdsProvider([personId]));
+    final personAsync = ref.watch(personByIdProvider(personId));
 
     return personAsync.when(
-      data: (people) {
-        if (people.isEmpty) return const SizedBox.shrink();
-        final person = people.first;
+      data: (person) {
+        if (person == null) return const SizedBox.shrink();
         return Stack(
           clipBehavior: Clip.none,
           children: [
@@ -590,7 +830,8 @@ class _SelectedPersonChip extends ConsumerWidget {
                       )
                     : Container(
                         color: const Color(0xFF1a1a2e),
-                        child: const Icon(Icons.person, color: Colors.white24, size: 30),
+                        child: const Icon(Icons.person,
+                            color: Colors.white24, size: 30),
                       ),
               ),
             ),
@@ -701,8 +942,11 @@ class _PersonSearchResult extends StatelessWidget {
                   Text(
                     person.name,
                     style: TextStyle(
-                      color: isSelected ? Colors.white : (canSelect ? Colors.white : Colors.white38),
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      color: isSelected
+                          ? Colors.white
+                          : (canSelect ? Colors.white : Colors.white38),
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.normal,
                       fontSize: 14,
                     ),
                     maxLines: 1,
@@ -719,7 +963,8 @@ class _PersonSearchResult extends StatelessWidget {
             if (isSelected)
               Icon(Icons.check_circle, color: accentColor, size: 22)
             else if (canSelect)
-              Icon(Icons.add_circle_outline, color: Colors.white.withOpacity(0.3), size: 22),
+              Icon(Icons.add_circle_outline,
+                  color: Colors.white.withOpacity(0.3), size: 22),
           ],
         ),
       ),

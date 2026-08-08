@@ -15,10 +15,12 @@ import '../providers/feed/feed_provider.dart'
 import '../providers/friendship/friendship_provider.dart';
 import '../providers/user/favorites_provider.dart';
 import 'widgets/activity_detail_sheet.dart';
+import 'widgets/arch_profile_frame.dart';
 import 'profile/recently_watched_section.dart';
 import 'profile/favorite_films_picker.dart';
 import 'profile/favorite_people_picker.dart';
 import 'profile/badge_display.dart';
+import 'profile/top3_films_section.dart';
 
 /// Profile page showing user info, stats, and posts
 /// Can view own profile (userId = null) or another user's profile
@@ -86,164 +88,175 @@ class ProfilePage extends ConsumerWidget {
                 slivers: [
                   // App Bar
                   SliverAppBar(
-                  backgroundColor: Colors.transparent,
-                  expandedHeight: 0,
-                  floating: true,
-                  pinned: false,
-                  leading: !isOwnProfile
-                      ? IconButton(
-                          icon: const Icon(Icons.arrow_back, color: Colors.white),
-                          onPressed: () => context.pop(),
-                        )
-                      : null,
-                  actions: isOwnProfile
-                      ? [
-                          IconButton(
-                            icon: const Icon(Icons.settings, color: Colors.white),
-                            onPressed: () => _showSettingsMenu(context, ref),
-                          ),
-                        ]
-                      : null,
-                ),
+                    backgroundColor: Colors.transparent,
+                    expandedHeight: 0,
+                    floating: true,
+                    pinned: false,
+                    leading: !isOwnProfile
+                        ? IconButton(
+                            icon: const Icon(Icons.arrow_back,
+                                color: Colors.white),
+                            onPressed: () => context.pop(),
+                          )
+                        : null,
+                    actions: isOwnProfile
+                        ? [
+                            IconButton(
+                              icon: const Icon(Icons.settings,
+                                  color: Colors.white),
+                              onPressed: () => _showSettingsMenu(context, ref),
+                            ),
+                          ]
+                        : null,
+                  ),
 
-                // Profile Header
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
+                  // Profile Header with Backdrop
+                  SliverToBoxAdapter(
+                    child: Stack(
+                      alignment: Alignment.topCenter,
                       children: [
-                        const SizedBox(height: 10),
+                        // Full-width backdrop image (temporarily disabled)
+                        // Positioned(
+                        //   top: 0,
+                        //   left: 0,
+                        //   right: 0,
+                        //   child: Image.asset(
+                        //     'assets/images/profbackdrop.png',
+                        //     width: double.infinity,
+                        //     fit: BoxFit.fitWidth,
+                        //   ),
+                        // ),
+                        // Profile content
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 10),
 
-                        // Profile Photo
-                        CircleAvatar(
-                          radius: 50,
-                          backgroundColor: Colors.white24,
-                          backgroundImage: profile.photoUrl != null
-                              ? CachedNetworkImageProvider(profile.photoUrl!)
-                              : null,
-                          child: profile.photoUrl == null
-                              ? const Icon(
-                                  Icons.person,
-                                  size: 50,
-                                  color: Colors.white54,
-                                )
-                              : null,
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Username
-                        Text(
-                          '@${profile.username}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-
-                        // Display name if different
-                        if (profile.displayName != null &&
-                            profile.displayName != profile.username)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              profile.displayName!,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 16,
+                              // Profile Photo with Arch Frame and Username
+                              ArchProfileFrame(
+                                photoUrl: profile.photoUrl,
+                                username: profile.username,
+                                width: 120,
+                                height: 160,
+                                glowColor: const Color(0xFFFFD54F),
                               ),
-                            ),
-                          ),
+                              const SizedBox(height: 8),
 
-                        // Bio
-                        if (profile.bio != null && profile.bio!.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 12),
-                            child: Text(
-                              profile.bio!,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
+                              // Display name if different
+                              if (profile.displayName != null &&
+                                  profile.displayName != profile.username)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    profile.displayName!,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
+
+                              // Bio
+                              if (profile.bio != null &&
+                                  profile.bio!.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 12),
+                                  child: Text(
+                                    profile.bio!,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+
+                              const SizedBox(height: 20),
+
+                              // Stats Row
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  _buildStatColumn(
+                                      profile.reviewCount.toString(),
+                                      'Reviews'),
+                                  const SizedBox(width: 40),
+                                  _buildStatColumn(
+                                      profile.followerCount.toString(),
+                                      'Followers'),
+                                  const SizedBox(width: 40),
+                                  _buildStatColumn(
+                                      profile.followingCount.toString(),
+                                      'Following'),
+                                ],
                               ),
-                              textAlign: TextAlign.center,
-                            ),
+
+                              const SizedBox(height: 20),
+
+                              // Action Button (Edit Profile or Follow/Unfollow)
+                              if (isOwnProfile)
+                                _EditProfileButton()
+                              else
+                                _FollowButton(
+                                    targetUserId: profile.uid,
+                                    targetProfile: profile),
+
+                              const SizedBox(height: 24),
+                            ],
                           ),
-
-                        const SizedBox(height: 20),
-
-                        // Stats Row
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _buildStatColumn(profile.reviewCount.toString(), 'Reviews'),
-                            const SizedBox(width: 40),
-                            _buildStatColumn(profile.followerCount.toString(), 'Followers'),
-                            const SizedBox(width: 40),
-                            _buildStatColumn(profile.followingCount.toString(), 'Following'),
-                          ],
                         ),
-
-                        const SizedBox(height: 20),
-
-                        // Action Button (Edit Profile or Follow/Unfollow)
-                        if (isOwnProfile)
-                          _EditProfileButton()
-                        else
-                          _FollowButton(targetUserId: profile.uid, targetProfile: profile),
-
-                        const SizedBox(height: 24),
                       ],
                     ),
                   ),
-                ),
 
-                // Recently Watched Section
-                SliverToBoxAdapter(
-                  child: RecentlyWatchedSection(
-                    userId: profile.uid,
-                    isOwnProfile: isOwnProfile,
-                    username: profile.username,
+                  // Recently Watched Section
+                  SliverToBoxAdapter(
+                    child: RecentlyWatchedSection(
+                      userId: profile.uid,
+                      isOwnProfile: isOwnProfile,
+                      username: profile.username,
+                    ),
                   ),
-                ),
 
-                // Favorite Films Section
-                SliverToBoxAdapter(
-                  child: FavoriteFilmsSection(
-                    filmIds: profile.favoriteFilmIds,
-                    isOwnProfile: isOwnProfile,
+                  // Top 3 Films Section
+                  SliverToBoxAdapter(
+                    child: Top3FilmsSection(
+                      filmIds: profile.favoriteFilmIds,
+                      isOwnProfile: isOwnProfile,
+                    ),
                   ),
-                ),
 
-                // Favorite Actors Section
-                SliverToBoxAdapter(
-                  child: FavoritePeopleSection(
-                    personIds: profile.favoriteActorIds,
-                    isOwnProfile: isOwnProfile,
-                    title: 'Favorite Actors',
-                    isActors: true,
+                  // Favorite Actors Section
+                  SliverToBoxAdapter(
+                    child: FavoritePeopleSection(
+                      personIds: profile.favoriteActorIds,
+                      isOwnProfile: isOwnProfile,
+                      title: 'Favorite Actors',
+                      isActors: true,
+                    ),
                   ),
-                ),
 
-                // Favorite Directors Section
-                SliverToBoxAdapter(
-                  child: FavoritePeopleSection(
-                    personIds: profile.favoriteDirectorIds,
-                    isOwnProfile: isOwnProfile,
-                    title: 'Favorite Directors',
-                    isActors: false,
+                  // Favorite Directors Section
+                  SliverToBoxAdapter(
+                    child: FavoritePeopleSection(
+                      personIds: profile.favoriteDirectorIds,
+                      isOwnProfile: isOwnProfile,
+                      title: 'Favorite Directors',
+                      isActors: false,
+                    ),
                   ),
-                ),
 
-                // Badges Section
-                SliverToBoxAdapter(
-                  child: BadgeSection(
-                    badgeIds: profile.badgeIds,
-                    isOwnProfile: isOwnProfile,
+                  // Badges Section
+                  SliverToBoxAdapter(
+                    child: BadgeSection(
+                      badgeIds: profile.badgeIds,
+                      isOwnProfile: isOwnProfile,
+                    ),
                   ),
-                ),
 
-                // Activity Section - removed from profile, will be separate page
-                // TODO: Add "View All Activity" button that navigates to activity page
+                  // Activity Section - removed from profile, will be separate page
+                  // TODO: Add "View All Activity" button that navigates to activity page
                 ],
               ),
             );
@@ -288,9 +301,9 @@ class ProfilePage extends ConsumerWidget {
         Text(
           value,
           style: const TextStyle(
+            fontFamily: 'Isometric3D',
             color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+            fontSize: 40,
           ),
         ),
         const SizedBox(height: 4),
@@ -348,7 +361,8 @@ class ProfilePage extends ConsumerWidget {
                     ),
                   );
                   // Trigger sync
-                  final count = await ref.read(syncReviewCountProvider(currentUser.uid).future);
+                  final count = await ref
+                      .read(syncReviewCountProvider(currentUser.uid).future);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -441,13 +455,15 @@ class _FollowButton extends ConsumerWidget {
             isLoading: isLoading,
             isPrimary: true,
             onPressed: () async {
-              await ref.read(friendshipNotifierProvider.notifier).sendFriendRequest(
-                receiverId: targetUserId,
-                senderUsername: currentProfile?.username,
-                senderPhotoUrl: currentProfile?.photoUrl,
-                receiverUsername: targetProfile.username,
-                receiverPhotoUrl: targetProfile.photoUrl,
-              );
+              await ref
+                  .read(friendshipNotifierProvider.notifier)
+                  .sendFriendRequest(
+                    receiverId: targetUserId,
+                    senderUsername: currentProfile?.username,
+                    senderPhotoUrl: currentProfile?.photoUrl,
+                    receiverUsername: targetProfile.username,
+                    receiverPhotoUrl: targetProfile.photoUrl,
+                  );
               // Refresh the status
               ref.invalidate(friendshipStatusProvider(targetUserId));
             },
@@ -466,7 +482,9 @@ class _FollowButton extends ConsumerWidget {
               isPrimary: false,
               onPressed: () async {
                 // Cancel the request
-                await ref.read(friendshipNotifierProvider.notifier).unfriend(targetUserId);
+                await ref
+                    .read(friendshipNotifierProvider.notifier)
+                    .unfriend(targetUserId);
                 ref.invalidate(friendshipStatusProvider(targetUserId));
               },
             );
@@ -481,7 +499,8 @@ class _FollowButton extends ConsumerWidget {
                   isPrimary: true,
                   width: 100,
                   onPressed: () async {
-                    await ref.read(friendshipNotifierProvider.notifier)
+                    await ref
+                        .read(friendshipNotifierProvider.notifier)
                         .acceptFriendRequest(
                           friendship.id,
                           senderId: friendship.senderId,
@@ -502,7 +521,8 @@ class _FollowButton extends ConsumerWidget {
                   isPrimary: false,
                   width: 100,
                   onPressed: () async {
-                    await ref.read(friendshipNotifierProvider.notifier)
+                    await ref
+                        .read(friendshipNotifierProvider.notifier)
                         .declineFriendRequest(friendship.id);
                     ref.invalidate(friendshipStatusProvider(targetUserId));
                   },
@@ -520,7 +540,8 @@ class _FollowButton extends ConsumerWidget {
             isPrimary: false,
             onPressed: () {
               // Show confirmation dialog before unfollowing
-              _showUnfollowDialog(context, ref, targetUserId, targetProfile.username);
+              _showUnfollowDialog(
+                  context, ref, targetUserId, targetProfile.username);
             },
           );
         }
@@ -531,13 +552,15 @@ class _FollowButton extends ConsumerWidget {
           isLoading: isLoading,
           isPrimary: true,
           onPressed: () async {
-            await ref.read(friendshipNotifierProvider.notifier).sendFriendRequest(
-              receiverId: targetUserId,
-              senderUsername: currentProfile?.username,
-              senderPhotoUrl: currentProfile?.photoUrl,
-              receiverUsername: targetProfile.username,
-              receiverPhotoUrl: targetProfile.photoUrl,
-            );
+            await ref
+                .read(friendshipNotifierProvider.notifier)
+                .sendFriendRequest(
+                  receiverId: targetUserId,
+                  senderUsername: currentProfile?.username,
+                  senderPhotoUrl: currentProfile?.photoUrl,
+                  receiverUsername: targetProfile.username,
+                  receiverPhotoUrl: targetProfile.photoUrl,
+                );
             ref.invalidate(friendshipStatusProvider(targetUserId));
           },
         );
@@ -554,12 +577,12 @@ class _FollowButton extends ConsumerWidget {
         isPrimary: true,
         onPressed: () async {
           await ref.read(friendshipNotifierProvider.notifier).sendFriendRequest(
-            receiverId: targetUserId,
-            senderUsername: currentProfile?.username,
-            senderPhotoUrl: currentProfile?.photoUrl,
-            receiverUsername: targetProfile.username,
-            receiverPhotoUrl: targetProfile.photoUrl,
-          );
+                receiverId: targetUserId,
+                senderUsername: currentProfile?.username,
+                senderPhotoUrl: currentProfile?.photoUrl,
+                receiverUsername: targetProfile.username,
+                receiverPhotoUrl: targetProfile.photoUrl,
+              );
           ref.invalidate(friendshipStatusProvider(targetUserId));
         },
       ),
@@ -629,7 +652,8 @@ class _FollowButton extends ConsumerWidget {
     );
   }
 
-  void _showUnfollowDialog(BuildContext context, WidgetRef ref, String userId, String username) {
+  void _showUnfollowDialog(
+      BuildContext context, WidgetRef ref, String userId, String username) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -650,7 +674,9 @@ class _FollowButton extends ConsumerWidget {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              await ref.read(friendshipNotifierProvider.notifier).unfriend(userId);
+              await ref
+                  .read(friendshipNotifierProvider.notifier)
+                  .unfriend(userId);
               ref.invalidate(friendshipStatusProvider(userId));
               ref.invalidate(currentUserProfileProvider);
               ref.invalidate(userProfileProvider(userId));
@@ -766,7 +792,8 @@ class _PostGridItem extends ConsumerWidget {
             builder: (sheetContext) => ActivityDetailSheet(activity: activity),
           );
         } else {
-          final mediaType = activity.mediaType.isNotEmpty ? activity.mediaType : 'movie';
+          final mediaType =
+              activity.mediaType.isNotEmpty ? activity.mediaType : 'movie';
           context.push('/film/${activity.filmId}/$mediaType', extra: activity);
         }
       },
@@ -776,7 +803,8 @@ class _PostGridItem extends ConsumerWidget {
           // Poster Image
           if (activity.filmPosterPath != null)
             CachedNetworkImage(
-              imageUrl: 'https://image.tmdb.org/t/p/w300${activity.filmPosterPath}',
+              imageUrl:
+                  'https://image.tmdb.org/t/p/w300${activity.filmPosterPath}',
               fit: BoxFit.cover,
               placeholder: (context, url) => Container(
                 color: Colors.grey[900],
