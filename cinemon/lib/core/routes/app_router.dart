@@ -7,6 +7,7 @@ import '../../screens/auth/login_screen.dart';
 import '../../screens/auth/signup_screen.dart';
 import '../../screens/auth/profile_setup_screen.dart';
 import '../../screens/homefeed.dart';
+import '../../screens/shell/glass_shell.dart';
 import '../../screens/post.dart' show MovieSearchPage;
 import '../../screens/create_post_screen.dart';
 import '../../screens/profile.dart';
@@ -24,6 +25,9 @@ final goRouterProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     initialLocation: '/',
+    // Lets the glass shell unmount its platform view whenever a route or a
+    // modal sheet covers it — see shellRouteObserver.
+    observers: [shellRouteObserver],
     redirect: (context, state) async {
       final location = state.matchedLocation;
 
@@ -88,25 +92,41 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         name: 'profile-setup',
         builder: (context, state) => const ProfileSetupScreen(),
       ),
-      GoRoute(
-        path: '/home',
-        name: 'home',
-        builder: (context, state) => const HomeFeedPage(),
-      ),
-      GoRoute(
-        path: '/search',
-        name: 'search',
-        builder: (context, state) => const MovieSearchPage(),
-      ),
-      GoRoute(
-        path: '/create',
-        name: 'create',
-        builder: (context, state) => const CreatePostScreen(),
-      ),
-      GoRoute(
-        path: '/profile',
-        name: 'profile',
-        builder: (context, state) => const ProfilePage(),
+      // The four tabs live in a shell so the glass bar persists across
+      // switches and each branch keeps its own stack and scroll position.
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            GlassShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/home',
+              name: 'home',
+              builder: (context, state) => const HomeFeedPage(),
+            ),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/search',
+              name: 'search',
+              builder: (context, state) => const MovieSearchPage(),
+            ),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/create',
+              name: 'create',
+              builder: (context, state) => const CreatePostScreen(),
+            ),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/profile',
+              name: 'profile',
+              builder: (context, state) => const ProfilePage(),
+            ),
+          ]),
+        ],
       ),
       GoRoute(
         path: '/profile/:userId',

@@ -1,10 +1,14 @@
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import '../core/constants/api_constants.dart';
+import '../core/theme/app_theme.dart';
+import 'shell/glass_shell.dart' show kFloatingTabBarInset;
 import '../models/activity_model.dart';
 import '../models/sticker_model.dart';
 import '../providers/auth/auth_provider.dart';
@@ -12,6 +16,7 @@ import '../providers/feed/feed_provider.dart';
 import '../providers/notification/notification_provider.dart';
 import 'widgets/activity_detail_sheet.dart';
 import 'widgets/comments_sheet.dart';
+
 import 'widgets/sticker_picker_sheet.dart';
 import 'widgets/reactions_preview.dart' show showReactionsBreakdown;
 
@@ -54,51 +59,57 @@ class _HomeFeedPageState extends ConsumerState<HomeFeedPage> {
     final unreadCount = ref.watch(unreadNotificationCountProvider);
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
+      // extendBody so the feed runs under the shell's floating tab bar, which
+      // is what the glass refracts. Deliberately NOT extendBodyBehindAppBar:
+      // this page now sits inside GlassShell's Scaffold, which has already
+      // consumed the status-bar inset, so letting the body run behind the app
+      // bar as well made the card's manual top inset double-count and pushed
+      // it to the bottom of the screen.
+      extendBody: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        elevation: 0,
+        flexibleSpace: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+            child: Container(color: Colors.white.withValues(alpha: 0.05)),
+          ),
+        ),
         leading: IconButton(
-          icon: const Icon(Icons.people),
+          icon: const Icon(CupertinoIcons.person_2),
           onPressed: () => context.push('/friends'),
           tooltip: 'Friends',
         ),
-        title: const Text(
-          '35mm',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 24,
-          ),
-        ),
+        title: const _Wordmark(),
         actions: [
           Stack(
+            alignment: Alignment.topRight,
             children: [
               IconButton(
-                icon: const Icon(Icons.favorite_border),
+                icon: const Icon(CupertinoIcons.heart),
                 onPressed: () => context.push('/notifications'),
                 tooltip: 'Activity',
               ),
               unreadCount.when(
                 data: (count) => count > 0
                     ? Positioned(
-                        right: 8,
-                        top: 8,
+                        right: 4,
+                        top: 6,
                         child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: Colors.red,
-                            shape: BoxShape.circle,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1,
                           ),
-                          constraints: const BoxConstraints(
-                            minWidth: 16,
-                            minHeight: 16,
+                          decoration: BoxDecoration(
+                            color: AppColors.destructive,
+                            borderRadius:
+                                BorderRadius.circular(AppRadius.pill),
                           ),
+                          constraints: const BoxConstraints(minWidth: 17),
                           child: Text(
                             count > 99 ? '99+' : '$count',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
+                            style: AppText.footnote.copyWith(
+                              color: AppColors.ink,
+                              fontWeight: FontWeight.w600,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -112,17 +123,7 @@ class _HomeFeedPageState extends ConsumerState<HomeFeedPage> {
           ),
         ],
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.black,
-              Color.fromARGB(255, 3, 1, 32),
-            ],
-          ),
-        ),
+      body: SizedBox.expand(
         child: feedAsync.when(
           loading: () => const _LoadingShimmer(),
           error: (error, _) => _ErrorView(
@@ -136,8 +137,8 @@ class _HomeFeedPageState extends ConsumerState<HomeFeedPage> {
                   ref.invalidate(homeFeedProvider);
                   await Future.delayed(const Duration(milliseconds: 500));
                 },
-                color: Colors.white,
-                backgroundColor: const Color.fromARGB(255, 30, 30, 50),
+                color: AppColors.accent,
+                backgroundColor: AppColors.surface,
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   child: SizedBox(
@@ -156,8 +157,8 @@ class _HomeFeedPageState extends ConsumerState<HomeFeedPage> {
                 // Wait a bit for the refresh to complete
                 await Future.delayed(const Duration(milliseconds: 500));
               },
-              color: Colors.white,
-              backgroundColor: const Color.fromARGB(255, 30, 30, 50),
+              color: AppColors.accent,
+              backgroundColor: AppColors.surface,
               child: PageView.builder(
                 controller: _pageController,
                 scrollDirection: Axis.vertical,
@@ -172,40 +173,6 @@ class _HomeFeedPageState extends ConsumerState<HomeFeedPage> {
             );
           },
         ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: const Color.fromARGB(255, 3, 1, 32),
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
-        currentIndex: 0,
-        onTap: (index) {
-          if (index == 1) {
-            context.push('/search');
-          } else if (index == 2) {
-            context.push('/create');
-          } else if (index == 3) {
-            context.push('/profile');
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.search),
-            label: 'Search',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add_circle_outline),
-            label: 'Create',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
       ),
     );
   }
@@ -289,10 +256,20 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
     final currentUser = ref.watch(currentUserProvider);
     final isOwnActivity = currentUser?.uid == widget.activity.userId;
 
-    return Center(
+    return Padding(
+      // Both chrome layers float over the feed, so the page is full-height.
+      // Insetting here keeps the card centred in the *visible* band without
+      // shrinking the page — posters still slide under the glass on scroll.
+      // Only the bottom needs insetting now — the Scaffold lays the body out
+      // below the app bar, so the top is already accounted for.
+      padding: const EdgeInsets.only(bottom: kFloatingTabBarInset),
+      child: Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
+        // max, not min: the card below is Flexible, so the Column needs the
+        // full band to hand it. The header and actions keep their natural
+        // size and stay crisp — only the artwork scales.
+        mainAxisSize: MainAxisSize.max,
         children: [
           // User info row - tap to view profile
           GestureDetector(
@@ -344,8 +321,15 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
           ),
           const SizedBox(height: 16),
 
-          // Flip card
-          GestureDetector(
+          // Flip card. Wrapped in Flexible + FittedBox so a short screen
+          // scales the poster down rather than overflowing: the card's
+          // internals (and the sticker spill offsets) are built against fixed
+          // 300x440 metrics, so scaling the whole thing keeps that geometry
+          // intact where recomputing it would not.
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.contain,
+              child: GestureDetector(
             onTap: _onCardTap,
             child: AnimatedBuilder(
               animation: _flipAnimation,
@@ -367,6 +351,8 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
                         ),
                 );
               },
+            ),
+              ),
             ),
           ),
 
@@ -392,12 +378,13 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
                         ? 'Tap to see review'
                         : 'Tap to view',
                 style: TextStyle(
-                  color: Colors.grey[600],
+                  color: AppColors.inkTertiary,
                   fontSize: 11,
                 ),
               ),
             ),
         ],
+      ),
       ),
     );
   }
@@ -628,22 +615,12 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
       width: 280,
       height: 420,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color.fromARGB(255, 30, 30, 50),
-            Color.fromARGB(255, 15, 15, 30),
-          ],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.4),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        // Flat neutral grey, not a purple gradient. A card sitting on true
+        // black needs a hairline to read as a separate surface — the gradient
+        // was doing that job with colour, which is what made it look cheap.
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.separator, width: 0.5),
       ),
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -654,7 +631,7 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
             Text(
               widget.activity.filmTitle,
               style: const TextStyle(
-                color: Colors.white,
+                color: AppColors.ink,
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
@@ -667,7 +644,7 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
               Text(
                 widget.activity.filmYear!,
                 style: TextStyle(
-                  color: Colors.grey[400],
+                  color: AppColors.inkSecondary,
                   fontSize: 14,
                 ),
               ),
@@ -687,7 +664,7 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
                   child: Text(
                     widget.activity.reviewText!,
                     style: TextStyle(
-                      color: Colors.grey[300],
+                      color: AppColors.ink,
                       fontSize: 14,
                       height: 1.5,
                     ),
@@ -701,7 +678,7 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
                   child: Text(
                     '${widget.activity.username} watched this',
                     style: TextStyle(
-                      color: Colors.grey[400],
+                      color: AppColors.inkSecondary,
                       fontSize: 14,
                       fontStyle: FontStyle.italic,
                     ),
@@ -717,8 +694,8 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
                 child: ElevatedButton(
                   onPressed: _navigateToFilmDetail,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
+                    backgroundColor: AppColors.accent,
+                    foregroundColor: AppColors.canvas,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(25),
                     ),
@@ -742,7 +719,7 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
               padding: const EdgeInsets.symmetric(vertical: 8),
               decoration: BoxDecoration(
                 border: Border(
-                  top: BorderSide(color: Colors.white.withOpacity(0.1)),
+                  top: BorderSide(color: AppColors.separator, width: 0.5),
                 ),
               ),
               child: Row(
@@ -1095,6 +1072,23 @@ class _ErrorView extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The 35mm wordmark.
+///
+/// San Francisco Display at nav-bar weight. The old version was 24px bold
+/// Roboto, which is why it read as 2014 Android — the fix is the typeface,
+/// not decoration around it.
+class _Wordmark extends StatelessWidget {
+  const _Wordmark();
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      '35mm',
+      style: AppText.title.copyWith(fontSize: 20),
     );
   }
 }
