@@ -94,32 +94,36 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       // The four tabs live in a shell so the glass bar persists across
       // switches and each branch keeps its own stack and scroll position.
+      //
+      // Every branch carries branchDepthObserver: modal sheets open on the
+      // branch's own navigator, not the root, so this is the only place the
+      // shell can hear about them.
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             GlassShell(navigationShell: navigationShell),
         branches: [
-          StatefulShellBranch(routes: [
+          StatefulShellBranch(observers: [branchDepthObserver()], routes: [
             GoRoute(
               path: '/home',
               name: 'home',
               builder: (context, state) => const HomeFeedPage(),
             ),
           ]),
-          StatefulShellBranch(routes: [
+          StatefulShellBranch(observers: [branchDepthObserver()], routes: [
             GoRoute(
               path: '/search',
               name: 'search',
               builder: (context, state) => const MovieSearchPage(),
             ),
           ]),
-          StatefulShellBranch(routes: [
+          StatefulShellBranch(observers: [branchDepthObserver()], routes: [
             GoRoute(
               path: '/create',
               name: 'create',
               builder: (context, state) => const CreatePostScreen(),
             ),
           ]),
-          StatefulShellBranch(routes: [
+          StatefulShellBranch(observers: [branchDepthObserver()], routes: [
             GoRoute(
               path: '/profile',
               name: 'profile',
