@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui' show ImageFilter;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
@@ -8,7 +7,9 @@ import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import '../core/constants/api_constants.dart';
 import '../core/theme/app_theme.dart';
-import 'shell/glass_shell.dart' show kFloatingTabBarInset;
+import 'shell/glass_shell.dart'
+    show kFloatingTabBarInset, kFloatingHeaderInset, shellChromeVisible;
+import 'widgets/native_glass_button.dart';
 import '../models/activity_model.dart';
 import '../models/sticker_model.dart';
 import '../providers/auth/auth_provider.dart';
@@ -59,120 +60,158 @@ class _HomeFeedPageState extends ConsumerState<HomeFeedPage> {
     final unreadCount = ref.watch(unreadNotificationCountProvider);
 
     return Scaffold(
-      // extendBody so the feed runs under the shell's floating tab bar, which
-      // is what the glass refracts. Deliberately NOT extendBodyBehindAppBar:
-      // this page now sits inside GlassShell's Scaffold, which has already
-      // consumed the status-bar inset, so letting the body run behind the app
-      // bar as well made the card's manual top inset double-count and pushed
-      // it to the bottom of the screen.
+      // No app bar at all. The feed is edge-to-edge artwork, and a bar — even
+      // a blurred one — is a horizontal rule across the top of it. The two
+      // actions it held now float over the content as glass, so the poster
+      // runs the full height of the screen and refracts under them.
+      //
+      // extendBody so the feed also runs under the shell's floating tab bar.
       extendBody: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        flexibleSpace: ClipRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-            child: Container(color: Colors.white.withValues(alpha: 0.05)),
-          ),
-        ),
-        leading: IconButton(
-          icon: const Icon(CupertinoIcons.person_2),
-          onPressed: () => context.push('/friends'),
-          tooltip: 'Friends',
-        ),
-        title: const _Wordmark(),
-        actions: [
-          Stack(
-            alignment: Alignment.topRight,
-            children: [
-              IconButton(
-                icon: const Icon(CupertinoIcons.heart),
-                onPressed: () => context.push('/notifications'),
-                tooltip: 'Activity',
+      body: Stack(
+        children: [
+          SizedBox.expand(
+            child: feedAsync.when(
+              loading: () => const _LoadingShimmer(),
+              error: (error, _) => _ErrorView(
+                error: error.toString(),
+                onRetry: () => ref.refresh(homeFeedProvider),
               ),
-              unreadCount.when(
-                data: (count) => count > 0
-                    ? Positioned(
-                        right: 4,
-                        top: 6,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.destructive,
-                            borderRadius:
-                                BorderRadius.circular(AppRadius.pill),
-                          ),
-                          constraints: const BoxConstraints(minWidth: 17),
-                          child: Text(
-                            count > 99 ? '99+' : '$count',
-                            style: AppText.footnote.copyWith(
-                              color: AppColors.ink,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
+              data: (activities) {
+                if (activities.isEmpty) {
+                  return RefreshIndicator(
+                    onRefresh: () async {
+                      ref.invalidate(homeFeedProvider);
+                      await Future.delayed(const Duration(milliseconds: 500));
+                    },
+                    color: AppColors.accent,
+                    backgroundColor: AppColors.surface,
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: SizedBox(
+                        height: MediaQuery.of(context).size.height - 150,
+                        child: _EmptyFeedView(
+                          onRefresh: () => ref.refresh(homeFeedProvider),
                         ),
-                      )
-                    : const SizedBox.shrink(),
-                loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
-              ),
-            ],
+                      ),
+                    ),
+                  );
+                }
+
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    ref.invalidate(homeFeedProvider);
+                    // Wait a bit for the refresh to complete
+                    await Future.delayed(const Duration(milliseconds: 500));
+                  },
+                  color: AppColors.accent,
+                  backgroundColor: AppColors.surface,
+                  child: PageView.builder(
+                    controller: _pageController,
+                    scrollDirection: Axis.vertical,
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
+                    itemCount: activities.length,
+                    itemBuilder: (context, index) {
+                      return _ActivityCard(activity: activities[index]);
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+
+          // Floating actions, where the app bar used to be.
+          //
+          // Gated on shellChromeVisible for the same reason the tab bar is:
+          // these are platform views, so they composite above every Flutter
+          // layer and would otherwise float over sheets and pushed screens.
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 4,
+            left: AppSpace.lg,
+            right: AppSpace.lg,
+            child: ValueListenableBuilder<bool>(
+              valueListenable: shellChromeVisible,
+              builder: (context, visible, _) {
+                if (!visible) return const SizedBox.shrink();
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    NativeGlassButton(
+                      symbol: 'person.2',
+                      label: 'Friends',
+                      fallbackIcon: CupertinoIcons.person_2,
+                      onTap: () => context.push('/friends'),
+                    ),
+                    NativeGlassButton(
+                      symbol: 'heart',
+                      label: 'Activity',
+                      fallbackIcon: CupertinoIcons.heart,
+                      badge: unreadCount.valueOrNull ?? 0,
+                      onTap: () => context.push('/notifications'),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         ],
       ),
-      body: SizedBox.expand(
-        child: feedAsync.when(
-          loading: () => const _LoadingShimmer(),
-          error: (error, _) => _ErrorView(
-            error: error.toString(),
-            onRetry: () => ref.refresh(homeFeedProvider),
-          ),
-          data: (activities) {
-            if (activities.isEmpty) {
-              return RefreshIndicator(
-                onRefresh: () async {
-                  ref.invalidate(homeFeedProvider);
-                  await Future.delayed(const Duration(milliseconds: 500));
-                },
-                color: AppColors.accent,
-                backgroundColor: AppColors.surface,
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: SizedBox(
-                    height: MediaQuery.of(context).size.height - 150,
-                    child: _EmptyFeedView(
-                      onRefresh: () => ref.refresh(homeFeedProvider),
-                    ),
-                  ),
-                ),
-              );
-            }
+    );
+  }
+}
 
-            return RefreshIndicator(
-              onRefresh: () async {
-                ref.invalidate(homeFeedProvider);
-                // Wait a bit for the refresh to complete
-                await Future.delayed(const Duration(milliseconds: 500));
-              },
-              color: AppColors.accent,
-              backgroundColor: AppColors.surface,
-              child: PageView.builder(
-                controller: _pageController,
-                scrollDirection: Axis.vertical,
-                physics: const AlwaysScrollableScrollPhysics(
-                  parent: BouncingScrollPhysics(),
-                ),
-                itemCount: activities.length,
-                itemBuilder: (context, index) {
-                  return _ActivityCard(activity: activities[index]);
-                },
-              ),
-            );
-          },
-        ),
+/// The flip card's intrinsic size. Everything inside it, including where the
+/// stickers spill past the poster, is positioned against these.
+const double _kCardWidth = 300;
+const double _kCardHeight = 440;
+
+/// Height each gutter reserves: the author block plus its gap to the card.
+/// The footer is shorter, but both gutters are equal by construction, so the
+/// taller of the two is what has to fit.
+const double _kHeaderBlock = 88;
+
+/// Who posted it: avatar over @username, centred above the card.
+///
+/// This replaced a left-aligned row that also carried "reviewed <film>". The
+/// film title is already the largest thing on the poster directly below, so
+/// the line was restating it — and pinning the block to the left edge of a
+/// centred card left it visibly off-axis.
+class _PostAuthor extends StatelessWidget {
+  const _PostAuthor({required this.activity});
+
+  final ActivityModel activity;
+
+  @override
+  Widget build(BuildContext context) {
+    final photo = activity.userPhotoUrl;
+
+    return GestureDetector(
+      onTap: () => context.push('/profile/${activity.userId}'),
+      // Opaque so the gap between avatar and name is tappable too, rather than
+      // the two reading as separate targets.
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircleAvatar(
+            radius: 22,
+            backgroundColor: AppColors.surfaceElevated,
+            backgroundImage:
+                photo != null ? CachedNetworkImageProvider(photo) : null,
+            child: photo == null
+                ? const Icon(CupertinoIcons.person_fill,
+                    color: AppColors.inkTertiary, size: 22)
+                : null,
+          ),
+          const SizedBox(height: AppSpace.sm),
+          Text(
+            '@${activity.username}',
+            style: AppText.label.copyWith(color: AppColors.ink),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }
@@ -260,131 +299,115 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
       // Both chrome layers float over the feed, so the page is full-height.
       // Insetting here keeps the card centred in the *visible* band without
       // shrinking the page — posters still slide under the glass on scroll.
-      // Only the bottom needs insetting now — the Scaffold lays the body out
-      // below the app bar, so the top is already accounted for.
-      padding: const EdgeInsets.only(bottom: kFloatingTabBarInset),
-      child: Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        // max, not min: the card below is Flexible, so the Column needs the
-        // full band to hand it. The header and actions keep their natural
-        // size and stay crisp — only the artwork scales.
-        mainAxisSize: MainAxisSize.max,
-        children: [
-          // User info row - tap to view profile
-          GestureDetector(
-            onTap: () => context.push('/profile/${widget.activity.userId}'),
-            child: SizedBox(
-              width: 280,
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: Colors.grey[800],
-                    backgroundImage: widget.activity.userPhotoUrl != null
-                        ? CachedNetworkImageProvider(widget.activity.userPhotoUrl!)
-                        : null,
-                    child: widget.activity.userPhotoUrl == null
-                        ? const Icon(Icons.person, color: Colors.white54, size: 20)
-                        : null,
+      //
+      // Both edges take the safe-area inset as well as the chrome height. The
+      // bottom used to be a flat 78, which ignored the home indicator and so
+      // let the band run ~18pt under the tab bar — half of which the card was
+      // sitting low by.
+      padding: EdgeInsets.only(
+        top: MediaQuery.of(context).padding.top + kFloatingHeaderInset,
+        bottom: MediaQuery.of(context).padding.bottom + kFloatingTabBarInset,
+      ),
+      // Two equal Expanded gutters with the card between them is what actually
+      // centres it. The previous `mainAxisAlignment: center` could not: the
+      // card was Flexible, so it absorbed every spare pixel and there was no
+      // slack left for the alignment to distribute. What you got instead was
+      // the card centred in the gap *between* the header and footer blocks —
+      // and since those aren't the same height, it sat low by half their
+      // difference.
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Room the gutters must never give up, so neither block is clipped
+          // on a short screen. Both sides reserve the larger of the two, since
+          // the gutters are equal by construction.
+          const reserve = _kHeaderBlock * 2;
+          final cardHeight =
+              math.min(_kCardHeight, constraints.maxHeight - reserve);
+
+          return Column(
+            children: [
+              Expanded(
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpace.lg),
+                    child: _PostAuthor(activity: widget.activity),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
+                ),
+              ),
+
+              // The flip card, scaled rather than reflowed. Its internals — and
+              // the sticker spill offsets — are built against fixed 300x440
+              // metrics, so scaling the whole thing keeps that geometry intact
+              // where recomputing it would not.
+              SizedBox(
+                height: cardHeight,
+                width: _kCardWidth * (cardHeight / _kCardHeight),
+                child: FittedBox(
+                  fit: BoxFit.contain,
+                  child: GestureDetector(
+                    onTap: _onCardTap,
+                    child: AnimatedBuilder(
+                      animation: _flipAnimation,
+                      builder: (context, child) {
+                        final angle = _flipAnimation.value * math.pi;
+                        final transform = Matrix4.identity()
+                          ..setEntry(3, 2, 0.001)
+                          ..rotateY(angle);
+
+                        return Transform(
+                          alignment: Alignment.center,
+                          transform: transform,
+                          child: angle < math.pi / 2
+                              ? _buildFrontCard()
+                              : Transform(
+                                  alignment: Alignment.center,
+                                  transform: Matrix4.identity()
+                                    ..rotateY(math.pi),
+                                  child: _buildBackCard(),
+                                ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+
+              Expanded(
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: AppSpace.md),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          widget.activity.username,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15,
-                          ),
+                          widget.activity.relativeTime,
+                          style: AppText.caption
+                              .copyWith(color: AppColors.inkSecondary),
                         ),
-                        Text(
-                          widget.activity.activityType == ActivityType.reviewed
-                              ? 'reviewed ${widget.activity.filmTitle}'
-                              : 'watched ${widget.activity.filmTitle}',
-                          style: TextStyle(
-                            color: Colors.grey[400],
-                            fontSize: 12,
+                        if (!_showBack)
+                          Padding(
+                            padding: const EdgeInsets.only(top: AppSpace.sm),
+                            child: Text(
+                              isOwnActivity
+                                  ? 'Tap to edit'
+                                  : (widget.activity.hasRating ||
+                                          widget.activity.hasReview)
+                                      ? 'Tap to see review'
+                                      : 'Tap to view',
+                              style: AppText.footnote
+                                  .copyWith(color: AppColors.inkTertiary),
+                            ),
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
                       ],
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Flip card. Wrapped in Flexible + FittedBox so a short screen
-          // scales the poster down rather than overflowing: the card's
-          // internals (and the sticker spill offsets) are built against fixed
-          // 300x440 metrics, so scaling the whole thing keeps that geometry
-          // intact where recomputing it would not.
-          Flexible(
-            child: FittedBox(
-              fit: BoxFit.contain,
-              child: GestureDetector(
-            onTap: _onCardTap,
-            child: AnimatedBuilder(
-              animation: _flipAnimation,
-              builder: (context, child) {
-                final angle = _flipAnimation.value * math.pi;
-                final transform = Matrix4.identity()
-                  ..setEntry(3, 2, 0.001)
-                  ..rotateY(angle);
-
-                return Transform(
-                  alignment: Alignment.center,
-                  transform: transform,
-                  child: angle < math.pi / 2
-                      ? _buildFrontCard()
-                      : Transform(
-                          alignment: Alignment.center,
-                          transform: Matrix4.identity()..rotateY(math.pi),
-                          child: _buildBackCard(),
-                        ),
-                );
-              },
-            ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Timestamp
-          Text(
-            widget.activity.relativeTime,
-            style: TextStyle(
-              color: Colors.grey[500],
-              fontSize: 12,
-            ),
-          ),
-
-          // Tap hint
-          if (!_showBack)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                isOwnActivity
-                    ? 'Tap to edit'
-                    : (widget.activity.hasRating || widget.activity.hasReview)
-                        ? 'Tap to see review'
-                        : 'Tap to view',
-                style: TextStyle(
-                  color: AppColors.inkTertiary,
-                  fontSize: 11,
                 ),
               ),
-            ),
-        ],
-      ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -432,8 +455,10 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
                           ? CachedNetworkImage(
                               imageUrl: posterUrl,
                               fit: BoxFit.cover,
-                              placeholder: (context, url) => _buildPosterPlaceholder(),
-                              errorWidget: (context, url, error) => _buildPosterPlaceholder(),
+                              placeholder: (context, url) =>
+                                  _buildPosterPlaceholder(),
+                              errorWidget: (context, url, error) =>
+                                  _buildPosterPlaceholder(),
                             )
                           : _buildPosterPlaceholder(),
                     ),
@@ -446,7 +471,8 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
                         child: GestureDetector(
                           onTap: _showComments,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
                               color: Colors.black.withOpacity(0.6),
                               borderRadius: BorderRadius.circular(14),
@@ -486,7 +512,8 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
     );
   }
 
-  List<Widget> _buildScatteredStickers(List<String> uniqueStickers, List<String> allStickers) {
+  List<Widget> _buildScatteredStickers(
+      List<String> uniqueStickers, List<String> allStickers) {
     if (uniqueStickers.isEmpty) return [];
 
     final widgets = <Widget>[];
@@ -559,7 +586,8 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
                       right: -4,
                       bottom: -4,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 4),
                         decoration: BoxDecoration(
                           color: Colors.black.withOpacity(0.8),
                           borderRadius: BorderRadius.circular(10),
@@ -606,7 +634,8 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
   Widget _buildBackCard() {
     final currentUser = ref.watch(currentUserProvider);
     final isOwnActivity = currentUser?.uid == widget.activity.userId;
-    final isLiked = currentUser != null && widget.activity.isLikedBy(currentUser.uid);
+    final isLiked =
+        currentUser != null && widget.activity.isLikedBy(currentUser.uid);
     final userReaction = currentUser != null
         ? widget.activity.getReactionFrom(currentUser.uid)
         : null;
@@ -731,7 +760,8 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
                         ? null
                         : Icons.add_reaction_outlined,
                     stickerAsset: userReaction != null
-                        ? StickerRegistry.getStickerById(userReaction)?.assetPath
+                        ? StickerRegistry.getStickerById(userReaction)
+                            ?.assetPath
                         : null,
                     label: 'React',
                     count: widget.activity.reactionCount,
@@ -761,9 +791,9 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
                     activeColor: Colors.red,
                     onTap: () {
                       ref.read(likeNotifierProvider.notifier).toggleLike(
-                        widget.activity.id,
-                        isLiked,
-                      );
+                            widget.activity.id,
+                            isLiked,
+                          );
                     },
                   ),
                 ],
@@ -842,9 +872,7 @@ class _InteractionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isActive
-        ? (activeColor ?? Colors.white)
-        : Colors.grey[400];
+    final color = isActive ? (activeColor ?? Colors.white) : Colors.grey[400];
 
     return GestureDetector(
       onTap: onTap,
@@ -1072,23 +1100,6 @@ class _ErrorView extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// The 35mm wordmark.
-///
-/// San Francisco Display at nav-bar weight. The old version was 24px bold
-/// Roboto, which is why it read as 2014 Android — the fix is the typeface,
-/// not decoration around it.
-class _Wordmark extends StatelessWidget {
-  const _Wordmark();
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      '35mm',
-      style: AppText.title.copyWith(fontSize: 20),
     );
   }
 }

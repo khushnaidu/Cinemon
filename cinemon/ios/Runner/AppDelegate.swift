@@ -14,6 +14,10 @@ import Flutter
         LiquidGlassTabBarFactory(messenger: controller.binaryMessenger),
         withId: "cinemon/liquid_glass_tab_bar"
       )
+      registrar(forPlugin: "LiquidGlassButton")?.register(
+        LiquidGlassButtonFactory(messenger: controller.binaryMessenger),
+        withId: "cinemon/liquid_glass_button"
+      )
     }
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
