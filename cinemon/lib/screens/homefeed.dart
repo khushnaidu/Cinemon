@@ -166,10 +166,21 @@ class _HomeFeedPageState extends ConsumerState<HomeFeedPage> {
 const double _kCardWidth = 300;
 const double _kCardHeight = 440;
 
-/// Height each gutter reserves: the author block plus its gap to the card.
-/// The footer is shorter, but both gutters are equal by construction, so the
-/// taller of the two is what has to fit.
-const double _kHeaderBlock = 88;
+/// Height of the author row — avatar diameter, which the name is capped to.
+const double _kAuthorHeight = 60;
+
+/// How far the author row sits above the card's top edge: its own height plus
+/// the gap to the poster.
+///
+/// This is the number that decides how big the poster can be, and it costs
+/// double: the card is only centred if the gutters match, so both reserve it.
+/// Stacking the avatar over the name made this 132, which took 264 out of a
+/// ~640pt band and pulled the card down to ~377. On one line it's 72, and the
+/// card keeps its full 440.
+const double _kAuthorRise = _kAuthorHeight + 12;
+
+/// The timestamp and tap hint below the card, plus their gap to it.
+const double _kFooterBlock = 52;
 
 /// Who posted it: avatar over @username, centred above the card.
 ///
@@ -191,27 +202,75 @@ class _PostAuthor extends StatelessWidget {
       // Opaque so the gap between avatar and name is tappable too, rather than
       // the two reading as separate targets.
       behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: AppColors.surfaceElevated,
-            backgroundImage:
-                photo != null ? CachedNetworkImageProvider(photo) : null,
-            child: photo == null
-                ? const Icon(CupertinoIcons.person_fill,
-                    color: AppColors.inkTertiary, size: 22)
-                : null,
-          ),
-          const SizedBox(height: AppSpace.sm),
-          Text(
-            '@${activity.username}',
-            style: AppText.label.copyWith(color: AppColors.ink),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+      child: SizedBox(
+        height: _kAuthorHeight,
+        child: Row(
+          // Centred explicitly, not via mainAxisSize.min: the Positioned above
+          // pins left and right, so the Row's width is already tight and min
+          // has nothing to shrink to. Without this the pair sits left.
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            CircleAvatar(
+              radius: _kAuthorHeight / 2,
+              backgroundColor: AppColors.surfaceElevated,
+              backgroundImage:
+                  photo != null ? CachedNetworkImageProvider(photo) : null,
+              child: photo == null
+                  ? const Icon(CupertinoIcons.person_fill,
+                      color: AppColors.inkTertiary, size: 30)
+                  : null,
+            ),
+            const SizedBox(width: AppSpace.md),
+
+            // Siberian, the same display face the profile page sets usernames
+            // in — so a name reads as the same object in both places. The "@"
+            // is separate: it's punctuation, not part of the name, and a
+            // decorative face has no reason to carry a glyph for it.
+            //
+            // scaleDown inside a box the avatar's height is what actually
+            // holds the two to a common height: Siberian's line box doesn't
+            // track fontSize the way a text face does, so picking a size by
+            // eye would only match on the names I happened to test. A long
+            // name shrinks to fit the width instead of ellipsing — losing
+            // letters off a username is worse than losing a few points.
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: '@',
+                        style: AppText.title.copyWith(
+                          color: AppColors.inkSecondary,
+                        ),
+                      ),
+                      TextSpan(
+                        text: activity.username,
+                        style: const TextStyle(
+                          fontFamily: 'Siberian',
+                          fontSize: 46,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                    ],
+                  ),
+                  maxLines: 1,
+                  // Load-bearing, not decoration: this sits directly above the
+                  // poster and posters are frequently pale up there.
+                  style: const TextStyle(
+                    shadows: [
+                      Shadow(color: Colors.black87, blurRadius: 12),
+                      Shadow(color: Colors.black45, blurRadius: 3),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -320,21 +379,13 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
           // Room the gutters must never give up, so neither block is clipped
           // on a short screen. Both sides reserve the larger of the two, since
           // the gutters are equal by construction.
-          const reserve = _kHeaderBlock * 2;
+          final reserve = math.max(_kAuthorRise, _kFooterBlock) * 2;
           final cardHeight =
               math.min(_kCardHeight, constraints.maxHeight - reserve);
 
           return Column(
             children: [
-              Expanded(
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpace.lg),
-                    child: _PostAuthor(activity: widget.activity),
-                  ),
-                ),
-              ),
+              const Expanded(child: SizedBox.shrink()),
 
               // The flip card, scaled rather than reflowed. Its internals — and
               // the sticker spill offsets — are built against fixed 300x440
@@ -343,33 +394,56 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
               SizedBox(
                 height: cardHeight,
                 width: _kCardWidth * (cardHeight / _kCardHeight),
-                child: FittedBox(
-                  fit: BoxFit.contain,
-                  child: GestureDetector(
-                    onTap: _onCardTap,
-                    child: AnimatedBuilder(
-                      animation: _flipAnimation,
-                      builder: (context, child) {
-                        final angle = _flipAnimation.value * math.pi;
-                        final transform = Matrix4.identity()
-                          ..setEntry(3, 2, 0.001)
-                          ..rotateY(angle);
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned.fill(
+                      child: FittedBox(
+                        fit: BoxFit.contain,
+                        child: GestureDetector(
+                          onTap: _onCardTap,
+                          child: AnimatedBuilder(
+                            animation: _flipAnimation,
+                            builder: (context, child) {
+                              final angle = _flipAnimation.value * math.pi;
+                              final transform = Matrix4.identity()
+                                ..setEntry(3, 2, 0.001)
+                                ..rotateY(angle);
 
-                        return Transform(
-                          alignment: Alignment.center,
-                          transform: transform,
-                          child: angle < math.pi / 2
-                              ? _buildFrontCard()
-                              : Transform(
-                                  alignment: Alignment.center,
-                                  transform: Matrix4.identity()
-                                    ..rotateY(math.pi),
-                                  child: _buildBackCard(),
-                                ),
-                        );
-                      },
+                              return Transform(
+                                alignment: Alignment.center,
+                                transform: transform,
+                                child: angle < math.pi / 2
+                                    ? _buildFrontCard()
+                                    : Transform(
+                                        alignment: Alignment.center,
+                                        transform: Matrix4.identity()
+                                          ..rotateY(math.pi),
+                                        child: _buildBackCard(),
+                                      ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+
+                    // The author, layered onto the card's top edge rather than
+                    // stacked above it in the Column.
+                    //
+                    // This is what lets both get bigger. In a Column the block
+                    // and the card compete for the same band — and because the
+                    // card can only be centred if the gutters match, every
+                    // extra point of header cost the card two. Overlapping
+                    // means only the part that actually protrudes
+                    // (_kAuthorRise) has to be reserved.
+                    Positioned(
+                      top: -_kAuthorRise,
+                      left: 0,
+                      right: 0,
+                      child: _PostAuthor(activity: widget.activity),
+                    ),
+                  ],
                 ),
               ),
 
