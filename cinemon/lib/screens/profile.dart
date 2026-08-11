@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -320,80 +321,123 @@ class ProfilePage extends ConsumerWidget {
   }
 
   void _showSettingsMenu(BuildContext context, WidgetRef ref) {
+    // Captured before the sheet closes: the builder's context is deactivated
+    // the moment it pops, so a messenger looked up from it goes nowhere.
+    final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color.fromARGB(255, 20, 20, 30),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => SafeArea(
+      // Colours, radius, and drag handle all come from bottomSheetTheme now.
+      builder: (sheetContext) => SafeArea(
+        top: false,
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 8),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(2),
-              ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(
+                  AppSpace.lg, AppSpace.sm, AppSpace.lg, AppSpace.md),
+              child: Text('Settings', style: AppText.headline),
             ),
-            const SizedBox(height: 20),
-            ListTile(
-              leading: const Icon(Icons.sync, color: Colors.white),
-              title: const Text(
-                'Sync Review Count',
-                style: TextStyle(color: Colors.white),
-              ),
-              subtitle: const Text(
-                'Fix if your review count is incorrect',
-                style: TextStyle(color: Colors.white54, fontSize: 12),
-              ),
+            const Divider(),
+            _SettingsRow(
+              icon: CupertinoIcons.arrow_2_circlepath,
+              title: 'Sync review count',
+              subtitle: 'Recount your reviews if the number looks wrong',
               onTap: () async {
-                Navigator.pop(context);
+                Navigator.pop(sheetContext);
                 final currentUser = ref.read(currentUserProvider);
-                if (currentUser != null) {
-                  // Show loading indicator
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Syncing review count...'),
-                      duration: Duration(seconds: 1),
-                    ),
-                  );
-                  // Trigger sync
-                  final count = await ref
-                      .read(syncReviewCountProvider(currentUser.uid).future);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Review count synced: $count reviews'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  }
-                }
+                if (currentUser == null) return;
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Syncing review count…'),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+                final count = await ref
+                    .read(syncReviewCountProvider(currentUser.uid).future);
+                messenger.showSnackBar(
+                  SnackBar(content: Text('Synced — $count reviews')),
+                );
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text(
-                'Sign Out',
-                style: TextStyle(color: Colors.red),
-              ),
+            const Divider(indent: 60),
+            _SettingsRow(
+              icon: CupertinoIcons.square_arrow_right,
+              title: 'Sign out',
+              destructive: true,
               onTap: () async {
-                Navigator.pop(context);
-                // Clear cached user data before signing out
+                Navigator.pop(sheetContext);
+                // Drop cached user data so the next account doesn't inherit it.
                 ref.invalidate(currentUserProfileProvider);
                 ref.invalidate(homeFeedProvider);
                 ref.invalidate(friendIdsProvider);
                 await ref.read(authControllerProvider.notifier).signOut();
-                if (context.mounted) {
-                  context.go('/login');
-                }
+                router.go('/login');
               },
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpace.sm),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One row of the settings sheet, at iOS proportions: a 44pt minimum target,
+/// a 22pt glyph in a 60pt gutter that the separators indent to match, and a
+/// press state that fades rather than ripples.
+class _SettingsRow extends StatelessWidget {
+  const _SettingsRow({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    this.subtitle,
+    this.destructive = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final bool destructive;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = destructive ? AppColors.destructive : AppColors.ink;
+
+    return InkWell(
+      onTap: onTap,
+      highlightColor: AppColors.surfacePressed,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpace.lg,
+          vertical: AppSpace.md,
+        ),
+        child: Row(
+          children: [
+            SizedBox(width: 44, child: Icon(icon, color: tint, size: 22)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: AppText.body.copyWith(fontSize: 17, color: tint),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle!,
+                      style: AppText.caption
+                          .copyWith(color: AppColors.inkSecondary),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ],
         ),
       ),
