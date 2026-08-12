@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import '../../models/activity_model.dart';
 import '../../models/film_model.dart';
 import '../../models/user_model.dart';
@@ -188,6 +191,10 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
     required FilmModel film,
     required double rating,
     String? reviewText,
+    File? voiceNote,
+    int voiceNoteDurationMs = 0,
+    List<double> voiceNoteWaveform = const [],
+    List<File> photos = const [],
   }) async {
     final currentUser = _ref.read(currentUserProvider);
     if (currentUser == null) {
@@ -201,8 +208,45 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
       // Get current user's profile
       final userProfile = await _userRepo.getUser(currentUser.uid);
 
+      // Media is uploaded before the row is written, so the id has to exist
+      // first — the storage path is keyed on it. A post with no media leaves
+      // the id blank and lets the column default assign one.
+      final hasMedia = voiceNote != null || photos.isNotEmpty;
+      final activityId = hasMedia ? const Uuid().v4() : '';
+
+      String? voiceNoteUrl;
+      var photoUrls = const <String>[];
+      if (hasMedia) {
+        try {
+          if (voiceNote != null) {
+            voiceNoteUrl = await _feedRepo.uploadVoiceNote(
+              uid: currentUser.uid,
+              activityId: activityId,
+              file: voiceNote,
+            );
+          }
+          if (photos.isNotEmpty) {
+            photoUrls = await _feedRepo.uploadReviewPhotos(
+              uid: currentUser.uid,
+              activityId: activityId,
+              files: photos,
+            );
+          }
+        } catch (_) {
+          // Don't leave half an upload in the bucket paying rent for a post
+          // that was never made.
+          await _feedRepo
+              .deleteReviewMedia(
+                uid: currentUser.uid,
+                activityId: activityId,
+              )
+              .catchError((_) {});
+          rethrow;
+        }
+      }
+
       final activity = ActivityModel(
-        id: '',
+        id: activityId,
         userId: currentUser.uid,
         username: userProfile?.username ?? 'Unknown',
         userPhotoUrl: userProfile?.photoUrl,
@@ -215,6 +259,10 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
         mediaType: film.isMovie ? 'movie' : 'tv',
         rating: rating,
         reviewText: reviewText,
+        voiceNoteUrl: voiceNoteUrl,
+        voiceNoteDurationMs: voiceNoteUrl == null ? 0 : voiceNoteDurationMs,
+        voiceNoteWaveform: voiceNoteUrl == null ? const [] : voiceNoteWaveform,
+        photoUrls: photoUrls,
         createdAt: DateTime.now(),
       );
 
@@ -266,6 +314,17 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
       // Comments, likes and reactions cascade; review_count is
       // decremented by the activities_review_count_trg trigger.
       await _feedRepo.deleteActivity(activityId);
+
+      // Storage has no cascade, so the files outlive the row unless we go and
+      // get them. Best-effort and after the delete: the post being gone is
+      // what the user asked for, and failing that on a storage hiccup would
+      // leave the row they wanted removed still standing.
+      try {
+        await _feedRepo.deleteReviewMedia(
+          uid: currentUser.uid,
+          activityId: activityId,
+        );
+      } catch (_) {}
 
       state = const AsyncValue.data(null);
 

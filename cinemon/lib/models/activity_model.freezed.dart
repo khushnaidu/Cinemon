@@ -20,7 +20,7 @@ ActivityModel _$ActivityModelFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$ActivityModel {
-  /// Unique activity ID (Firestore document ID)
+  /// Unique activity ID (uuid primary key)
   String get id => throw _privateConstructorUsedError;
 
   /// User ID who created this activity
@@ -58,6 +58,24 @@ mixin _$ActivityModel {
 
   /// User's review text (nullable)
   String? get reviewText => throw _privateConstructorUsedError;
+
+  /// Public URL of a spoken review, if one was recorded.
+  String? get voiceNoteUrl => throw _privateConstructorUsedError;
+
+  /// How long that recording runs. Stored rather than read off the file so
+  /// the waveform can be drawn, and the duration labelled, before a single
+  /// byte of audio is fetched.
+  int get voiceNoteDurationMs => throw _privateConstructorUsedError;
+
+  /// Peak amplitude per slice of the recording, 0..1, sampled live while it
+  /// was being made.
+  ///
+  /// Kept alongside the audio because the alternative is decoding the file
+  /// on every device that scrolls past it just to draw a picture of it.
+  List<double> get voiceNoteWaveform => throw _privateConstructorUsedError;
+
+  /// Public URLs of photos taken with the review, in capture order.
+  List<String> get photoUrls => throw _privateConstructorUsedError;
 
   /// When this activity was created
   DateTime get createdAt => throw _privateConstructorUsedError;
@@ -98,6 +116,10 @@ abstract class $ActivityModelCopyWith<$Res> {
       String mediaType,
       double? rating,
       String? reviewText,
+      String? voiceNoteUrl,
+      int voiceNoteDurationMs,
+      List<double> voiceNoteWaveform,
+      List<String> photoUrls,
       DateTime createdAt,
       List<String> likes,
       int commentCount,
@@ -130,6 +152,10 @@ class _$ActivityModelCopyWithImpl<$Res, $Val extends ActivityModel>
     Object? mediaType = null,
     Object? rating = freezed,
     Object? reviewText = freezed,
+    Object? voiceNoteUrl = freezed,
+    Object? voiceNoteDurationMs = null,
+    Object? voiceNoteWaveform = null,
+    Object? photoUrls = null,
     Object? createdAt = null,
     Object? likes = null,
     Object? commentCount = null,
@@ -188,6 +214,22 @@ class _$ActivityModelCopyWithImpl<$Res, $Val extends ActivityModel>
           ? _value.reviewText
           : reviewText // ignore: cast_nullable_to_non_nullable
               as String?,
+      voiceNoteUrl: freezed == voiceNoteUrl
+          ? _value.voiceNoteUrl
+          : voiceNoteUrl // ignore: cast_nullable_to_non_nullable
+              as String?,
+      voiceNoteDurationMs: null == voiceNoteDurationMs
+          ? _value.voiceNoteDurationMs
+          : voiceNoteDurationMs // ignore: cast_nullable_to_non_nullable
+              as int,
+      voiceNoteWaveform: null == voiceNoteWaveform
+          ? _value.voiceNoteWaveform
+          : voiceNoteWaveform // ignore: cast_nullable_to_non_nullable
+              as List<double>,
+      photoUrls: null == photoUrls
+          ? _value.photoUrls
+          : photoUrls // ignore: cast_nullable_to_non_nullable
+              as List<String>,
       createdAt: null == createdAt
           ? _value.createdAt
           : createdAt // ignore: cast_nullable_to_non_nullable
@@ -230,6 +272,10 @@ abstract class _$$ActivityModelImplCopyWith<$Res>
       String mediaType,
       double? rating,
       String? reviewText,
+      String? voiceNoteUrl,
+      int voiceNoteDurationMs,
+      List<double> voiceNoteWaveform,
+      List<String> photoUrls,
       DateTime createdAt,
       List<String> likes,
       int commentCount,
@@ -260,6 +306,10 @@ class __$$ActivityModelImplCopyWithImpl<$Res>
     Object? mediaType = null,
     Object? rating = freezed,
     Object? reviewText = freezed,
+    Object? voiceNoteUrl = freezed,
+    Object? voiceNoteDurationMs = null,
+    Object? voiceNoteWaveform = null,
+    Object? photoUrls = null,
     Object? createdAt = null,
     Object? likes = null,
     Object? commentCount = null,
@@ -318,6 +368,22 @@ class __$$ActivityModelImplCopyWithImpl<$Res>
           ? _value.reviewText
           : reviewText // ignore: cast_nullable_to_non_nullable
               as String?,
+      voiceNoteUrl: freezed == voiceNoteUrl
+          ? _value.voiceNoteUrl
+          : voiceNoteUrl // ignore: cast_nullable_to_non_nullable
+              as String?,
+      voiceNoteDurationMs: null == voiceNoteDurationMs
+          ? _value.voiceNoteDurationMs
+          : voiceNoteDurationMs // ignore: cast_nullable_to_non_nullable
+              as int,
+      voiceNoteWaveform: null == voiceNoteWaveform
+          ? _value._voiceNoteWaveform
+          : voiceNoteWaveform // ignore: cast_nullable_to_non_nullable
+              as List<double>,
+      photoUrls: null == photoUrls
+          ? _value._photoUrls
+          : photoUrls // ignore: cast_nullable_to_non_nullable
+              as List<String>,
       createdAt: null == createdAt
           ? _value.createdAt
           : createdAt // ignore: cast_nullable_to_non_nullable
@@ -356,18 +422,24 @@ class _$ActivityModelImpl extends _ActivityModel {
       this.mediaType = 'movie',
       this.rating,
       this.reviewText,
+      this.voiceNoteUrl,
+      this.voiceNoteDurationMs = 0,
+      final List<double> voiceNoteWaveform = const [],
+      final List<String> photoUrls = const [],
       required this.createdAt,
       final List<String> likes = const [],
       this.commentCount = 0,
       final Map<String, String> reactions = const {}})
-      : _likes = likes,
+      : _voiceNoteWaveform = voiceNoteWaveform,
+        _photoUrls = photoUrls,
+        _likes = likes,
         _reactions = reactions,
         super._();
 
   factory _$ActivityModelImpl.fromJson(Map<String, dynamic> json) =>
       _$$ActivityModelImplFromJson(json);
 
-  /// Unique activity ID (Firestore document ID)
+  /// Unique activity ID (uuid primary key)
   @override
   final String id;
 
@@ -420,6 +492,50 @@ class _$ActivityModelImpl extends _ActivityModel {
   @override
   final String? reviewText;
 
+  /// Public URL of a spoken review, if one was recorded.
+  @override
+  final String? voiceNoteUrl;
+
+  /// How long that recording runs. Stored rather than read off the file so
+  /// the waveform can be drawn, and the duration labelled, before a single
+  /// byte of audio is fetched.
+  @override
+  @JsonKey()
+  final int voiceNoteDurationMs;
+
+  /// Peak amplitude per slice of the recording, 0..1, sampled live while it
+  /// was being made.
+  ///
+  /// Kept alongside the audio because the alternative is decoding the file
+  /// on every device that scrolls past it just to draw a picture of it.
+  final List<double> _voiceNoteWaveform;
+
+  /// Peak amplitude per slice of the recording, 0..1, sampled live while it
+  /// was being made.
+  ///
+  /// Kept alongside the audio because the alternative is decoding the file
+  /// on every device that scrolls past it just to draw a picture of it.
+  @override
+  @JsonKey()
+  List<double> get voiceNoteWaveform {
+    if (_voiceNoteWaveform is EqualUnmodifiableListView)
+      return _voiceNoteWaveform;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_voiceNoteWaveform);
+  }
+
+  /// Public URLs of photos taken with the review, in capture order.
+  final List<String> _photoUrls;
+
+  /// Public URLs of photos taken with the review, in capture order.
+  @override
+  @JsonKey()
+  List<String> get photoUrls {
+    if (_photoUrls is EqualUnmodifiableListView) return _photoUrls;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_photoUrls);
+  }
+
   /// When this activity was created
   @override
   final DateTime createdAt;
@@ -457,7 +573,7 @@ class _$ActivityModelImpl extends _ActivityModel {
 
   @override
   String toString() {
-    return 'ActivityModel(id: $id, userId: $userId, username: $username, userPhotoUrl: $userPhotoUrl, activityType: $activityType, filmId: $filmId, filmTitle: $filmTitle, filmPosterPath: $filmPosterPath, filmBackdropPath: $filmBackdropPath, filmYear: $filmYear, mediaType: $mediaType, rating: $rating, reviewText: $reviewText, createdAt: $createdAt, likes: $likes, commentCount: $commentCount, reactions: $reactions)';
+    return 'ActivityModel(id: $id, userId: $userId, username: $username, userPhotoUrl: $userPhotoUrl, activityType: $activityType, filmId: $filmId, filmTitle: $filmTitle, filmPosterPath: $filmPosterPath, filmBackdropPath: $filmBackdropPath, filmYear: $filmYear, mediaType: $mediaType, rating: $rating, reviewText: $reviewText, voiceNoteUrl: $voiceNoteUrl, voiceNoteDurationMs: $voiceNoteDurationMs, voiceNoteWaveform: $voiceNoteWaveform, photoUrls: $photoUrls, createdAt: $createdAt, likes: $likes, commentCount: $commentCount, reactions: $reactions)';
   }
 
   @override
@@ -487,6 +603,14 @@ class _$ActivityModelImpl extends _ActivityModel {
             (identical(other.rating, rating) || other.rating == rating) &&
             (identical(other.reviewText, reviewText) ||
                 other.reviewText == reviewText) &&
+            (identical(other.voiceNoteUrl, voiceNoteUrl) ||
+                other.voiceNoteUrl == voiceNoteUrl) &&
+            (identical(other.voiceNoteDurationMs, voiceNoteDurationMs) ||
+                other.voiceNoteDurationMs == voiceNoteDurationMs) &&
+            const DeepCollectionEquality()
+                .equals(other._voiceNoteWaveform, _voiceNoteWaveform) &&
+            const DeepCollectionEquality()
+                .equals(other._photoUrls, _photoUrls) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
             const DeepCollectionEquality().equals(other._likes, _likes) &&
@@ -498,25 +622,30 @@ class _$ActivityModelImpl extends _ActivityModel {
 
   @JsonKey(ignore: true)
   @override
-  int get hashCode => Object.hash(
-      runtimeType,
-      id,
-      userId,
-      username,
-      userPhotoUrl,
-      activityType,
-      filmId,
-      filmTitle,
-      filmPosterPath,
-      filmBackdropPath,
-      filmYear,
-      mediaType,
-      rating,
-      reviewText,
-      createdAt,
-      const DeepCollectionEquality().hash(_likes),
-      commentCount,
-      const DeepCollectionEquality().hash(_reactions));
+  int get hashCode => Object.hashAll([
+        runtimeType,
+        id,
+        userId,
+        username,
+        userPhotoUrl,
+        activityType,
+        filmId,
+        filmTitle,
+        filmPosterPath,
+        filmBackdropPath,
+        filmYear,
+        mediaType,
+        rating,
+        reviewText,
+        voiceNoteUrl,
+        voiceNoteDurationMs,
+        const DeepCollectionEquality().hash(_voiceNoteWaveform),
+        const DeepCollectionEquality().hash(_photoUrls),
+        createdAt,
+        const DeepCollectionEquality().hash(_likes),
+        commentCount,
+        const DeepCollectionEquality().hash(_reactions)
+      ]);
 
   @JsonKey(ignore: true)
   @override
@@ -547,6 +676,10 @@ abstract class _ActivityModel extends ActivityModel {
       final String mediaType,
       final double? rating,
       final String? reviewText,
+      final String? voiceNoteUrl,
+      final int voiceNoteDurationMs,
+      final List<double> voiceNoteWaveform,
+      final List<String> photoUrls,
       required final DateTime createdAt,
       final List<String> likes,
       final int commentCount,
@@ -558,7 +691,7 @@ abstract class _ActivityModel extends ActivityModel {
 
   @override
 
-  /// Unique activity ID (Firestore document ID)
+  /// Unique activity ID (uuid primary key)
   String get id;
   @override
 
@@ -608,6 +741,28 @@ abstract class _ActivityModel extends ActivityModel {
 
   /// User's review text (nullable)
   String? get reviewText;
+  @override
+
+  /// Public URL of a spoken review, if one was recorded.
+  String? get voiceNoteUrl;
+  @override
+
+  /// How long that recording runs. Stored rather than read off the file so
+  /// the waveform can be drawn, and the duration labelled, before a single
+  /// byte of audio is fetched.
+  int get voiceNoteDurationMs;
+  @override
+
+  /// Peak amplitude per slice of the recording, 0..1, sampled live while it
+  /// was being made.
+  ///
+  /// Kept alongside the audio because the alternative is decoding the file
+  /// on every device that scrolls past it just to draw a picture of it.
+  List<double> get voiceNoteWaveform;
+  @override
+
+  /// Public URLs of photos taken with the review, in capture order.
+  List<String> get photoUrls;
   @override
 
   /// When this activity was created

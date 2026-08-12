@@ -20,7 +20,7 @@ NotificationModel _$NotificationModelFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$NotificationModel {
-  /// Unique notification ID (Firestore document ID)
+  /// Unique notification ID (uuid primary key)
   String get id => throw _privateConstructorUsedError;
 
   /// User ID who receives this notification (activity owner)
@@ -300,7 +300,7 @@ class _$NotificationModelImpl extends _NotificationModel {
   factory _$NotificationModelImpl.fromJson(Map<String, dynamic> json) =>
       _$$NotificationModelImplFromJson(json);
 
-  /// Unique notification ID (Firestore document ID)
+  /// Unique notification ID (uuid primary key)
   @override
   final String id;
 
@@ -442,7 +442,7 @@ abstract class _NotificationModel extends NotificationModel {
 
   @override
 
-  /// Unique notification ID (Firestore document ID)
+  /// Unique notification ID (uuid primary key)
   String get id;
   @override
 

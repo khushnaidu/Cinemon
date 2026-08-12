@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/config/supabase_config.dart';
@@ -16,6 +18,81 @@ class FeedRepository {
 
   static const _view = 'feed_activities';
   static const _table = 'activities';
+  static const _mediaBucket = 'review-media';
+
+  // ============ REVIEW MEDIA ============
+  //
+  // Everything lives at review-media/<uid>/<activity_id>/. The uid has to come
+  // first — the storage policy checks that segment against auth.uid() — and
+  // the activity id under it means removing a post's media is a prefix delete
+  // that can't catch anything else.
+  //
+  // These upload *before* the row is inserted, which is why the activity id is
+  // generated client-side rather than by the database default. The alternative
+  // is insert-then-update, which leaves a window where the feed shows a review
+  // whose audio isn't there yet.
+
+  /// Upload a spoken review and return its public URL.
+  Future<String> uploadVoiceNote({
+    required String uid,
+    required String activityId,
+    required File file,
+  }) async {
+    final ext = file.path.split('.').last.toLowerCase();
+    final path = '$uid/$activityId/voice.$ext';
+
+    await _client.storage.from(_mediaBucket).upload(
+          path,
+          file,
+          fileOptions: FileOptions(
+            upsert: true,
+            contentType: ext == 'm4a' || ext == 'mp4' ? 'audio/mp4' : null,
+          ),
+        );
+    return _client.storage.from(_mediaBucket).getPublicUrl(path);
+  }
+
+  /// Upload review photos in order and return their public URLs.
+  ///
+  /// Sequential rather than concurrent: there are at most four, and a failure
+  /// partway through leaves a prefix of uploaded files that the caller can
+  /// clean up by activity id, where parallel writes would leave holes.
+  Future<List<String>> uploadReviewPhotos({
+    required String uid,
+    required String activityId,
+    required List<File> files,
+  }) async {
+    final urls = <String>[];
+    for (var i = 0; i < files.length; i++) {
+      final path = '$uid/$activityId/photo_$i.jpg';
+      await _client.storage.from(_mediaBucket).upload(
+            path,
+            files[i],
+            fileOptions: const FileOptions(
+              upsert: true,
+              contentType: 'image/jpeg',
+            ),
+          );
+      urls.add(_client.storage.from(_mediaBucket).getPublicUrl(path));
+    }
+    return urls;
+  }
+
+  /// Remove everything stored for one activity.
+  ///
+  /// Storage has no cascade, so deleting the row leaves the files behind — the
+  /// URLs stop being referenced but the bucket keeps paying for them.
+  Future<void> deleteReviewMedia({
+    required String uid,
+    required String activityId,
+  }) async {
+    final prefix = '$uid/$activityId';
+    final files = await _client.storage.from(_mediaBucket).list(path: prefix);
+    if (files.isEmpty) return;
+    await _client.storage
+        .from(_mediaBucket)
+        .remove(files.map((f) => '$prefix/${f.name}').toList());
+  }
 
   /// Create a new activity post.
   Future<ActivityModel> createActivity(ActivityModel activity) async {

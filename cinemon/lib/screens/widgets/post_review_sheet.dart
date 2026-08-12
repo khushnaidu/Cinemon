@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import '../../models/film_model.dart';
 import '../../providers/feed/feed_provider.dart';
+import 'review_media_composer.dart';
 
 /// Bottom sheet for posting a review/watch
 class PostReviewSheet extends ConsumerStatefulWidget {
@@ -20,6 +21,7 @@ class _PostReviewSheetState extends ConsumerState<PostReviewSheet> {
   double _rating = 0;
   final _reviewController = TextEditingController();
   bool _isPosting = false;
+  ReviewMediaDraft _media = const ReviewMediaDraft();
 
   @override
   void dispose() {
@@ -32,14 +34,20 @@ class _PostReviewSheetState extends ConsumerState<PostReviewSheet> {
 
     final notifier = ref.read(createActivityProvider.notifier);
 
-    if (_rating > 0 || _reviewController.text.isNotEmpty) {
+    // Media makes it a review even with no stars and no text: a spoken take is
+    // a review, and posting it as a bare "watched" would throw the recording
+    // away.
+    if (_rating > 0 || _reviewController.text.isNotEmpty || !_media.isEmpty) {
       // Post as a review
       await notifier.postReview(
         film: widget.film,
         rating: _rating,
-        reviewText: _reviewController.text.isNotEmpty
-            ? _reviewController.text
-            : null,
+        reviewText:
+            _reviewController.text.isNotEmpty ? _reviewController.text : null,
+        voiceNote: _media.voiceNote,
+        voiceNoteDurationMs: _media.voiceNoteDurationMs,
+        voiceNoteWaveform: _media.waveform,
+        photos: _media.photos,
       );
     } else {
       // Post as just watched
@@ -117,7 +125,8 @@ class _PostReviewSheetState extends ConsumerState<PostReviewSheet> {
                                 width: 100,
                                 height: 150,
                                 color: Colors.grey[800],
-                                child: const Icon(Icons.movie, color: Colors.grey),
+                                child:
+                                    const Icon(Icons.movie, color: Colors.grey),
                               ),
                       ),
                       const SizedBox(width: 16),
@@ -208,7 +217,8 @@ class _PostReviewSheetState extends ConsumerState<PostReviewSheet> {
                             // Determine if tap was on left half (half star) or right half (full star)
                             final tapX = details.localPosition.dx;
                             final isLeftHalf = tapX < 20; // Half of 40px icon
-                            final newRating = isLeftHalf ? halfValue : fullValue;
+                            final newRating =
+                                isLeftHalf ? halfValue : fullValue;
 
                             // Toggle: tap same value to remove rating
                             if (_rating == newRating) {
@@ -285,6 +295,12 @@ class _PostReviewSheetState extends ConsumerState<PostReviewSheet> {
                     ),
                   ),
 
+                  const SizedBox(height: 24),
+
+                  ReviewMediaComposer(
+                    onChanged: (draft) => setState(() => _media = draft),
+                  ),
+
                   const SizedBox(height: 32),
 
                   // Post button
@@ -307,7 +323,8 @@ class _PostReviewSheetState extends ConsumerState<PostReviewSheet> {
                               height: 24,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation(Colors.black),
+                                valueColor:
+                                    AlwaysStoppedAnimation(Colors.black),
                               ),
                             )
                           : Text(

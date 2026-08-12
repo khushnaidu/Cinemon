@@ -49,8 +49,30 @@ create table if not exists public.activities (
   media_type         text not null default 'movie' check (media_type in ('movie','tv')),
   rating             numeric(2,1) check (rating >= 0.5 and rating <= 5),
   review_text        text,
+  -- Spoken review. The waveform is amplitude peaks sampled while recording,
+  -- 0..1 — stored with the row because deriving it on read means every client
+  -- that scrolls past the card downloads and decodes the audio just to find
+  -- out what shape to draw.
+  voice_note_url         text,
+  voice_note_duration_ms int    not null default 0,
+  voice_note_waveform    real[] not null default '{}',
+  photo_urls             text[] not null default '{}',
   comment_count      int  not null default 0,
-  created_at         timestamptz not null default now()
+  created_at         timestamptz not null default now(),
+  -- A voice note is only meaningful with a duration, and a duration with no
+  -- url is a half-written row. 10s is the recording cap, plus slack for
+  -- encoder overshoot.
+  constraint activities_voice_note_coherent check (
+    (voice_note_url is null and voice_note_duration_ms = 0)
+    or (voice_note_url is not null
+        and voice_note_duration_ms > 0
+        and voice_note_duration_ms <= 11000)
+  ),
+  -- Four is what the stack on the card back can show without the ones
+  -- underneath becoming invisible.
+  constraint activities_photo_urls_bounded check (
+    array_length(photo_urls, 1) is null or array_length(photo_urls, 1) <= 4
+  )
 );
 
 -- replaces your two required Firestore composite indexes
@@ -346,6 +368,27 @@ create policy "avatars public read" on storage.objects for select
 create policy "avatars own write" on storage.objects for all to authenticated
   using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text)
   with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- Voice notes and photos attached to a review. One bucket for both: they
+-- share a lifetime — an activity's media dies with the activity — and
+-- splitting them would only duplicate these policies.
+--
+-- Public read, matching avatars: these URLs are embedded in feed cards that
+-- every friend renders, and signing each one would cost a round trip per card.
+insert into storage.buckets (id, name, public)
+values ('review-media', 'review-media', true)
+on conflict (id) do nothing;
+
+drop policy if exists "review media public read" on storage.objects;
+drop policy if exists "review media own write"   on storage.objects;
+create policy "review media public read" on storage.objects for select
+  using (bucket_id = 'review-media');
+-- review-media/<uid>/<activity_id>/<file>. The uid-first layout is what makes
+-- the policy work, and it also makes deleting an activity's media a prefix
+-- delete that nothing else can be caught by.
+create policy "review media own write" on storage.objects for all to authenticated
+  using (bucket_id = 'review-media' and (storage.foldername(name))[1] = auth.uid()::text)
+  with check (bucket_id = 'review-media' and (storage.foldername(name))[1] = auth.uid()::text);
 
 -- ─────────────────────────────────────────────────────────────
 -- 12. FEED VIEW — one query replaces the N+1 the Firestore code did

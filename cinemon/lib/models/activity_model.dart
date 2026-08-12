@@ -61,6 +61,24 @@ class ActivityModel with _$ActivityModel {
     /// User's review text (nullable)
     String? reviewText,
 
+    /// Public URL of a spoken review, if one was recorded.
+    String? voiceNoteUrl,
+
+    /// How long that recording runs. Stored rather than read off the file so
+    /// the waveform can be drawn, and the duration labelled, before a single
+    /// byte of audio is fetched.
+    @Default(0) int voiceNoteDurationMs,
+
+    /// Peak amplitude per slice of the recording, 0..1, sampled live while it
+    /// was being made.
+    ///
+    /// Kept alongside the audio because the alternative is decoding the file
+    /// on every device that scrolls past it just to draw a picture of it.
+    @Default([]) List<double> voiceNoteWaveform,
+
+    /// Public URLs of photos taken with the review, in capture order.
+    @Default([]) List<String> photoUrls,
+
     /// When this activity was created
     required DateTime createdAt,
 
@@ -102,6 +120,16 @@ class ActivityModel with _$ActivityModel {
 
   /// Whether this activity has a review
   bool get hasReview => reviewText != null && reviewText!.isNotEmpty;
+
+  /// Whether a spoken review was recorded.
+  bool get hasVoiceNote =>
+      voiceNoteUrl != null && voiceNoteUrl!.isNotEmpty;
+
+  /// Whether any photos were taken with the review.
+  bool get hasPhotos => photoUrls.isNotEmpty;
+
+  /// Whether the review carries anything beyond its text.
+  bool get hasArtifacts => hasVoiceNote || hasPhotos;
 
   /// Get like count
   int get likeCount => likes.length;
@@ -153,6 +181,10 @@ class ActivityModel with _$ActivityModel {
   /// and comment_count is trigger-maintained. Writing them would fail.
   Map<String, dynamic> toDbMap() {
     return {
+      // Only when the caller minted one. Posts with media generate their id up
+      // front so the files can be uploaded to a path under it before the row
+      // exists; everything else leaves it to the column default.
+      if (id.isNotEmpty) 'id': id,
       'user_id': userId,
       'activity_type': activityType.name,
       'film_id': filmId,
@@ -163,6 +195,10 @@ class ActivityModel with _$ActivityModel {
       'media_type': mediaType,
       'rating': rating,
       'review_text': reviewText,
+      'voice_note_url': voiceNoteUrl,
+      'voice_note_duration_ms': voiceNoteDurationMs,
+      'voice_note_waveform': voiceNoteWaveform,
+      'photo_urls': photoUrls,
     };
   }
 }

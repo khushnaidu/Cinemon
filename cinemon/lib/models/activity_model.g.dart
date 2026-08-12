@@ -21,6 +21,17 @@ _$ActivityModelImpl _$$ActivityModelImplFromJson(Map<String, dynamic> json) =>
       mediaType: json['media_type'] as String? ?? 'movie',
       rating: (json['rating'] as num?)?.toDouble(),
       reviewText: json['review_text'] as String?,
+      voiceNoteUrl: json['voice_note_url'] as String?,
+      voiceNoteDurationMs:
+          (json['voice_note_duration_ms'] as num?)?.toInt() ?? 0,
+      voiceNoteWaveform: (json['voice_note_waveform'] as List<dynamic>?)
+              ?.map((e) => (e as num).toDouble())
+              .toList() ??
+          const [],
+      photoUrls: (json['photo_urls'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const [],
       createdAt: DateTime.parse(json['created_at'] as String),
       likes:
           (json['likes'] as List<dynamic>?)?.map((e) => e as String).toList() ??
@@ -47,6 +58,10 @@ Map<String, dynamic> _$$ActivityModelImplToJson(_$ActivityModelImpl instance) =>
       'media_type': instance.mediaType,
       'rating': instance.rating,
       'review_text': instance.reviewText,
+      'voice_note_url': instance.voiceNoteUrl,
+      'voice_note_duration_ms': instance.voiceNoteDurationMs,
+      'voice_note_waveform': instance.voiceNoteWaveform,
+      'photo_urls': instance.photoUrls,
       'created_at': instance.createdAt.toIso8601String(),
       'likes': instance.likes,
       'comment_count': instance.commentCount,

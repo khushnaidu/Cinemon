@@ -43,9 +43,11 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>35mm needs access to your camera to take a profile picture.</string>
+	<string>35mm uses your camera for profile pictures and for the photos you attach to a review.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>35mm needs access to your photo library to set your profile picture.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>35mm uses your microphone to record spoken reviews.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

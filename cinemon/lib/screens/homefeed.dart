@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import 'shell/glass_shell.dart'
     show kFloatingTabBarInset, kFloatingHeaderInset, shellChromeVisible;
 import 'widgets/native_glass_button.dart';
 import 'widgets/poster_ambience.dart';
+import 'widgets/review_card_back.dart';
 import '../models/activity_model.dart';
 import '../models/sticker_model.dart';
 import '../providers/auth/auth_provider.dart';
@@ -618,6 +620,26 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
     );
   }
 
+  /// The sticker artwork itself, sized explicitly because it's drawn twice —
+  /// once as the shadow's silhouette and once on top — and both copies have to
+  /// lay out identically or the shadow won't register with the sticker.
+  Widget _stickerArt(StickerModel sticker) => Image.asset(
+        sticker.assetPath,
+        width: 95,
+        height: 95,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stack) => SizedBox(
+          width: 95,
+          height: 95,
+          child: Center(
+            child: Text(
+              sticker.emoji,
+              style: const TextStyle(fontSize: 65),
+            ),
+          ),
+        ),
+      );
+
   List<Widget> _buildScatteredStickers(
       List<String> uniqueStickers, List<String> allStickers) {
     if (uniqueStickers.isEmpty) return [];
@@ -664,28 +686,28 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  // Sticker image with shadow
-                  Container(
-                    width: 95,
-                    height: 95,
-                    decoration: BoxDecoration(
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.5),
-                          blurRadius: 12,
-                          offset: const Offset(3, 4),
+                  // The sticker's shadow, cast by its silhouette.
+                  //
+                  // A BoxShadow can't do this: it's a shadow of the *box*, so
+                  // a cut-out PNG in a 95x95 container threw a 95x95 square.
+                  // Drawing the artwork a second time collapsed to black gives
+                  // a shape that follows the alpha, and blurring and offsetting
+                  // that is the shadow. Sigma is BoxShadow's blurRadius/2 —
+                  // its own conversion — so the softness is unchanged.
+                  Transform.translate(
+                    offset: const Offset(3, 4),
+                    child: ImageFiltered(
+                      imageFilter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                      child: ColorFiltered(
+                        colorFilter: ColorFilter.mode(
+                          Colors.black.withValues(alpha: 0.5),
+                          BlendMode.srcIn,
                         ),
-                      ],
-                    ),
-                    child: Image.asset(
-                      sticker.assetPath,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stack) => Text(
-                        sticker.emoji,
-                        style: const TextStyle(fontSize: 65),
+                        child: _stickerArt(sticker),
                       ),
                     ),
                   ),
+                  _stickerArt(sticker),
                   // Count badge if more than 1
                   if (stickerCount > 1)
                     Positioned(
@@ -739,175 +761,34 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
 
   Widget _buildBackCard() {
     final currentUser = ref.watch(currentUserProvider);
-    final isOwnActivity = currentUser?.uid == widget.activity.userId;
-    final isLiked =
-        currentUser != null && widget.activity.isLikedBy(currentUser.uid);
-    final userReaction = currentUser != null
-        ? widget.activity.getReactionFrom(currentUser.uid)
-        : null;
 
-    return Container(
+    return ReviewCardBack(
+      activity: widget.activity,
+      // Matches the front's poster exactly, so the card doesn't change size
+      // through the flip.
       width: 280,
       height: 420,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        // Flat neutral grey, not a purple gradient. A card sitting on true
-        // black needs a hairline to read as a separate surface — the gradient
-        // was doing that job with colour, which is what made it look cheap.
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.separator, width: 0.5),
+      posterUrl: _posterUrl,
+      currentUserId: currentUser?.uid,
+      onOpenFilm: _navigateToFilmDetail,
+      onComment: _showComments,
+      onReact: () => showStickerPicker(
+        context: context,
+        activityId: widget.activity.id,
+        currentStickerId: currentUser != null
+            ? widget.activity.getReactionFrom(currentUser.uid)
+            : null,
+        activityOwnerId: widget.activity.userId,
+        filmTitle: widget.activity.filmTitle,
+        filmPosterPath: widget.activity.filmPosterPath,
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Film title
-            Text(
-              widget.activity.filmTitle,
-              style: const TextStyle(
-                color: AppColors.ink,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (widget.activity.filmYear != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                widget.activity.filmYear!,
-                style: TextStyle(
-                  color: AppColors.inkSecondary,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-            const SizedBox(height: 24),
-
-            // Star rating
-            if (widget.activity.hasRating) ...[
-              _StarRating(rating: widget.activity.rating!),
-              const SizedBox(height: 24),
-            ],
-
-            // Review text
-            if (widget.activity.hasReview)
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Text(
-                    widget.activity.reviewText!,
-                    style: TextStyle(
-                      color: AppColors.ink,
-                      fontSize: 14,
-                      height: 1.5,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              )
-            else if (!widget.activity.hasRating)
-              Expanded(
-                child: Center(
-                  child: Text(
-                    '${widget.activity.username} watched this',
-                    style: TextStyle(
-                      color: AppColors.inkSecondary,
-                      fontSize: 14,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ),
-              ),
-
-            // View Film button for others' posts
-            if (!isOwnActivity) ...[
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _navigateToFilmDetail,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.accent,
-                    foregroundColor: AppColors.canvas,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    'View Film',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-
-            // Interaction bar
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: AppColors.separator, width: 0.5),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  // React button
-                  _InteractionButton(
-                    icon: userReaction != null
-                        ? null
-                        : Icons.add_reaction_outlined,
-                    stickerAsset: userReaction != null
-                        ? StickerRegistry.getStickerById(userReaction)
-                            ?.assetPath
-                        : null,
-                    label: 'React',
-                    count: widget.activity.reactionCount,
-                    isActive: userReaction != null,
-                    onTap: () => showStickerPicker(
-                      context: context,
-                      activityId: widget.activity.id,
-                      currentStickerId: userReaction,
-                      activityOwnerId: widget.activity.userId,
-                      filmTitle: widget.activity.filmTitle,
-                      filmPosterPath: widget.activity.filmPosterPath,
-                    ),
-                  ),
-                  // Comment button
-                  _InteractionButton(
-                    icon: Icons.chat_bubble_outline,
-                    label: 'Comment',
-                    count: widget.activity.commentCount,
-                    onTap: _showComments,
-                  ),
-                  // Like button
-                  _InteractionButton(
-                    icon: isLiked ? Icons.favorite : Icons.favorite_border,
-                    label: 'Like',
-                    count: widget.activity.likeCount,
-                    isActive: isLiked,
-                    activeColor: Colors.red,
-                    onTap: () {
-                      ref.read(likeNotifierProvider.notifier).toggleLike(
-                            widget.activity.id,
-                            isLiked,
-                          );
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+      onLike: () {
+        if (currentUser == null) return;
+        ref.read(likeNotifierProvider.notifier).toggleLike(
+              widget.activity.id,
+              widget.activity.isLikedBy(currentUser.uid),
+            );
+      },
     );
   }
 
@@ -925,105 +806,6 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
             widget.activity.filmTitle,
             style: TextStyle(color: Colors.grey[600]),
             textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Star rating display widget
-class _StarRating extends StatelessWidget {
-  final double rating;
-
-  const _StarRating({required this.rating});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(5, (index) {
-        final starValue = index + 1;
-        if (rating >= starValue) {
-          return const Icon(Icons.star, color: Colors.amber, size: 32);
-        } else if (rating >= starValue - 0.5) {
-          return const Icon(Icons.star_half, color: Colors.amber, size: 32);
-        } else {
-          return Icon(Icons.star_border, color: Colors.grey[600], size: 32);
-        }
-      }),
-    );
-  }
-}
-
-/// Interaction button for the back of the card
-class _InteractionButton extends StatelessWidget {
-  final IconData? icon;
-  final String? stickerAsset;
-  final String label;
-  final int count;
-  final bool isActive;
-  final Color? activeColor;
-  final VoidCallback onTap;
-
-  const _InteractionButton({
-    this.icon,
-    this.stickerAsset,
-    required this.label,
-    this.count = 0,
-    this.isActive = false,
-    this.activeColor,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isActive ? (activeColor ?? Colors.white) : Colors.grey[400];
-
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (stickerAsset != null)
-            SizedBox(
-              width: 26,
-              height: 26,
-              child: Image.asset(
-                stickerAsset!,
-                fit: BoxFit.contain,
-              ),
-            )
-          else if (icon != null)
-            Icon(
-              icon,
-              color: color,
-              size: 22,
-            ),
-          const SizedBox(height: 4),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 11,
-                ),
-              ),
-              if (count > 0) ...[
-                const SizedBox(width: 4),
-                Text(
-                  '$count',
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ],
           ),
         ],
       ),
