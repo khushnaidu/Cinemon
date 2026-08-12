@@ -10,6 +10,7 @@ import '../core/theme/app_theme.dart';
 import 'shell/glass_shell.dart'
     show kFloatingTabBarInset, kFloatingHeaderInset, shellChromeVisible;
 import 'widgets/native_glass_button.dart';
+import 'widgets/poster_ambience.dart';
 import '../models/activity_model.dart';
 import '../models/sticker_model.dart';
 import '../providers/auth/auth_provider.dart';
@@ -354,143 +355,174 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
     final currentUser = ref.watch(currentUserProvider);
     final isOwnActivity = currentUser?.uid == widget.activity.userId;
 
-    return Padding(
-      // Both chrome layers float over the feed, so the page is full-height.
-      // Insetting here keeps the card centred in the *visible* band without
-      // shrinking the page — posters still slide under the glass on scroll.
-      //
-      // Both edges take the safe-area inset as well as the chrome height. The
-      // bottom used to be a flat 78, which ignored the home indicator and so
-      // let the band run ~18pt under the tab bar — half of which the card was
-      // sitting low by.
-      padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + kFloatingHeaderInset,
-        bottom: MediaQuery.of(context).padding.bottom + kFloatingTabBarInset,
-      ),
-      // Two equal Expanded gutters with the card between them is what actually
-      // centres it. The previous `mainAxisAlignment: center` could not: the
-      // card was Flexible, so it absorbed every spare pixel and there was no
-      // slack left for the alignment to distribute. What you got instead was
-      // the card centred in the gap *between* the header and footer blocks —
-      // and since those aren't the same height, it sat low by half their
-      // difference.
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          // Room the gutters must never give up, so neither block is clipped
-          // on a short screen. Both sides reserve the larger of the two, since
-          // the gutters are equal by construction.
-          final reserve = math.max(_kAuthorRise, _kFooterBlock) * 2;
-          final cardHeight =
-              math.min(_kCardHeight, constraints.maxHeight - reserve);
+    // Both chrome layers float over the feed, so the page is full-height.
+    // Insetting keeps the card centred in the *visible* band without shrinking
+    // the page — posters still slide under the glass on scroll.
+    //
+    // Both edges take the safe-area inset as well as the chrome height. The
+    // bottom used to be a flat 78, which ignored the home indicator and so let
+    // the band run ~18pt under the tab bar — half of which the card was
+    // sitting low by.
+    final safeArea = MediaQuery.paddingOf(context);
+    final topInset = safeArea.top + kFloatingHeaderInset;
+    final bottomInset = safeArea.bottom + kFloatingTabBarInset;
 
-          return Column(
-            children: [
-              const Expanded(child: SizedBox.shrink()),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final band = constraints.maxHeight - topInset - bottomInset;
 
-              // The flip card, scaled rather than reflowed. Its internals — and
-              // the sticker spill offsets — are built against fixed 300x440
-              // metrics, so scaling the whole thing keeps that geometry intact
-              // where recomputing it would not.
-              SizedBox(
-                height: cardHeight,
-                width: _kCardWidth * (cardHeight / _kCardHeight),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Positioned.fill(
-                      child: FittedBox(
-                        fit: BoxFit.contain,
-                        child: GestureDetector(
-                          onTap: _onCardTap,
-                          child: AnimatedBuilder(
-                            animation: _flipAnimation,
-                            builder: (context, child) {
-                              final angle = _flipAnimation.value * math.pi;
-                              final transform = Matrix4.identity()
-                                ..setEntry(3, 2, 0.001)
-                                ..rotateY(angle);
+        // Room the gutters must never give up, so neither block is clipped on
+        // a short screen. Both sides reserve the larger of the two, since the
+        // gutters are equal by construction.
+        final reserve = math.max(_kAuthorRise, _kFooterBlock) * 2;
+        final cardHeight = math.min(_kCardHeight, band - reserve);
+        final cardWidth = _kCardWidth * (cardHeight / _kCardHeight);
 
-                              return Transform(
-                                alignment: Alignment.center,
-                                transform: transform,
-                                child: angle < math.pi / 2
-                                    ? _buildFrontCard()
-                                    : Transform(
-                                        alignment: Alignment.center,
-                                        transform: Matrix4.identity()
-                                          ..rotateY(math.pi),
-                                        child: _buildBackCard(),
-                                      ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    // The author, layered onto the card's top edge rather than
-                    // stacked above it in the Column.
-                    //
-                    // This is what lets both get bigger. In a Column the block
-                    // and the card compete for the same band — and because the
-                    // card can only be centred if the gutters match, every
-                    // extra point of header cost the card two. Overlapping
-                    // means only the part that actually protrudes
-                    // (_kAuthorRise) has to be reserved.
-                    Positioned(
-                      top: -_kAuthorRise,
-                      left: 0,
-                      right: 0,
-                      child: _PostAuthor(activity: widget.activity),
-                    ),
-                  ],
+        return Stack(
+          children: [
+            // The poster's own light, thrown onto the black behind it. Sized
+            // and aimed from the same numbers as the card, since the beam only
+            // works if it's actually centred on the thing casting it.
+            //
+            // Painted per page rather than once behind the PageView so the
+            // light travels with its poster on a swipe. It fades out well
+            // before the page edges, so the seam between two pages mid-scroll
+            // never shows.
+            Positioned.fill(
+              child: PosterAmbience(
+                posterUrl: _posterUrl,
+                cardCenter: Offset(
+                  constraints.maxWidth / 2,
+                  topInset + band / 2,
                 ),
+                cardSize: Size(cardWidth, cardHeight),
               ),
+            ),
+            Padding(
+              padding: EdgeInsets.only(top: topInset, bottom: bottomInset),
+              // Two equal Expanded gutters with the card between them is what
+              // actually centres it. A `mainAxisAlignment: center` could not:
+              // the card was Flexible, so it absorbed every spare pixel and
+              // there was no slack left for the alignment to distribute. What
+              // you got instead was the card centred in the gap *between* the
+              // header and footer blocks — and since those aren't the same
+              // height, it sat low by half their difference.
+              child: Column(
+                children: [
+                  const Expanded(child: SizedBox.shrink()),
 
-              Expanded(
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: AppSpace.md),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+                  // The flip card, scaled rather than reflowed. Its internals —
+                  // and the sticker spill offsets — are built against fixed
+                  // 300x440 metrics, so scaling the whole thing keeps that
+                  // geometry intact where recomputing it would not.
+                  SizedBox(
+                    height: cardHeight,
+                    width: cardWidth,
+                    child: Stack(
+                      clipBehavior: Clip.none,
                       children: [
-                        Text(
-                          widget.activity.relativeTime,
-                          style: AppText.caption
-                              .copyWith(color: AppColors.inkSecondary),
-                        ),
-                        if (!_showBack)
-                          Padding(
-                            padding: const EdgeInsets.only(top: AppSpace.sm),
-                            child: Text(
-                              isOwnActivity
-                                  ? 'Tap to edit'
-                                  : (widget.activity.hasRating ||
-                                          widget.activity.hasReview)
-                                      ? 'Tap to see review'
-                                      : 'Tap to view',
-                              style: AppText.footnote
-                                  .copyWith(color: AppColors.inkTertiary),
+                        Positioned.fill(
+                          child: FittedBox(
+                            fit: BoxFit.contain,
+                            child: GestureDetector(
+                              onTap: _onCardTap,
+                              child: AnimatedBuilder(
+                                animation: _flipAnimation,
+                                builder: (context, child) {
+                                  final angle = _flipAnimation.value * math.pi;
+                                  final transform = Matrix4.identity()
+                                    ..setEntry(3, 2, 0.001)
+                                    ..rotateY(angle);
+
+                                  return Transform(
+                                    alignment: Alignment.center,
+                                    transform: transform,
+                                    child: angle < math.pi / 2
+                                        ? _buildFrontCard()
+                                        : Transform(
+                                            alignment: Alignment.center,
+                                            transform: Matrix4.identity()
+                                              ..rotateY(math.pi),
+                                            child: _buildBackCard(),
+                                          ),
+                                  );
+                                },
+                              ),
                             ),
                           ),
+                        ),
+
+                        // The author, layered onto the card's top edge rather than
+                        // stacked above it in the Column.
+                        //
+                        // This is what lets both get bigger. In a Column the block
+                        // and the card compete for the same band — and because the
+                        // card can only be centred if the gutters match, every
+                        // extra point of header cost the card two. Overlapping
+                        // means only the part that actually protrudes
+                        // (_kAuthorRise) has to be reserved.
+                        Positioned(
+                          top: -_kAuthorRise,
+                          left: 0,
+                          right: 0,
+                          child: _PostAuthor(activity: widget.activity),
+                        ),
                       ],
                     ),
                   ),
-                ),
+
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: AppSpace.md),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              widget.activity.relativeTime,
+                              style: AppText.caption
+                                  .copyWith(color: AppColors.inkSecondary),
+                            ),
+                            if (!_showBack)
+                              Padding(
+                                padding:
+                                    const EdgeInsets.only(top: AppSpace.sm),
+                                child: Text(
+                                  isOwnActivity
+                                      ? 'Tap to edit'
+                                      : (widget.activity.hasRating ||
+                                              widget.activity.hasReview)
+                                          ? 'Tap to see review'
+                                          : 'Tap to view',
+                                  style: AppText.footnote
+                                      .copyWith(color: AppColors.inkTertiary),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          );
-        },
-      ),
+            ),
+          ],
+        );
+      },
     );
   }
 
+  /// The poster the card shows — and the image the ambience samples. Both go
+  /// through the same helper at the same size so they hit one cache entry
+  /// rather than downloading the artwork twice.
+  String get _posterUrl => ApiConstants.getPosterUrl(
+        widget.activity.filmPosterPath,
+        size: ApiConstants.posterSizeLarge,
+      );
+
   Widget _buildFrontCard() {
-    final posterUrl = ApiConstants.getPosterUrl(
-      widget.activity.filmPosterPath,
-      size: ApiConstants.posterSizeLarge,
-    );
+    final posterUrl = _posterUrl;
 
     // Get unique stickers from reactions for scattered display (up to 5)
     final reactionStickers = widget.activity.reactions.values.toList();
