@@ -69,6 +69,8 @@ Phase 7  Trailers tab         ── reuses the player from Phase 1
 **Progress:**
 - **Phase 0/1** built 2026-09-23 (`cecad23`): `FilmExtras` from one appended call, where to watch, trailer player, and the cast and crew rail. Deferred from Phase 0: `share_plus`, `app_links`, and the "Add to…" sheet, which land with Phases 3–4.
 - **Phase 2** built 2026-09-23: `/person/:personId` with Known For, a per-department filmography and your history. It opens from the film page's cast and crew rail and from favorite actors and directors. Not yet linked from search, because people only appear in the favorites picker today.
+- **Search** gained a People tab (2026-09-23), which shows trending people before you type. It is the third entry point to person pages.
+- **Phase 3** built 2026-09-23: migration `008_lists.sql` adds lists, items and saves, `can_view_list` (which respects blocks), watchlist auto-creation, and strike-off on log. The app side is the film page bookmark, `/lists/:id` with strike-off and a log-it prompt, swipe actions and visibility, and a Watchlist row on profiles. Deferred to Phase 4, when playlists give it a second destination: the "Add to…" sheet, and bookmarks on Explore chips and search rows.
 
 ### Why this order
 

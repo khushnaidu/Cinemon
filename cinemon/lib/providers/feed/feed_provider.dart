@@ -13,6 +13,7 @@ import '../../repositories/user_repository.dart';
 import '../../services/badge_service.dart';
 import '../auth/auth_provider.dart';
 import '../friendship/friendship_provider.dart';
+import '../lists/list_provider.dart' show watchlistActionsProvider;
 import '../movie/movie_provider.dart' show personPageProvider;
 
 /// Provider for FeedRepository singleton
@@ -221,6 +222,8 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
       _ref.invalidate(homeFeedProvider);
       _ref.invalidate(userActivitiesProvider(currentUser.uid));
       _ref.invalidate(userFilmActivityProvider(film.id));
+      // Logging strikes it off your watchlist (migration 008 trigger).
+      _ref.read(watchlistActionsProvider).refresh();
       _ref.invalidate(userEpisodeActivitiesProvider(film.id));
 
       return created;
@@ -334,6 +337,8 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
       _ref.invalidate(currentUserProfileProvider);
       _ref.invalidate(userActivitiesProvider(currentUser.uid));
       _ref.invalidate(userFilmActivityProvider(film.id));
+      // Logging strikes it off your watchlist (migration 008 trigger).
+      _ref.read(watchlistActionsProvider).refresh();
       _ref.invalidate(userEpisodeActivitiesProvider(film.id));
 
       return created;

@@ -8,6 +8,7 @@ import '../providers/movie/movie_provider.dart';
 import '../providers/feed/feed_provider.dart';
 import '../core/constants/api_constants.dart';
 import 'film/film_extras_sections.dart';
+import 'lists/watchlist_button.dart';
 import 'widgets/episodes_section.dart';
 import 'widgets/post_review_sheet.dart';
 import 'widgets/review_editor.dart';
@@ -115,6 +116,7 @@ class _FilmDetailContent extends ConsumerWidget {
             icon: const Icon(Icons.arrow_back, color: Colors.white),
             onPressed: () => context.pop(),
           ),
+          actions: [WatchlistButton(film: film)],
           flexibleSpace: FlexibleSpaceBar(
             background: Stack(
               fit: StackFit.expand,

@@ -18,6 +18,7 @@ import '../../screens/film_detail_screen.dart';
 import '../../screens/profile/user_activity_screen.dart';
 import '../../screens/notifications_screen.dart';
 import '../../models/activity_model.dart';
+import '../../screens/lists/watchlist_screen.dart';
 import '../../screens/person/person_screen.dart';
 
 /// GoRouter configuration with auth guard
@@ -180,6 +181,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/notifications',
         name: 'notifications',
         builder: (context, state) => const NotificationsScreen(),
+      ),
+      GoRoute(
+        path: '/lists/:listId',
+        name: 'list',
+        builder: (context, state) =>
+            WatchlistScreen(listId: state.pathParameters['listId']!),
       ),
       GoRoute(
         path: '/person/:personId',

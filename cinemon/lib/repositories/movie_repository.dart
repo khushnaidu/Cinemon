@@ -408,6 +408,22 @@ class MovieRepository {
     }
   }
 
+  /// People trending this week, for the People search tab before typing.
+  /// Anyone without a photo is left out: a grid of blank portraits reads as
+  /// broken.
+  Future<List<PersonModel>> getTrendingPeople() async {
+    try {
+      final response = await _dio.get('/trending/person/week');
+      final results = response.data['results'] as List<dynamic>;
+      return results
+          .map((json) => PersonModel.fromJson(json as Map<String, dynamic>))
+          .where((p) => p.profilePath != null)
+          .toList();
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
   /// A person and every credit they have, for the person page.
   Future<PersonPage> getPersonPage(int personId) async {
     try {

@@ -7,12 +7,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import '../models/film_model.dart';
+import '../models/person_model.dart';
 import '../providers/movie/movie_provider.dart';
 import '../repositories/movie_repository.dart';
 import 'widgets/glass_panel.dart';
 
-/// Search scoped to films or shows. The tab's toggle picks which, and each
-/// scope keeps its own results so flipping back doesn't refetch.
+/// Search scoped to films, shows or people. The tab's toggle picks which,
+/// and each scope keeps its own results so flipping back doesn't refetch.
 class _SearchScopeNotifier extends StateNotifier<AsyncValue<List<FilmModel>>> {
   _SearchScopeNotifier(this._repository, this._type)
       : super(const AsyncValue.data([]));
@@ -50,6 +51,43 @@ final _searchScopeProvider = StateNotifierProvider.family<_SearchScopeNotifier,
   (ref, type) => _SearchScopeNotifier(ref.watch(movieRepositoryProvider), type),
 );
 
+/// The People scope: the same debounced, last-query-wins search.
+class _PeopleSearchNotifier
+    extends StateNotifier<AsyncValue<List<PersonModel>>> {
+  _PeopleSearchNotifier(this._repository) : super(const AsyncValue.data([]));
+
+  final MovieRepository _repository;
+  String _lastQuery = '';
+
+  Future<void> search(String query) async {
+    if (query.trim().isEmpty) {
+      clear();
+      return;
+    }
+    if (query == _lastQuery) return;
+    _lastQuery = query;
+    state = const AsyncValue.loading();
+    try {
+      final results = await _repository.searchPeople(query);
+      if (query == _lastQuery) state = AsyncValue.data(results);
+    } catch (e, st) {
+      if (query == _lastQuery) state = AsyncValue.error(e, st);
+    }
+  }
+
+  void clear() {
+    _lastQuery = '';
+    state = const AsyncValue.data([]);
+  }
+}
+
+final _peopleSearchProvider = StateNotifierProvider<_PeopleSearchNotifier,
+    AsyncValue<List<PersonModel>>>(
+  (ref) => _PeopleSearchNotifier(ref.watch(movieRepositoryProvider)),
+);
+
+enum _Scope { films, shows, people }
+
 /// Movie search/lookup page - search for films and navigate to their detail page
 class MovieSearchPage extends ConsumerStatefulWidget {
   const MovieSearchPage({super.key});
@@ -62,9 +100,11 @@ class _MovieSearchPageState extends ConsumerState<MovieSearchPage> {
   final _searchController = TextEditingController();
   Timer? _debounce;
   bool _isSearching = false;
-  MediaType _scope = MediaType.movie;
+  _Scope _scope = _Scope.films;
 
-  bool get _isTv => _scope == MediaType.tv;
+  bool get _isTv => _scope == _Scope.shows;
+  bool get _isPeople => _scope == _Scope.people;
+  MediaType get _mediaType => _isTv ? MediaType.tv : MediaType.movie;
 
   @override
   void dispose() {
@@ -84,7 +124,12 @@ class _MovieSearchPageState extends ConsumerState<MovieSearchPage> {
   }
 
   void _runSearch(String query) {
-    final notifier = ref.read(_searchScopeProvider(_scope).notifier);
+    if (_isPeople) {
+      final notifier = ref.read(_peopleSearchProvider.notifier);
+      query.isNotEmpty ? notifier.search(query) : notifier.clear();
+      return;
+    }
+    final notifier = ref.read(_searchScopeProvider(_mediaType).notifier);
     if (query.isNotEmpty) {
       notifier.search(query);
     } else {
@@ -93,7 +138,7 @@ class _MovieSearchPageState extends ConsumerState<MovieSearchPage> {
   }
 
   void _setScope(int index) {
-    setState(() => _scope = index == 1 ? MediaType.tv : MediaType.movie);
+    setState(() => _scope = _Scope.values[index]);
     // Re-run the live query in the new scope so the list matches the toggle.
     _runSearch(_searchController.text);
   }
@@ -105,7 +150,7 @@ class _MovieSearchPageState extends ConsumerState<MovieSearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    final searchResults = ref.watch(_searchScopeProvider(_scope));
+    final searchResults = ref.watch(_searchScopeProvider(_mediaType));
     final trendingMovies =
         ref.watch(_isTv ? trendingTvShowsProvider : trendingMoviesProvider);
 
@@ -133,10 +178,10 @@ class _MovieSearchPageState extends ConsumerState<MovieSearchPage> {
                     const Text('Search', style: AppText.title),
                     const Spacer(),
                     SizedBox(
-                      width: 150,
+                      width: 216,
                       child: GlassSegmentedControl(
-                        labels: const ['Films', 'Shows'],
-                        index: _isTv ? 1 : 0,
+                        labels: const ['Films', 'Shows', 'People'],
+                        index: _scope.index,
                         onChanged: _setScope,
                       ),
                     ),
@@ -150,7 +195,11 @@ class _MovieSearchPageState extends ConsumerState<MovieSearchPage> {
                 child: AppSearchField(
                   controller: _searchController,
                   onChanged: _onSearchChanged,
-                  placeholder: _isTv ? 'Search shows' : 'Search films',
+                  placeholder: switch (_scope) {
+                    _Scope.films => 'Search films',
+                    _Scope.shows => 'Search shows',
+                    _Scope.people => 'Search actors, directors…',
+                  },
                 ),
               ),
 
@@ -162,7 +211,11 @@ class _MovieSearchPageState extends ConsumerState<MovieSearchPage> {
                 child: Text(
                   _isSearching
                       ? 'Results'
-                      : (_isTv ? 'Trending Shows' : 'Trending Films'),
+                      : switch (_scope) {
+                          _Scope.films => 'Trending Films',
+                          _Scope.shows => 'Trending Shows',
+                          _Scope.people => 'Trending People',
+                        },
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -175,9 +228,13 @@ class _MovieSearchPageState extends ConsumerState<MovieSearchPage> {
 
               // Results grid
               Expanded(
-                child: _isSearching
-                    ? _buildSearchResults(searchResults)
-                    : _buildTrendingMovies(trendingMovies),
+                child: _isPeople
+                    ? _buildPeople(_isSearching
+                        ? ref.watch(_peopleSearchProvider)
+                        : ref.watch(trendingPeopleProvider))
+                    : _isSearching
+                        ? _buildSearchResults(searchResults)
+                        : _buildTrendingMovies(trendingMovies),
               ),
             ],
           ),
@@ -262,6 +319,39 @@ class _MovieSearchPageState extends ConsumerState<MovieSearchPage> {
     );
   }
 
+  Widget _buildPeople(AsyncValue<List<PersonModel>> people) {
+    return people.when(
+      loading: () => _buildLoadingGrid(),
+      error: (_, __) => Center(
+        child: Text(
+          "Couldn't load people.",
+          style: TextStyle(color: Colors.grey[400], fontSize: 16),
+        ),
+      ),
+      data: (list) {
+        if (list.isEmpty) {
+          return Center(
+            child: Text(
+              'No one found',
+              style: TextStyle(color: Colors.grey[400], fontSize: 16),
+            ),
+          );
+        }
+        return GridView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            childAspectRatio: 0.56,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 14,
+          ),
+          itemCount: list.length,
+          itemBuilder: (context, i) => _PersonCard(person: list[i]),
+        );
+      },
+    );
+  }
+
   Widget _buildLoadingGrid() {
     return GridView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -284,6 +374,51 @@ class _MovieSearchPageState extends ConsumerState<MovieSearchPage> {
           ),
         );
       },
+    );
+  }
+}
+
+/// A person in the People grid: pill portrait, name, what they're known for.
+class _PersonCard extends StatelessWidget {
+  const _PersonCard({required this.person});
+
+  final PersonModel person;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassPressable(
+      onTap: () => context.push('/person/${person.id}'),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final w = constraints.maxWidth;
+          return Column(
+            children: [
+              PillPortrait(
+                imageUrl: person.profileUrlLarge,
+                width: w * 0.86,
+                height: w * 0.86 * 1.42,
+              ),
+              const SizedBox(height: AppSpace.sm),
+              Text(
+                person.name,
+                style: AppText.footnote.copyWith(color: AppColors.ink),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+              if (person.knownForDepartment != null)
+                Text(
+                  person.knownForDepartment == 'Production'
+                      ? 'Producing'
+                      : person.knownForDepartment!,
+                  style: AppText.footnote.copyWith(
+                      color: AppColors.inkTertiary, fontSize: 11),
+                  maxLines: 1,
+                ),
+            ],
+          );
+        },
+      ),
     );
   }
 }

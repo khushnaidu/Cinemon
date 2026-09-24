@@ -1041,6 +1041,7 @@ class GlassMenuRow extends StatelessWidget {
     this.subtitle,
     this.destructive = false,
     this.chevron = false,
+    this.trailing,
   });
 
   final IconData icon;
@@ -1048,6 +1049,10 @@ class GlassMenuRow extends StatelessWidget {
   final String? subtitle;
   final bool destructive;
   final bool chevron;
+
+  /// Drawn at the end in place of the chevron: a checkmark on the chosen
+  /// option, say.
+  final Widget? trailing;
   final VoidCallback onTap;
 
   @override
@@ -1088,7 +1093,9 @@ class GlassMenuRow extends StatelessWidget {
                 ],
               ),
             ),
-            if (chevron)
+            if (trailing != null)
+              trailing!
+            else if (chevron)
               const Icon(
                 CupertinoIcons.chevron_right,
                 size: 15,

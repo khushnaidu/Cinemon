@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/episode_model.dart';
 import '../../models/film_extras.dart';
 import '../../models/film_model.dart';
+import '../../models/person_model.dart';
 import '../../models/person_page.dart';
 import '../../repositories/movie_repository.dart';
 
@@ -39,6 +40,11 @@ final searchTvOnlyProvider =
 final trendingMoviesProvider = FutureProvider<List<FilmModel>>((ref) async {
   final repository = ref.watch(movieRepositoryProvider);
   return repository.getTrendingMovies();
+});
+
+/// People trending this week.
+final trendingPeopleProvider = FutureProvider<List<PersonModel>>((ref) async {
+  return ref.watch(movieRepositoryProvider).getTrendingPeople();
 });
 
 /// Provider for trending TV shows this week
