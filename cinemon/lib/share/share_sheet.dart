@@ -75,18 +75,30 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
   /// card goes out half loaded (ADR 0003, D1). A failed image doesn't block:
   /// the card draws its placeholder instead.
   Future<void> _warm() async {
+    final urls = await widget.subject.loadImages(ref);
+    if (!mounted) return;
     await Future.wait([
-      for (final url in widget.subject.imageUrls)
+      for (final url in urls)
         precacheImage(CachedNetworkImageProvider(url), context,
                 onError: (_, __) {})
             .timeout(const Duration(seconds: 8), onTimeout: () {}),
-      precacheImage(const AssetImage('assets/share/mark.png'), context),
-      precacheImage(const AssetImage('assets/share/grain.png'), context),
+      for (final asset in _assets)
+        precacheImage(AssetImage('assets/share/$asset'), context),
     ]);
     // One more frame so the decoded images are actually painted.
     await WidgetsBinding.instance.endOfFrame;
     if (mounted) setState(() => _ready = true);
   }
+
+  static const _assets = [
+    'mark.png',
+    'grain.png',
+    'sparkle.png',
+    'top3_orb.png',
+    'top3_rank1.png',
+    'top3_rank2.png',
+    'top3_rank3.png',
+  ];
 
   @override
   void dispose() {
@@ -246,6 +258,10 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
             setState(() => _swatch = i);
           },
         ),
+        if (_templates[_page].controls case final controls?) ...[
+          const SizedBox(height: AppSpace.md),
+          controls(context),
+        ],
         const SizedBox(height: AppSpace.xl),
         Padding(
           padding: const EdgeInsets.fromLTRB(

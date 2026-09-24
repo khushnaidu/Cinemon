@@ -127,6 +127,16 @@ ADR 0002 promises no analytics. The only measure of sharing we allow ourselves i
 | **4. Links** | `/p/`, `/u/` and `/a/` routes in the app, fallback pages and OG images on the website (`khushnaidu/35mm`), and the `?s=` counters | Website repo |
 | **Later** | Animated stories (grain, flicker, strip roll) as MP4 through `backgroundVideo`. Wrapped as its own ADR, aimed at December. The J1 Polaroid. | — |
 
+**Progress:**
+
+- **Phase 1:** built 2026-09-24. Share appears on Explore takes and reviews (••• → Share to story) and on your own feed reviews. The Instagram and Facebook buttons are waiting on `META_APP_ID`.
+- **Phase 2:** built 2026-09-24.
+  - Critiques join the ••• menu.
+  - Your own Top 3 gets a Share pill next to Edit.
+  - The C2 sentence is chosen with the arrows under the swatches.
+  - Stills come from `filmStillsProvider`.
+- **Checking the cards:** `test/share_cards_preview_test.dart` renders every card to PNG from local art (it's skipped unless `SHARE_PREVIEW_ART` and `SHARE_PREVIEW_OUT` are set).
+
 ## 5. Risks
 
 - **Instagram changes the scheme.** It has done so once, when it required the App ID in 2023. The channel is small and isolated, and Save plus More always work.

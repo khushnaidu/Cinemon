@@ -7,6 +7,8 @@ import 'dart:ui' as ui;
 
 import 'package:cinemon/core/utils/poster_palette.dart';
 import 'package:cinemon/models/explore_post_model.dart';
+import 'package:cinemon/models/film_model.dart';
+import 'package:cinemon/providers/movie/movie_provider.dart';
 import 'package:cinemon/share/share_sheet.dart';
 import 'package:cinemon/share/share_subject.dart';
 import 'package:cinemon/share/story_canvas.dart';
@@ -47,6 +49,16 @@ void main() {
     await _font('packages/cupertino_icons/CupertinoIcons', [
       '$home/.pub-cache/hosted/pub.dev/cupertino_icons-1.0.6/assets/CupertinoIcons.ttf'
     ]);
+    const f = 'assets/fonts/share';
+    await _font('InstrumentSerif',
+        ['$f/InstrumentSerif-Regular.ttf', '$f/InstrumentSerif-Italic.ttf']);
+    await _font('IBMPlexMono',
+        ['$f/IBMPlexMono-Medium.ttf', '$f/IBMPlexMono-SemiBold.ttf']);
+    await _font('BigShoulders', [
+      '$f/BigShouldersDisplay-Bold.ttf',
+      '$f/BigShouldersDisplay-Black.ttf'
+    ]);
+    await _font('ReenieBeanie', ['$f/ReenieBeanie.ttf']);
     StoryImage.debugProvider = (url) {
       final name = url.split('/').last;
       return FileImage(File('$_art/$name'));
@@ -118,8 +130,53 @@ void main() {
     agreeCount: 3,
     createdAt: DateTime(2026, 9, 21),
   );
+  final critique = CritiqueShare(ExplorePost(
+    id: 'c',
+    userId: 'u',
+    username: 'lilkhush',
+    kind: ExploreKind.critique,
+    headline: "Aftersun is a memory you didn't know you were carrying",
+    body:
+        'Charlotte Wells builds a film out of the gaps in a camcorder tape, and trusts you to fill them. '
+        'The saddest shot in the film is a Polaroid developing, and nothing happens in it at all. '
+        'Everything Calum cannot say to his daughter is in the way Paul Mescal holds his shoulders.',
+    subject: const ExploreSubject(
+      filmId: 965150,
+      mediaType: 'movie',
+      title: 'Aftersun',
+      posterPath: '/p_aftersun.jpg',
+      backdropPath: '/b_aftersun.jpg',
+      year: '2022',
+    ),
+    createdAt: DateTime(2026, 9, 21),
+  ));
+  critique.quote.value = 1;
+  FilmModel film(int id, String title, String poster, String backdrop) =>
+      FilmModel.fromJson({
+        'id': id,
+        'title': title,
+        'poster_path': poster,
+        'backdrop_path': backdrop,
+        'media_type': 'movie',
+      });
+  final top3 = Top3Share(
+    username: 'lilkhush',
+    userPhotoUrl: 'https://x/me.jpg',
+    isTv: false,
+    films: [
+      film(496243, 'Parasite', '/p_parasite.jpg', '/b_parasite.jpg'),
+      film(129, 'Spirited Away', '/p_spirited.jpg', '/b_spirited.jpg'),
+      film(843, 'In the Mood for Love', '/p_mood.jpg', '/b_mood.jpg'),
+    ],
+  );
   final variants = {'bare': TakeShare(bare), 'long': TakeShare(long)};
-  final subjects = <ShareSubject>[TakeShare(take), review, episode];
+  final subjects = <ShareSubject>[
+    TakeShare(take),
+    review,
+    episode,
+    critique,
+    top3,
+  ];
   const palette =
       PosterPalette(primary: Color(0xFF3B3AB0), secondary: Color(0xFFF2C230));
 
@@ -144,13 +201,35 @@ void main() {
         await tester.pumpWidget(const SizedBox());
         final ctx = tester.element(find.byType(SizedBox));
         await tester.runAsync(() async {
-          for (final url in subject.imageUrls) {
+          final urls = [
+            ...subject.imageUrls,
+            if (subject is ReviewShare)
+              for (final n in ['s2', 's3', 's1'])
+                'https://x/w780/${n}_pastlives.jpg',
+          ];
+          for (final url in urls) {
             await precacheImage(StoryImage.debugProvider!(url), ctx);
           }
-          await precacheImage(const AssetImage('assets/share/mark.png'), ctx);
-          await precacheImage(const AssetImage('assets/share/grain.png'), ctx);
+          for (final a in [
+            'mark.png',
+            'grain.png',
+            'sparkle.png',
+            'top3_orb.png',
+            'top3_rank1.png',
+            'top3_rank2.png',
+            'top3_rank3.png',
+          ]) {
+            await precacheImage(AssetImage('assets/share/$a'), ctx);
+          }
         });
         await tester.pumpWidget(ProviderScope(
+          overrides: [
+            filmStillsProvider.overrideWith((ref, _) async => [
+                  '/s2_pastlives.jpg',
+                  '/s3_pastlives.jpg',
+                  '/s1_pastlives.jpg'
+                ]),
+          ],
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
             home: Material(
@@ -162,6 +241,7 @@ void main() {
             ),
           ),
         ));
+        await tester.pump();
         await tester.pump();
         await tester.runAsync(() async {
           final boundary =

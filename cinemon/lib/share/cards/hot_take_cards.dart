@@ -388,3 +388,283 @@ class _Pill extends StatelessWidget {
     );
   }
 }
+
+/// H2: the take spelled out on a cinema letterboard inside a ring of bulbs.
+class MarqueeTakeCard extends StatelessWidget {
+  const MarqueeTakeCard({super.key, required this.post});
+
+  final ExplorePost post;
+
+  static const _paper = Color(0xFFF4F1EA);
+  static const _red = Color(0xFFFF5D4D);
+
+  @override
+  Widget build(BuildContext context) {
+    final s = post.subject;
+    final share = post.agreeShare;
+    final agree = share == null ? null : (share * 100).round();
+
+    // Letter size steps down with length; the grooves follow the lines.
+    final n = post.body.length;
+    final size = n <= 80
+        ? 7.1.u
+        : n <= 150
+            ? 5.6.u
+            : 4.4.u;
+    final pitch = size * 1.14;
+
+    final credit = [
+      'A HOT TAKE BY @${post.username.toUpperCase()}',
+      if (s != null)
+        'ON ${s.title.toUpperCase()}${(s.year ?? '').isEmpty ? '' : ' (${s.year})'}',
+    ].join('\n');
+
+    return StoryCanvas(
+      background: const Color(0xFF140204),
+      children: [
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: Alignment(0, -0.4),
+              radius: 1.1,
+              colors: [Color(0xFF4A0D10), Color(0xFF140204)],
+              stops: [0, 0.7],
+            ),
+          ),
+        ),
+        const StoryGrain(),
+        Positioned(
+          left: 5.u,
+          right: 5.u,
+          top: 19.u,
+          bottom: 15.u,
+          child: Column(
+            children: [
+              const Spacer(),
+              _Bulbs(
+                child: Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.fromLTRB(3.2.u, 3.u, 3.2.u, 3.u),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF151515),
+                    borderRadius: BorderRadius.circular(0.8.u),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        '★  NOW SHOWING  ★',
+                        style: TextStyle(
+                          fontFamily: 'BigShoulders',
+                          fontWeight: FontWeight.w900,
+                          fontSize: 4.2.u,
+                          letterSpacing: 1.2.u,
+                          color: const Color(0xFFFFCF6B),
+                          shadows: [
+                            Shadow(
+                              color: const Color(0xFFFFBE50)
+                                  .withValues(alpha: 0.7),
+                              blurRadius: 3.u,
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 3.u),
+                      CustomPaint(
+                        painter: _Grooves(pitch: pitch),
+                        child: Text.rich(
+                          TextSpan(
+                              children:
+                                  _letters(post.body.toUpperCase(), s?.title)),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'BigShoulders',
+                            fontWeight: FontWeight.w700,
+                            fontSize: size,
+                            height: 1.14,
+                            letterSpacing: size * 0.06,
+                            color: _paper,
+                            shadows: [
+                              Shadow(
+                                  color: const Color(0xFF9D988E),
+                                  offset: Offset(0, size * 0.04)),
+                              Shadow(
+                                  color: Colors.black.withValues(alpha: 0.8),
+                                  offset: Offset(0, size * 0.08),
+                                  blurRadius: size * 0.14),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(height: 5.u),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _Chip(
+                    agree == null ? 'AGREE?' : 'AGREE $agree%',
+                    filled: true,
+                  ),
+                  SizedBox(width: 2.u),
+                  _Chip(
+                    agree == null ? 'DISAGREE?' : 'DISAGREE ${100 - agree}%',
+                    filled: false,
+                  ),
+                ],
+              ),
+              SizedBox(height: 4.u),
+              Text(
+                credit,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'IBMPlexMono',
+                  fontWeight: FontWeight.w500,
+                  fontSize: 3.u,
+                  height: 1.45,
+                  letterSpacing: 0.2.u,
+                  color: const Color(0xFFFFE6C8).withValues(alpha: 0.7),
+                ),
+              ),
+              const Spacer(),
+              const StoryBrand(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// The take as letters, with the film's title in red if it's named.
+  static List<TextSpan> _letters(String text, String? title) {
+    final t = title?.toUpperCase();
+    if (t == null || t.isEmpty) return [TextSpan(text: text)];
+    final i = text.indexOf(t);
+    if (i < 0) return [TextSpan(text: text)];
+    return [
+      TextSpan(text: text.substring(0, i)),
+      TextSpan(text: t, style: const TextStyle(color: _red)),
+      TextSpan(text: text.substring(i + t.length)),
+    ];
+  }
+}
+
+/// The ring of bulbs around the board.
+class _Bulbs extends StatelessWidget {
+  const _Bulbs({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFF2C0708),
+        borderRadius: BorderRadius.circular(2.4.u),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFFAA3C).withValues(alpha: 0.25),
+            blurRadius: 10.u,
+          ),
+        ],
+      ),
+      child: CustomPaint(
+        painter: _BulbPainter(),
+        child: Padding(padding: EdgeInsets.all(3.6.u), child: child),
+      ),
+    );
+  }
+}
+
+class _BulbPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final step = 4.5.u;
+    final inset = 1.8.u;
+    final r = 0.8.u;
+    final points = <Offset>[];
+    final w = size.width - inset * 2;
+    final h = size.height - inset * 2;
+    final nx = (w / step).floor();
+    final ny = (h / step).floor();
+    final dx = w / nx;
+    final dy = h / ny;
+    for (var i = 0; i <= nx; i++) {
+      points
+        ..add(Offset(inset + i * dx, inset))
+        ..add(Offset(inset + i * dx, size.height - inset));
+    }
+    for (var j = 1; j < ny; j++) {
+      points
+        ..add(Offset(inset, inset + j * dy))
+        ..add(Offset(size.width - inset, inset + j * dy));
+    }
+    for (final p in points) {
+      canvas.drawCircle(
+        p,
+        r * 2.4,
+        Paint()
+          ..shader = RadialGradient(colors: [
+            const Color(0xFFFFB84D).withValues(alpha: 0.55),
+            const Color(0x00FFB84D),
+          ]).createShader(Rect.fromCircle(center: p, radius: r * 2.4)),
+      );
+      canvas.drawCircle(p, r, Paint()..color = const Color(0xFFFFF7D6));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// The letterboard's horizontal grooves, one per line of letters.
+class _Grooves extends CustomPainter {
+  _Grooves({required this.pitch});
+
+  final double pitch;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = const Color(0xFF050505);
+    for (var y = pitch; y < size.height + pitch; y += pitch) {
+      canvas.drawRect(
+          Rect.fromLTWH(-3.u, y - pitch * 0.1, size.width + 6.u, pitch * 0.1),
+          paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_Grooves old) => old.pitch != pitch;
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip(this.label, {required this.filled});
+
+  final String label;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    const paper = MarqueeTakeCard._paper;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 3.u, vertical: 2.u),
+      decoration: BoxDecoration(
+        color: filled ? paper : Colors.transparent,
+        borderRadius: BorderRadius.circular(1.u),
+        border: Border.all(color: paper, width: 0.4.u),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontFamily: 'BigShoulders',
+          fontWeight: FontWeight.w900,
+          fontSize: 4.6.u,
+          letterSpacing: 0.55.u,
+          height: 1,
+          color: filled ? const Color(0xFF1A0505) : paper,
+        ),
+      ),
+    );
+  }
+}

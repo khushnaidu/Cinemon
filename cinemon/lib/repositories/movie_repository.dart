@@ -346,6 +346,30 @@ class MovieRepository {
     }
   }
 
+  /// Stills for a film or show: TMDB's backdrops with no text on them,
+  /// best-voted first. Share cards use these (ADR 0003, R3).
+  Future<List<String>> getStills({
+    required int id,
+    required MediaType mediaType,
+  }) async {
+    final isTv = mediaType == MediaType.tv;
+    try {
+      final response = await _dio.get(
+        '${isTv ? ApiConstants.tvDetails : ApiConstants.movieDetails}/$id/images',
+        queryParameters: {'include_image_language': 'null'},
+      );
+      final backdrops = (response.data['backdrops'] as List? ?? const [])
+          .cast<Map<String, dynamic>>();
+      return [
+        for (final b in backdrops)
+          if ((b['file_path'] as String?)?.isNotEmpty ?? false)
+            b['file_path'] as String,
+      ];
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
   /// Get multiple films by their IDs
   /// Tries to fetch as movie first, then TV if that fails
   /// Fetches each film in parallel for efficiency

@@ -216,3 +216,109 @@ class _Tag extends StatelessWidget {
     );
   }
 }
+
+/// E2: the still fills the story, and the show and episode are set straight
+/// on it in plain Helvetica, with no bands behind the type.
+class FullBleedEpisodeCard extends StatelessWidget {
+  const FullBleedEpisodeCard({super.key, required this.episode});
+
+  final EpisodeShare episode;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = (episode.text ?? '').trim();
+    final still = episode.stillUrlFull.isNotEmpty
+        ? episode.stillUrlFull
+        : episode.posterUrl;
+    final sub = [
+      episode.code,
+      if ((episode.episodeTitle ?? '').isNotEmpty) episode.episodeTitle,
+    ].join('  ·  ');
+    TextStyle helv(double size, FontWeight w,
+            {double height = 1.2, double? spacing, double alpha = 1}) =>
+        TextStyle(
+          fontFamily: kHelvetica,
+          fontSize: size,
+          fontWeight: w,
+          height: height,
+          letterSpacing: spacing,
+          color: Colors.white.withValues(alpha: alpha),
+        );
+
+    return StoryCanvas(
+      children: [
+        StoryImage(still, alignment: const Alignment(0.24, 0)),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withValues(alpha: 0.35),
+                Colors.transparent,
+                Colors.transparent,
+                Colors.black.withValues(alpha: 0.92),
+              ],
+              stops: const [0, 0.3, 0.42, 0.72],
+            ),
+          ),
+        ),
+        const StoryGrain(),
+        Positioned(
+          left: 7.u,
+          top: 21.u,
+          child: Text('Episode review',
+              style: helv(3.2.u, FontWeight.w500, alpha: 0.85)),
+        ),
+        Positioned(
+          left: 7.u,
+          right: 7.u,
+          bottom: 16.u,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                episode.showTitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style:
+                    helv(13.u, FontWeight.w700, height: 0.95, spacing: -0.58.u),
+              ),
+              SizedBox(height: 2.2.u),
+              Text(sub,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: helv(4.6.u, FontWeight.w400,
+                      spacing: -0.05.u, alpha: 0.72)),
+              if (episode.rating != null) ...[
+                SizedBox(height: 3.4.u),
+                StoryStars(rating: episode.rating!, size: 5.4.u),
+              ],
+              if (text.isNotEmpty) ...[
+                SizedBox(height: 3.4.u),
+                Text(
+                  text,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style:
+                      helv(4.4.u, FontWeight.w400, height: 1.35, alpha: 0.92),
+                ),
+              ],
+              SizedBox(height: 3.4.u),
+              Row(
+                children: [
+                  StoryAuthor(
+                    username: episode.username,
+                    photoUrl: episode.userPhotoUrl,
+                  ),
+                  const Spacer(),
+                  const StoryBrand(),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
