@@ -146,6 +146,17 @@ final filmStillsProvider =
       );
 });
 
+/// Runtime, genres and makers for one title, for month stats. Kept for the
+/// session; a month rarely has more than a few dozen titles.
+final titleFactsProvider =
+    FutureProvider.family<TitleFacts, ({int id, MediaType mediaType})>(
+        (ref, params) {
+  return ref.watch(movieRepositoryProvider).getTitleFacts(
+        id: params.id,
+        mediaType: params.mediaType,
+      );
+});
+
 /// A person page. Kept 30 minutes after it closes, like film pages.
 final personPageProvider =
     FutureProvider.autoDispose.family<PersonPage, int>((ref, personId) async {

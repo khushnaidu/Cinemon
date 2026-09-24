@@ -370,6 +370,51 @@ class MovieRepository {
     }
   }
 
+  /// Runtime, genres and makers for one title, in one small call. A film's
+  /// makers are its directors; a show's are its creators, and its runtime
+  /// is a typical episode's. For month stats (ADR 0003, P2).
+  Future<TitleFacts> getTitleFacts({
+    required int id,
+    required MediaType mediaType,
+  }) async {
+    final isTv = mediaType == MediaType.tv;
+    try {
+      final response = await _dio.get(
+        '${isTv ? ApiConstants.tvDetails : ApiConstants.movieDetails}/$id',
+        queryParameters: isTv ? null : {'append_to_response': 'credits'},
+      );
+      final json = response.data as Map<String, dynamic>;
+      final genres = [
+        for (final g in (json['genres'] as List? ?? const []))
+          (g as Map<String, dynamic>)['name'] as String,
+      ];
+      final List<String> makers;
+      final int? runtime;
+      if (isTv) {
+        makers = [
+          for (final c in (json['created_by'] as List? ?? const []))
+            (c as Map<String, dynamic>)['name'] as String,
+        ];
+        final runs = (json['episode_run_time'] as List? ?? const [])
+            .whereType<num>()
+            .toList();
+        runtime = runs.isEmpty ? null : runs.first.round();
+      } else {
+        final crew =
+            (json['credits'] as Map<String, dynamic>?)?['crew'] as List? ??
+                const [];
+        makers = [
+          for (final c in crew.cast<Map<String, dynamic>>())
+            if (c['job'] == 'Director') c['name'] as String,
+        ];
+        runtime = (json['runtime'] as num?)?.round();
+      }
+      return TitleFacts(runtime: runtime, genres: genres, makers: makers);
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
   /// Get multiple films by their IDs
   /// Tries to fetch as movie first, then TV if that fails
   /// Fetches each film in parallel for efficiency
@@ -514,4 +559,20 @@ class MovieRepository {
       ],
     };
   }
+}
+
+/// The few facts about a title that month stats need.
+class TitleFacts {
+  const TitleFacts({
+    required this.runtime,
+    required this.genres,
+    required this.makers,
+  });
+
+  /// Minutes; for a show, one episode. Null when TMDB doesn't know.
+  final int? runtime;
+  final List<String> genres;
+
+  /// Directors of a film, creators of a show.
+  final List<String> makers;
 }

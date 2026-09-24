@@ -26,6 +26,8 @@ import '../../providers/user/favorites_provider.dart';
 import '../shell/glass_shell.dart' show kFloatingTabBarInset;
 import '../widgets/block_user.dart';
 import '../widgets/glass_panel.dart';
+import '../../share/month_stats.dart' show monthInFilmProvider;
+import '../../share/share_entry.dart';
 import 'delete_account_panel.dart';
 import 'profile_header.dart';
 import 'recently_watched_section.dart';
@@ -187,6 +189,13 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                           actions: isOwnProfile
                               ? [
                                   IconButton(
+                                    icon: const Icon(
+                                        CupertinoIcons.square_arrow_up,
+                                        color: Colors.white),
+                                    onPressed: () =>
+                                        shareMyProfile(context, ref),
+                                  ),
+                                  IconButton(
                                     icon: const Icon(CupertinoIcons.gear,
                                         color: Colors.white),
                                     onPressed: () =>
@@ -213,6 +222,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                                 profile: profile,
                                 isOwnProfile: isOwnProfile,
                               ),
+                              if (isOwnProfile)
+                                MonthInFilmTile(userId: profile.uid),
                               RecentlyWatchedSection(
                                 userId: profile.uid,
                                 isOwnProfile: isOwnProfile,
@@ -313,6 +324,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       ref.invalidate(currentUserRecentlyWatchedProvider);
       ref.invalidate(myWatchlistProvider);
       ref.invalidate(myBadgeProgressProvider);
+      final now = DateTime.now();
+      ref.invalidate(
+          monthInFilmProvider((userId: uid, year: now.year, month: now.month)));
     } else {
       ref.invalidate(userProfileProvider(uid));
       ref.invalidate(recentlyWatchedProvider(uid));

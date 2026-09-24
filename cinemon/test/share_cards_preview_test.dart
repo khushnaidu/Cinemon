@@ -8,6 +8,9 @@ import 'dart:ui' as ui;
 import 'package:cinemon/core/utils/poster_palette.dart';
 import 'package:cinemon/models/explore_post_model.dart';
 import 'package:cinemon/models/film_model.dart';
+import 'package:cinemon/models/list_model.dart';
+import 'package:cinemon/models/user_model.dart';
+import 'package:cinemon/share/month_stats.dart';
 import 'package:cinemon/providers/movie/movie_provider.dart';
 import 'package:cinemon/share/share_sheet.dart';
 import 'package:cinemon/share/share_subject.dart';
@@ -59,6 +62,9 @@ void main() {
       '$f/BigShouldersDisplay-Black.ttf'
     ]);
     await _font('ReenieBeanie', ['$f/ReenieBeanie.ttf']);
+    await _font('Siberian',
+        ['assets/siberian-font/SiberianPersonalUseRegular-d9Log.ttf']);
+    await _font('Isometric3D', ['assets/3DIsometricBold-Yqy68.ttf']);
     StoryImage.debugProvider = (url) {
       final name = url.split('/').last;
       return FileImage(File('$_art/$name'));
@@ -169,6 +175,74 @@ void main() {
       film(843, 'In the Mood for Love', '/p_mood.jpg', '/b_mood.jpg'),
     ],
   );
+  final me = UserModel(
+    uid: 'u',
+    username: 'lilkhush',
+    photoUrl: 'https://x/me.jpg',
+    bio: 'films, feelings, and far too many opinions',
+    reviewCount: 48,
+    followerCount: 1204,
+    createdAt: DateTime(2026, 1, 1),
+  );
+  final profile = ProfileShare(
+    user: me,
+    top3: top3.films,
+    logged: 214,
+    month: DateTime(2026, 9),
+  );
+  final month = MonthInFilm(
+    month: DateTime(2026, 9),
+    films: 23,
+    episodes: 6,
+    minutes: 2490,
+    posterPaths: const [
+      '/p_pastlives.jpg',
+      '/p_dune2.jpg',
+      '/p_aftersun.jpg',
+      '/p_anora.jpg',
+      '/p_mood.jpg',
+      '/p_chungking.jpg',
+      '/p_lalaland.jpg',
+      '/p_lost.jpg',
+      '/p_sunrise.jpg',
+      '/p_interstellar.jpg',
+      '/p_women.jpg',
+      '/p_bear.jpg',
+    ],
+    topGenre: 'Drama',
+    topGenreShare: 0.38,
+    mostWatched: 'Wong Kar-wai',
+    mostWatchedCount: 3,
+    highestRated: 'Past Lives',
+    highestRating: 4.5,
+    hottestTakeAgree: 71,
+  );
+  ListItem item(int id, String title, String poster, String year) => ListItem(
+      listId: 'l',
+      filmId: id,
+      mediaType: 'movie',
+      title: title,
+      posterPath: poster,
+      year: year);
+  final playlist = PlaylistShare(
+    list: const FilmList(
+      id: 'l',
+      userId: 'u',
+      kind: 'playlist',
+      title: 'Rainy Sunday comfort watches',
+      description: "For when it's pouring out and you need something warm.",
+    ),
+    items: [
+      item(194, 'Amélie', '/p_amelie.jpg', '2001'),
+      item(76, 'Before Sunrise', '/p_sunrise.jpg', '1995'),
+      item(346648, 'Paddington 2', '/p_paddington.jpg', '2017'),
+      item(153, 'Lost in Translation', '/p_lost.jpg', '2003'),
+      item(331482, 'Little Women', '/p_women.jpg', '2019'),
+      item(11104, 'Chungking Express', '/p_chungking.jpg', '1994'),
+    ],
+    ownerName: 'lilkhush',
+    ownerPhotoUrl: 'https://x/me.jpg',
+  );
   final variants = {'bare': TakeShare(bare), 'long': TakeShare(long)};
   final subjects = <ShareSubject>[
     TakeShare(take),
@@ -176,6 +250,8 @@ void main() {
     episode,
     critique,
     top3,
+    profile,
+    playlist,
   ];
   const palette =
       PosterPalette(primary: Color(0xFF3B3AB0), secondary: Color(0xFFF2C230));
@@ -203,6 +279,8 @@ void main() {
         await tester.runAsync(() async {
           final urls = [
             ...subject.imageUrls,
+            if (subject is ProfileShare)
+              for (final p in month.posterPaths) 'https://x/w185$p',
             if (subject is ReviewShare)
               for (final n in ['s2', 's3', 's1'])
                 'https://x/w780/${n}_pastlives.jpg',
@@ -224,6 +302,7 @@ void main() {
         });
         await tester.pumpWidget(ProviderScope(
           overrides: [
+            monthInFilmProvider.overrideWith((ref, _) async => month),
             filmStillsProvider.overrideWith((ref, _) async => [
                   '/s2_pastlives.jpg',
                   '/s3_pastlives.jpg',

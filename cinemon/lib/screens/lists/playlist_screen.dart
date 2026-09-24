@@ -20,6 +20,8 @@ import '../../providers/lists/list_provider.dart';
 import '../explore/explore_composer.dart'
     show confirmListRepost, showExploreComposer;
 import '../widgets/glass_panel.dart';
+import '../../share/share_sheet.dart';
+import '../../share/share_subject.dart';
 import 'add_films_panel.dart';
 import 'playlist_cover.dart';
 import 'playlist_editor.dart';
@@ -97,6 +99,24 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
       );
       if (!go || !buttonContext.mounted) return;
     }
+    // With films on it, the playlist goes out as a card (ADR 0003, L1); the
+    // link rides along in More and in the link sticker.
+    final items = ref.read(listItemsProvider(list.id)).valueOrNull ?? const [];
+    if (items.isNotEmpty) {
+      if (!mounted) return;
+      final owner = ref.read(userProfileProvider(list.userId)).valueOrNull;
+      await showShareSheet(
+        context,
+        PlaylistShare(
+          list: list,
+          items: items,
+          ownerName: owner?.username ?? 'someone',
+          ownerPhotoUrl: owner?.photoUrl,
+        ),
+      );
+      return;
+    }
+    if (!buttonContext.mounted) return;
     final box = buttonContext.findRenderObject() as RenderBox?;
     await SharePlus.instance.share(ShareParams(
       uri: listShareUrl(list.id),

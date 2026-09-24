@@ -75,6 +75,25 @@ class ExploreRepository {
     return rows.map(ExplorePost.fromRow).toList();
   }
 
+  /// One user's posts of one kind in [from, to), newest first.
+  Future<List<ExplorePost>> getUserPostsBetween({
+    required String userId,
+    required ExploreKind kind,
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    final rows = await _client
+        .from(_view)
+        .select()
+        .eq('user_id', userId)
+        .eq('kind', kind.value)
+        .gte('created_at', from.toUtc().toIso8601String())
+        .lt('created_at', to.toUtc().toIso8601String())
+        .order('created_at', ascending: false)
+        .limit(200);
+    return rows.map(ExplorePost.fromRow).toList();
+  }
+
   /// How many times a playlist has been posted. The database allows three.
   Future<int> countListPosts(String listId) async {
     final res = await _client
