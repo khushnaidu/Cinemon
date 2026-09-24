@@ -1,5 +1,7 @@
 {
-  "_comment": "Copy to dart_defines.json and fill in. Values come from Supabase -> Project Settings -> API. Use the PUBLISHABLE (anon) key, never the secret/service-role key.",
+  "_comment": "Copy to dart_defines.json and fill in. Values come from Supabase -> Project Settings -> API. Use the PUBLISHABLE (anon) key, never the secret/service-role key. META_APP_ID (developers.facebook.com) and SNAP_CLIENT_ID (developers.snap.com) are optional; left empty, those share buttons stay hidden.",
   "SUPABASE_URL": "https://<project-ref>.supabase.co",
-  "SUPABASE_KEY": "sb_publishable_..."
+  "SUPABASE_KEY": "sb_publishable_...",
+  "META_APP_ID": "",
+  "SNAP_CLIENT_ID": ""
 }

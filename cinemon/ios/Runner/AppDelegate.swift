@@ -1,5 +1,6 @@
 import UIKit
 import Flutter
+import MessageUI
 import Photos
 
 @main
@@ -26,10 +27,11 @@ import Photos
   }
 }
 
-/// Share cards straight to an Instagram or Facebook story, or into Photos
-/// (ADR 0003, D2). Both apps read the story off the general pasteboard under
-/// their own keys, then open from their URL scheme; the schemes are listed
-/// in Info.plist's LSApplicationQueriesSchemes so canOpenURL can see them.
+/// Share cards straight to an Instagram, Facebook or Snapchat story, a
+/// message, or Photos (ADR 0003, D2). The three apps read the card off the
+/// general pasteboard under their own keys, then open from their URL scheme;
+/// the schemes are listed in Info.plist's LSApplicationQueriesSchemes so
+/// canOpenURL can see them.
 enum StoryShareChannel {
   static func register(messenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(name: "app.35mm/story_share", binaryMessenger: messenger)
@@ -37,13 +39,22 @@ enum StoryShareChannel {
       let args = call.arguments as? [String: Any] ?? [:]
       switch call.method {
       case "canShare":
-        guard let url = composerURL(args["target"] as? String, appId: "0") else {
-          result(false)
+        let target = args["target"] as? String
+        if target == "messages" {
+          result(MFMessageComposeViewController.canSendText()
+            && MFMessageComposeViewController.canSendAttachments())
           return
         }
-        result(UIApplication.shared.canOpenURL(url))
+        let url = target == "snapchat"
+          ? URL(string: snapchatPreview)
+          : composerURL(target, appId: "0")
+        result(url.map { UIApplication.shared.canOpenURL($0) } ?? false)
       case "share":
         share(args, result: result)
+      case "snapchat":
+        snapchat(args, result: result)
+      case "message":
+        MessageComposer.shared.present(args, result: result)
       case "saveImage":
         save(args, result: result)
       default:
@@ -92,6 +103,43 @@ enum StoryShareChannel {
     UIApplication.shared.open(url, options: [:]) { opened in result(opened) }
   }
 
+  /// Snapchat's Creative Kit Lite: the card as the Snap, the link as its
+  /// caption. Snapchat checks the pasteboard's change count against the one
+  /// in the URL, so the URL is built after the pasteboard is set.
+  private static let snapchatPreview = "snapchat://creativekit/preview/1"
+
+  private static func snapchat(_ args: [String: Any], result: @escaping FlutterResult) {
+    guard let clientId = args["clientId"] as? String,
+          let image = (args["background"] as? FlutterStandardTypedData)?.data,
+          var components = URLComponents(string: snapchatPreview),
+          let probe = components.url,
+          UIApplication.shared.canOpenURL(probe) else {
+      result(false)
+      return
+    }
+    var item: [String: Any] = [
+      "com.snapchat.creativekit.clientID": clientId,
+      "com.snapchat.creativekit.backgroundImage": image,
+    ]
+    if let caption = args["caption"] as? String {
+      item["com.snapchat.creativekit.captionText"] = caption
+    }
+    UIPasteboard.general.setItems(
+      [item],
+      options: [.expirationDate: Date().addingTimeInterval(60 * 5)]
+    )
+    components.queryItems = [
+      URLQueryItem(name: "checkcount", value: String(UIPasteboard.general.changeCount)),
+      URLQueryItem(name: "clientId", value: clientId),
+      URLQueryItem(name: "appDisplayName", value: "35mm"),
+    ]
+    guard let url = components.url else {
+      result(false)
+      return
+    }
+    UIApplication.shared.open(url, options: [:]) { opened in result(opened) }
+  }
+
   private static func save(_ args: [String: Any], result: @escaping FlutterResult) {
     guard let data = (args["png"] as? FlutterStandardTypedData)?.data else {
       result("failed")
@@ -108,5 +156,55 @@ enum StoryShareChannel {
         DispatchQueue.main.async { result(ok ? "saved" : "failed") }
       }
     }
+  }
+}
+
+/// The system message composer with the card attached and the link as the
+/// text. Held as a singleton because the composer keeps only a weak
+/// reference to its delegate.
+final class MessageComposer: NSObject, MFMessageComposeViewControllerDelegate {
+  static let shared = MessageComposer()
+
+  private var pending: FlutterResult?
+
+  func present(_ args: [String: Any], result: @escaping FlutterResult) {
+    guard pending == nil,
+          MFMessageComposeViewController.canSendText(),
+          let presenter = Self.topController() else {
+      result("failed")
+      return
+    }
+    let composer = MFMessageComposeViewController()
+    composer.messageComposeDelegate = self
+    if let body = args["body"] as? String { composer.body = body }
+    if let png = (args["png"] as? FlutterStandardTypedData)?.data {
+      composer.addAttachmentData(png, typeIdentifier: "public.png", filename: "35mm.png")
+    }
+    pending = result
+    presenter.present(composer, animated: true)
+  }
+
+  func messageComposeViewController(
+    _ controller: MFMessageComposeViewController,
+    didFinishWith outcome: MessageComposeResult
+  ) {
+    controller.dismiss(animated: true)
+    let result = pending
+    pending = nil
+    switch outcome {
+    case .sent: result?("sent")
+    case .cancelled: result?("cancelled")
+    default: result?("failed")
+    }
+  }
+
+  private static func topController() -> UIViewController? {
+    let window = UIApplication.shared.connectedScenes
+      .compactMap { $0 as? UIWindowScene }
+      .flatMap { $0.windows }
+      .first { $0.isKeyWindow }
+    var top = window?.rootViewController
+    while let next = top?.presentedViewController { top = next }
+    return top
   }
 }

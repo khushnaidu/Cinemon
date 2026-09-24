@@ -20,7 +20,7 @@ Two rounds of mockups with the owner produced this set. Codes are the ones used 
 
 | Code | Card | Mode | For | Notes |
 |---|---|---|---|---|
-| S0 | Share sheet | App screen | Everything | Swipe through styles, choose a poster-derived background colour, then Instagram story · Facebook story · Save image · More |
+| S0 | Share sheet | App screen | Everything | Swipe through styles, choose a poster-derived background colour, then Instagram story · Facebook story · Snapchat · Messages · Copy link · Save image · Other |
 | H1 | Headline | Full story | Hot take | The in-app take card, full screen: blurred poster, big take, vote split, subject chip |
 | H2 | Marquee | Full story | Hot take | Letterboard lettering inside a ring of bulbs |
 | H3 | Sticker | Sticker | Hot take | The post as a movable card on a poster-colour gradient |
@@ -58,6 +58,9 @@ Every card is an ordinary widget laid out on a fixed **360 × 640** logical canv
   - `canShare(target)`
   - `share(target, background?, sticker?, topColor, bottomColor)`
   - `saveImage(png)`
+- **Snapchat** (added after Phase 4): Creative Kit Lite, no SDK. `snapchat://creativekit/preview/1?checkcount=<pasteboard change count>&clientId=…&appDisplayName=35mm`, with `com.snapchat.creativekit.clientID`, `…backgroundImage` (the full 9:16 card, sticker styles included) and `…captionText` (the link, `?s=sc`) on the pasteboard. The client ID is the dart define `SNAP_CLIENT_ID`; without it the button is hidden. Snap only lets registered demo users share until the app is approved in Snap's developer portal.
+- **Messages** (added after Phase 4): `MFMessageComposeViewController` with the card attached and the link (`?s=msg`) as the text, shown only when the phone can send attachments. The sheet closes on send and stays open on cancel.
+- **Copy link** copies the link with `?s=copy`. **Other** (was More) is the system share sheet, which covers WhatsApp, Instagram DMs, Mail and AirDrop. None of those take an image from another app any other way.
 - **Why not a plugin:** the Flutter plugins for this (`social_share`, `appinio_social_share`) are thinly maintained, and each pulls in far more than two URL schemes. We own 80 lines instead.
 - **The Meta App ID** comes in as a dart define, `META_APP_ID`, in `dart_defines.json`. If it's missing, or Instagram isn't installed, the Instagram and Facebook buttons are hidden and Save and More remain.
 - **Info.plist changes:**
@@ -148,6 +151,7 @@ ADR 0002 promises no analytics. The only measure of sharing we allow ourselves i
   - The website adds both paths to `apple-app-site-association` and rewrites them to the `/open` fallback page.
   - The privacy page describes share cards and the add-only Photos permission.
   - Nothing was built for the `?s=` counts: Vercel's request logs already record them, and D7 allows nothing more.
+- **Share targets:** built 2026-09-24. Snapchat, Messages and Copy link join the row, which now scrolls sideways; More is renamed Other. X gets no button of its own; it's reachable through Other.
 - **Checking the cards:** `test/share_cards_preview_test.dart` renders every card to PNG from local art (it's skipped unless `SHARE_PREVIEW_ART` and `SHARE_PREVIEW_OUT` are set).
 
 ## 5. Risks

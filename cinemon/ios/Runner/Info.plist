@@ -52,6 +52,7 @@
 	<array>
 		<string>instagram-stories</string>
 		<string>facebook-stories</string>
+		<string>snapchat</string>
 	</array>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>35mm uses your microphone to record spoken reviews.</string>

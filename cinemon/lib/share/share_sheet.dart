@@ -19,8 +19,8 @@ import 'story_canvas.dart';
 import 'story_share.dart';
 
 /// S0: the share sheet (ADR 0003). Swipe through the subject's styles, pick
-/// a colour from the poster, then send the card to a story, Photos, or the
-/// system share sheet.
+/// a colour from the poster, then send the card to a story, a message,
+/// Photos, or the system share sheet.
 ///
 /// [initialCode] opens on that style, like "P2" from the month card.
 Future<void> showShareSheet(
@@ -59,17 +59,19 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
   int _swatch = 0;
   bool _ready = false;
   bool _busy = false;
-  bool _instagram = false;
-  bool _facebook = false;
   bool _warming = false;
+
+  /// The targets this phone can send to, found once when the sheet opens.
+  final Set<StoryTarget> _targets = {};
 
   @override
   void initState() {
     super.initState();
-    StoryShare.canShare(StoryTarget.instagram)
-        .then((v) => mounted ? setState(() => _instagram = v) : null);
-    StoryShare.canShare(StoryTarget.facebook)
-        .then((v) => mounted ? setState(() => _facebook = v) : null);
+    for (final t in StoryTarget.values) {
+      StoryShare.canShare(t).then((ok) {
+        if (ok && mounted) setState(() => _targets.add(t));
+      });
+    }
   }
 
   @override
@@ -193,6 +195,42 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
         }
       });
 
+  Future<void> _snapchat() => _run(() async {
+        final png = await _capture(_storyKeys[_page]);
+        if (png == null) return;
+        final ok =
+            await StoryShare.snapchat(png, caption: _link('sc').toString());
+        if (!mounted) return;
+        if (ok) {
+          Navigator.of(context).pop();
+        } else {
+          showGlassToast(context, "Couldn't open Snapchat. Try Save instead.",
+              destructive: true);
+        }
+      });
+
+  Future<void> _message() => _run(() async {
+        final png = await _capture(_storyKeys[_page]);
+        if (png == null) return;
+        final r = await StoryShare.message(png, body: _link('msg').toString());
+        if (!mounted) return;
+        switch (r) {
+          case MessageResult.sent:
+            Navigator.of(context).pop();
+          case MessageResult.cancelled:
+            break;
+          case MessageResult.failed:
+            showGlassToast(context, "Couldn't open Messages. Try Other.",
+                destructive: true);
+        }
+      });
+
+  Future<void> _copyLink() async {
+    HapticFeedback.selectionClick();
+    await Clipboard.setData(ClipboardData(text: _link('copy').toString()));
+    if (mounted) showGlassToast(context, 'Link copied');
+  }
+
   Future<void> _more(BuildContext buttonContext) => _run(() async {
         final png = await _capture(_storyKeys[_page]);
         if (png == null) return;
@@ -272,13 +310,15 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
           controls(context),
         ],
         const SizedBox(height: AppSpace.xl),
-        Padding(
+        // Scrolls sideways once there are more targets than fit, like
+        // Spotify's row.
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.fromLTRB(
-              AppSpace.lg, 0, AppSpace.lg, AppSpace.xl),
+              AppSpace.md, 0, AppSpace.md, AppSpace.xl),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              if (_instagram)
+              if (_targets.contains(StoryTarget.instagram))
                 _Action(
                   label: 'Instagram\nstory',
                   enabled: _ready && !_busy,
@@ -298,7 +338,7 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
                   icon: const _InstagramGlyph(),
                   onTap: (_) => _toStory(StoryTarget.instagram, look),
                 ),
-              if (_facebook)
+              if (_targets.contains(StoryTarget.facebook))
                 _Action(
                   label: 'Facebook\nstory',
                   enabled: _ready && !_busy,
@@ -312,6 +352,32 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
                           height: 1.1)),
                   onTap: (_) => _toStory(StoryTarget.facebook, look),
                 ),
+              if (_targets.contains(StoryTarget.snapchat))
+                _Action(
+                  label: 'Snapchat\n',
+                  enabled: _ready && !_busy,
+                  decoration: const BoxDecoration(
+                      shape: BoxShape.circle, color: Color(0xFFFFFC00)),
+                  icon: const _GhostGlyph(),
+                  onTap: (_) => _snapchat(),
+                ),
+              if (_targets.contains(StoryTarget.messages))
+                _Action(
+                  label: 'Messages\n',
+                  enabled: _ready && !_busy,
+                  decoration: const BoxDecoration(
+                      shape: BoxShape.circle, color: Color(0xFF34C759)),
+                  icon: const Icon(CupertinoIcons.chat_bubble_fill,
+                      size: 24, color: Colors.white),
+                  onTap: (_) => _message(),
+                ),
+              _Action(
+                label: 'Copy\nlink',
+                enabled: true,
+                icon: const Icon(CupertinoIcons.link,
+                    size: 22, color: AppColors.ink),
+                onTap: (_) => _copyLink(),
+              ),
               _Action(
                 label: 'Save\nimage',
                 enabled: _ready && !_busy,
@@ -320,7 +386,7 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
                 onTap: (_) => _save(),
               ),
               _Action(
-                label: 'More\n',
+                label: 'Other\n',
                 enabled: _ready && !_busy,
                 icon: const Icon(CupertinoIcons.ellipsis,
                     size: 22, color: AppColors.ink),
@@ -535,7 +601,7 @@ class _Action extends StatelessWidget {
   final bool enabled;
   final BoxDecoration? decoration;
 
-  /// Gets the button's own context, which More needs to anchor the system
+  /// Gets the button's own context, which Other needs to anchor the system
   /// share sheet on iPad.
   final void Function(BuildContext buttonContext) onTap;
 
@@ -590,6 +656,58 @@ class _InstagramGlyph extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       const CustomPaint(size: Size(24, 24), painter: _GlyphPainter());
+}
+
+/// A ghost: domed head, straight sides, a scalloped hem. White with a black
+/// outline, the way Snapchat draws its own.
+class _GhostGlyph extends StatelessWidget {
+  const _GhostGlyph();
+
+  @override
+  Widget build(BuildContext context) =>
+      const CustomPaint(size: Size(26, 26), painter: _GhostPainter());
+}
+
+class _GhostPainter extends CustomPainter {
+  const _GhostPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final s = size.width;
+    final left = s * 0.22, right = s * 0.78;
+    final w = right - left;
+    final hem = s * 0.78;
+    final path = Path()
+      ..moveTo(left, s * 0.42)
+      ..arcToPoint(Offset(right, s * 0.42), radius: Radius.circular(w / 2))
+      ..lineTo(right, hem - s * 0.04)
+      ..quadraticBezierTo(
+          right + s * 0.08, hem + s * 0.02, right - s * 0.02, hem + s * 0.04);
+    // Three scallops back across the hem.
+    const scallops = 3;
+    final step = (w + s * 0.04) / scallops;
+    var x = right - s * 0.02;
+    for (var i = 0; i < scallops; i++) {
+      final nx = x - step;
+      path.quadraticBezierTo((x + nx) / 2,
+          hem - s * 0.06 + (i.isOdd ? s * 0.12 : 0), nx, hem + s * 0.04);
+      x = nx;
+    }
+    path
+      ..quadraticBezierTo(left - s * 0.08, hem + s * 0.02, left, hem - s * 0.04)
+      ..close();
+    canvas.drawPath(path, Paint()..color = Colors.white);
+    canvas.drawPath(
+        path,
+        Paint()
+          ..color = Colors.black
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.6
+          ..strokeJoin = StrokeJoin.round);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _GlyphPainter extends CustomPainter {
