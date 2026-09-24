@@ -7,6 +7,7 @@ import '../models/film_model.dart';
 import '../providers/movie/movie_provider.dart';
 import '../providers/feed/feed_provider.dart';
 import '../core/constants/api_constants.dart';
+import 'film/film_extras_sections.dart';
 import 'widgets/episodes_section.dart';
 import 'widgets/post_review_sheet.dart';
 import 'widgets/review_editor.dart';
@@ -54,7 +55,7 @@ class FilmDetailScreen extends ConsumerWidget {
               const SizedBox(height: 8),
               TextButton(
                 onPressed: () => ref.invalidate(
-                  filmDetailsProvider((
+                  filmPageProvider((
                     id: filmId,
                     mediaType:
                         mediaType == 'tv' ? MediaType.tv : MediaType.movie,
@@ -97,6 +98,11 @@ class _FilmDetailContent extends ConsumerWidget {
 
     // Use user's own activity, only fall back to existingActivity if it belongs to current user
     final activity = userActivity;
+
+    final FilmKey filmKey = (
+      id: filmId,
+      mediaType: film.isTv ? MediaType.tv : MediaType.movie,
+    );
 
     return CustomScrollView(
       slivers: [
@@ -299,6 +305,8 @@ class _FilmDetailContent extends ConsumerWidget {
                     ],
                   ),
 
+                  WhereToWatchRow(filmKey: filmKey),
+
                   // Tagline
                   if (film.tagline != null && film.tagline!.isNotEmpty) ...[
                     const SizedBox(height: 20),
@@ -333,6 +341,9 @@ class _FilmDetailContent extends ConsumerWidget {
                       ),
                     ),
                   ],
+
+                  FilmVideosSection(filmKey: filmKey),
+                  CastSection(filmKey: filmKey),
 
                   // Seasons and episodes, for shows
                   if (film.isTv && film.seasons.isNotEmpty) ...[

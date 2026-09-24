@@ -1,5 +1,9 @@
+import 'dart:async';
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/episode_model.dart';
+import '../../models/film_extras.dart';
 import '../../models/film_model.dart';
 import '../../repositories/movie_repository.dart';
 
@@ -82,16 +86,43 @@ final tvDetailsProvider =
   return repository.getTvDetails(tvId);
 });
 
+/// The viewer's country, for where-to-watch and theatrical dates. From the
+/// device locale; US when the locale has no country.
+final regionProvider = Provider<String>((ref) {
+  final code = PlatformDispatcher.instance.locale.countryCode;
+  return (code == null || code.isEmpty) ? 'US' : code.toUpperCase();
+});
+
+/// A film page's single TMDB call: details plus extras. Kept for 30 minutes
+/// after the page closes, so going back and forth doesn't refetch; provider
+/// and trailer data changes daily at most.
+final filmPageProvider = FutureProvider.autoDispose.family<
+    ({FilmModel film, FilmExtras extras}),
+    ({int id, MediaType mediaType})>((ref, params) async {
+  final page = await ref.watch(movieRepositoryProvider).getFilmPage(
+        id: params.id,
+        mediaType: params.mediaType,
+        region: ref.watch(regionProvider),
+      );
+  // Only a success is kept: a failed load has to be retryable straight away.
+  final link = ref.keepAlive();
+  final timer = Timer(const Duration(minutes: 30), link.close);
+  ref.onDispose(timer.cancel);
+  return page;
+});
+
 /// Provider for film details (movie or TV) by ID and type
 /// Usage: ref.watch(filmDetailsProvider((id: 123, mediaType: MediaType.movie)))
-final filmDetailsProvider =
-    FutureProvider.family<FilmModel, ({int id, MediaType mediaType})>(
-        (ref, params) async {
-  final repository = ref.watch(movieRepositoryProvider);
-  return repository.getFilmDetails(
-    id: params.id,
-    mediaType: params.mediaType,
-  );
+final filmDetailsProvider = FutureProvider.autoDispose
+    .family<FilmModel, ({int id, MediaType mediaType})>((ref, params) async {
+  return (await ref.watch(filmPageProvider(params).future)).film;
+});
+
+/// Trailers, cast, where to watch and theatrical status for a film page.
+/// Shares [filmPageProvider]'s request with [filmDetailsProvider].
+final filmExtrasProvider = FutureProvider.autoDispose
+    .family<FilmExtras, ({int id, MediaType mediaType})>((ref, params) async {
+  return (await ref.watch(filmPageProvider(params).future)).extras;
 });
 
 /// Episodes of one season of a show.

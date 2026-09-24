@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../core/constants/api_constants.dart';
 import '../models/episode_model.dart';
+import '../models/film_extras.dart';
 import '../models/film_model.dart';
 import '../models/person_model.dart';
 
@@ -309,6 +310,38 @@ class MovieRepository {
       return getMovieDetails(id);
     } else {
       return getTvDetails(id);
+    }
+  }
+
+  /// Everything a film page shows, in one TMDB call: the details plus
+  /// videos, credits, where to watch and (for a film) release dates.
+  /// [region] is an ISO 3166-1 country code; it picks the providers and the
+  /// theatrical dates.
+  Future<({FilmModel film, FilmExtras extras})> getFilmPage({
+    required int id,
+    required MediaType mediaType,
+    required String region,
+  }) async {
+    final isTv = mediaType == MediaType.tv;
+    try {
+      final response = await _dio.get(
+        '${isTv ? ApiConstants.tvDetails : ApiConstants.movieDetails}/$id',
+        queryParameters: {
+          'append_to_response': isTv
+              ? 'videos,aggregate_credits,watch/providers'
+              : 'videos,credits,watch/providers,release_dates',
+        },
+      );
+      final json = response.data as Map<String, dynamic>;
+      return (
+        film: FilmModel.fromJson({
+          ...json,
+          'media_type': isTv ? 'tv' : 'movie',
+        }),
+        extras: FilmExtras.fromTmdb(json, isTv: isTv, region: region),
+      );
+    } on DioException catch (e) {
+      throw _handleDioError(e);
     }
   }
 
