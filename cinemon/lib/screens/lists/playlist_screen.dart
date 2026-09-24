@@ -518,20 +518,20 @@ class _Ambient extends StatelessWidget {
 Future<void> showPickForMe(BuildContext context, List<ListItem> items) {
   return showGlassPanel<void>(
     context,
-    builder: (_) => _Shuffle(items: items),
+    builder: (_) => _PickForMe(items: items),
   );
 }
 
-class _Shuffle extends StatefulWidget {
-  const _Shuffle({required this.items});
+class _PickForMe extends StatefulWidget {
+  const _PickForMe({required this.items});
 
   final List<ListItem> items;
 
   @override
-  State<_Shuffle> createState() => _PickForMeState();
+  State<_PickForMe> createState() => _PickForMeState();
 }
 
-class _PickForMeState extends State<_Shuffle> {
+class _PickForMeState extends State<_PickForMe> {
   final _random = Random();
   late ListItem _current = widget.items[_random.nextInt(widget.items.length)];
   bool _spinning = false;
