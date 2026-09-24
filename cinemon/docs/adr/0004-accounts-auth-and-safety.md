@@ -1,6 +1,6 @@
 # ADR 0004 — Accounts: reporting everything, real auth, public and private profiles
 
-- **Status:** Accepted 2026-09-24. Phase 1 built 2026-09-24; Phases 2–4 open.
+- **Status:** Accepted 2026-09-24. Phases 1 and 2 built 2026-09-24; Phases 3–4 open.
 - **Date:** 2026-09-24
 - **Scope:**
   - Making every piece of user content reportable.
@@ -107,9 +107,9 @@ Owner's decision, 2026-09-24.
   - A new `follow` type ("started following you") for public accounts.
   - `followRequest` for private accounts.
   - `followAccepted` when a request is approved.
-  - The enum value goes in its own migration (`015a`), as with `011a`.
+  - The enum value goes in its own migration (`016a`), as with `011a`.
 
-**Moving existing data** (migration `015_follows`)
+**Moving existing data** (migration `016_follows`)
 - Every accepted friendship becomes **two accepted follows**, so nobody loses anyone.
 - Every pending friendship becomes one pending follow from the sender to the receiver.
 - Declined friendships are dropped.
@@ -149,9 +149,9 @@ Views inherit these rules through `security_invoker`. So Explore, Home, search a
 
 ### D4 — Codes in emails, not deep links
 
-Supabase sends one email that carries both a **6-digit code** and a link.
-- **The app asks for the code.** A code works when the email is opened on a laptop, needs no working deep link, and avoids iOS Mail's link-preview prefetch using up a single-use link.
-- **The link** (`cinemon://login-callback`, PKCE) stays as a fallback on the phone.
+Supabase's email carries a **6-digit code and no link** (amended while building Phase 2).
+- **The app asks for the code.** A code works when the email is opened on a laptop and needs no working deep link.
+- **No link, deliberately:** the link and the code share one one-time token, and mail apps prefetch links, which would use it up before the code is typed.
 
 **The flows:**
 - **Sign up:** email and password → the "Check your email" screen: enter the code, Resend after 60 s, Open Mail. `verifyOTP(type: signup)` returns a session → onboarding.
@@ -161,7 +161,7 @@ Supabase sends one email that carries both a **6-digit code** and a link.
 **Supabase settings** (owner, in the dashboard):
 - Turn **Confirm email** on.
 - Turn **Secure email change** on.
-- Set the templates for Confirm signup and Reset password to show `{{ .Token }}` prominently.
+- Paste the templates in `supabase/templates/` for Confirm signup and Reset password. They show `{{ .Token }}` and no link.
 - OTP expiry: 1 hour.
 
 **Custom SMTP is required for launch.** The built-in sender is limited to a handful of emails an hour. Use Resend on `35mm.contact` (SPF and DKIM on the Vercel DNS), sending from `hello@35mm.contact`.
@@ -232,9 +232,9 @@ Each phase is its own branch and ends with a TestFlight build, so testers see pr
 | Phase | Ships | Needs from the owner |
 |---|---|---|
 | **1. Report everything** | D1: migration `014`, `showReportSheet`, menus on all content, moderation queue across kinds. Also locks the iPhone app to portrait. | Paste `014` into the SQL editor |
-| **2. Auth core and restyle** | D4, D5, D7, D8 (`GlassTextField`, login, sign-up, code screen, forgot password, onboarding). Migration `016_onboarding`. | Dashboard settings in D4 and D5. Resend and SMTP (can come later; codes work with the built-in sender at low volume) |
+| **2. Auth core and restyle** | D4, D5, D7, D8 (`GlassTextField`, login, sign-up, code screen, forgot password, onboarding). Migration `015_onboarding`. | Dashboard settings in D4 and D5. Resend and SMTP (can come later; codes work with the built-in sender at low volume) |
 | **3. Apple and Google** | D6, including the `apple-token` Edge Function and revoke-on-delete | Apple: enable the capability on the App ID, create a Services ID and a `.p8` key. Google: Cloud project with iOS and Web OAuth clients. Supabase: enable both providers. Step-by-step instructions come with the phase. |
-| **4. Follows and private accounts** | D2, D3, and the D8 Follow button, requests, locked profile, Followers/Following tabs. Migrations `015`, `015a`. | Paste the migrations, **at the same time as the build goes out** (older builds read `friendships`) |
+| **4. Follows and private accounts** | D2, D3, and the D8 Follow button, requests, locked profile, Followers/Following tabs. Migrations `016`, `016a`. | Paste the migrations, **at the same time as the build goes out** (older builds read `friendships`) |
 | **Then** | Update the website's privacy page (Apple and Google sign-in, private accounts, the reporting scope) and check the `/p/` and `/u/` fallbacks. Resume the App Store checklist. | — |
 
 **Progress:**
@@ -256,6 +256,20 @@ Each phase is its own branch and ends with a TestFlight build, so testers see pr
     - Profile ••• → Report @x, which then offers Block.
   - The iPhone app is portrait-only.
   - Runbook: `docs/runbooks/moderation.md`.
+- **Phase 2:** built 2026-09-24.
+  - `015_onboarding.sql`:
+    - `profiles.onboarded_at`, backfilled for everyone existing, only on the first run.
+    - `handle_new_user` fills the name and photo from the provider.
+    - `guard_username()` checks the format only when the username changes.
+    - `username_available()`.
+    - Tested on the scratch cluster, including a rerun.
+  - The app:
+    - `GlassTextField` and `AuthScaffold`.
+    - Log in, sign up (email and password with a live checklist), `/verify` (the 6-digit code, with Resend after 60 s and Open Mail), `/forgot`, `/new-password` and `/onboarding` (username with a live availability check, then photo, name and bio).
+  - The router is now a single instance using `refreshListenable`, so login no longer replays the splash. `authRedirectHold` lets the login zoom finish.
+  - The rules are shared with Edit Profile (`lib/core/utils/auth_rules.dart`, unit-tested).
+  - The email templates are in `supabase/templates/`.
+  - The website gains `/terms` (zero tolerance for objectionable content, as Guideline 1.2 expects), linked from sign-up.
 
 Every migration is tested first on the local Postgres 16 scratch cluster, with the stub `auth` and `storage` schemas, acting as several users under `set role authenticated`.
 

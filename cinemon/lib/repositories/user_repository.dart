@@ -53,12 +53,14 @@ class UserRepository {
   }
 
   /// Check if a username is free (case-insensitive).
+  ///
+  /// Through `username_available()` (migration 015), which also sees accounts
+  /// hidden from you by a block, and counts your own current name as free.
   Future<bool> isUsernameAvailable(String username) async {
     final trimmed = username.trim();
     if (trimmed.isEmpty) return false;
-    final row =
-        await _users.select('id').ilike('username', trimmed).maybeSingle();
-    return row == null;
+    return await _client.rpc('username_available', params: {'name': trimmed})
+        as bool;
   }
 
   /// Search users by username prefix.

@@ -70,7 +70,8 @@ class ListRepository {
   }) =>
       _items
           .update({
-            'watched_at': watched ? DateTime.now().toUtc().toIso8601String() : null,
+            'watched_at':
+                watched ? DateTime.now().toUtc().toIso8601String() : null,
           })
           .eq('list_id', listId)
           .eq('film_id', filmId)
@@ -140,8 +141,7 @@ class ListRepository {
         'visibility': visibility.name,
       }).eq('id', listId);
 
-  Future<void> deleteList(String listId) =>
-      _lists.delete().eq('id', listId);
+  Future<void> deleteList(String listId) => _lists.delete().eq('id', listId);
 
   /// Which of [listIds] have this title on them.
   Future<Set<String>> listsContaining(

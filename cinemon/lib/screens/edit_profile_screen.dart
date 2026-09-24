@@ -2,6 +2,7 @@ import 'dart:async';
 import '../core/theme/app_theme.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../core/utils/auth_rules.dart' show usernameProblem;
 import 'widgets/glass_panel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -324,22 +325,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                           ),
                         ),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Username is required';
-                        }
-                        if (value.length < 3) {
-                          return 'Username must be at least 3 characters';
-                        }
-                        if (value.contains(' ')) {
-                          return 'Username cannot contain spaces';
-                        }
-                        final usernameRegex = RegExp(r'^[a-zA-Z0-9_]+$');
-                        if (!usernameRegex.hasMatch(value)) {
-                          return 'Only letters, numbers, and underscores';
-                        }
-                        return null;
-                      },
+                      validator: (value) =>
+                          usernameProblem((value ?? '').trim().toLowerCase()),
                     ),
                     if (editState.usernameError != null)
                       Padding(

@@ -1,6 +1,6 @@
-import 'package:supabase_flutter/supabase_flutter.dart'
-    show User, AuthException, PostgrestException;
+import 'package:supabase_flutter/supabase_flutter.dart' show User;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/utils/auth_errors.dart';
 import '../../repositories/auth_repository.dart';
 
 /// Bridges Supabase's `User.id` to the `uid` name used throughout the app.
@@ -81,135 +81,45 @@ class AuthState {
   }
 }
 
-/// Controller for authentication actions
-///
-/// Handles sign in, sign up, sign out with loading states and error handling
+/// Controller for signing in and out, with a loading flag and a readable
+/// error. Sign-up, codes and password resets live on their own screens and
+/// call [AuthRepository] directly (ADR 0004 D4).
 class AuthController extends StateNotifier<AuthState> {
   final AuthRepository _authRepository;
 
   AuthController(this._authRepository) : super(AuthState());
 
-  /// Sign in with email and password
+  /// The raw error from the last sign-in, so the screen can tell an
+  /// unconfirmed email (go to the code screen) from a wrong password.
+  Object? lastError;
+
   Future<void> signIn({
     required String email,
     required String password,
   }) async {
+    lastError = null;
     state = state.copyWith(isLoading: true, errorMessage: null);
-
     try {
       await _authRepository.signIn(email: email, password: password);
       state = state.copyWith(isLoading: false);
-    } on AuthException catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: _getErrorMessage(e),
-      );
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: 'An unexpected error occurred',
-      );
-    }
-  }
-
-  /// Sign up with email and password
-  ///
-  /// The `on_auth_user_created` DB trigger creates the matching `profiles`
-  /// row from the username metadata, so there is no second write here.
-  Future<void> signUp({
-    required String email,
-    required String password,
-    required String username,
-  }) async {
-    state = state.copyWith(isLoading: true, errorMessage: null);
-
-    try {
-      await _authRepository.signUp(
-        email: email,
-        password: password,
-        username: username,
-      );
-      state = state.copyWith(isLoading: false);
-    } on AuthException catch (e) {
+      lastError = e;
       state =
-          state.copyWith(isLoading: false, errorMessage: _getErrorMessage(e));
-    } on PostgrestException catch (e) {
-      // unique_violation from the profiles.username index
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: e.code == '23505'
-            ? 'That username is already taken'
-            : 'Could not create your profile',
-      );
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: 'An unexpected error occurred',
-      );
+          state.copyWith(isLoading: false, errorMessage: describeAuthError(e));
     }
   }
 
-  /// Sign out current user
   Future<void> signOut() async {
     state = state.copyWith(isLoading: true, errorMessage: null);
-
     try {
       await _authRepository.signOut();
       state = state.copyWith(isLoading: false);
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: 'Failed to sign out',
-      );
+      state =
+          state.copyWith(isLoading: false, errorMessage: 'Failed to sign out');
     }
   }
 
-  /// Send password reset email
-  Future<void> sendPasswordResetEmail({required String email}) async {
-    state = state.copyWith(isLoading: true, errorMessage: null);
-
-    try {
-      await _authRepository.sendPasswordResetEmail(email: email);
-      state = state.copyWith(isLoading: false);
-    } on AuthException catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: _getErrorMessage(e),
-      );
-    }
-  }
-
-  /// Convert Supabase auth errors to user-friendly messages
-  String _getErrorMessage(AuthException e) {
-    final msg = e.message.toLowerCase();
-
-    if (msg.contains('invalid login credentials')) {
-      return 'Incorrect email or password';
-    }
-    if (msg.contains('email not confirmed')) {
-      return 'Please confirm your email before signing in';
-    }
-    if (msg.contains('already registered') ||
-        msg.contains('already been registered')) {
-      return 'An account already exists with this email';
-    }
-    if (msg.contains('password') && msg.contains('at least')) {
-      return 'Password must be at least 6 characters';
-    }
-    if (msg.contains('unable to validate email') ||
-        msg.contains('invalid email')) {
-      return 'Invalid email address';
-    }
-    if (msg.contains('rate limit') || e.statusCode == '429') {
-      return 'Too many attempts. Please try again later';
-    }
-    if (msg.contains('user not found')) {
-      return 'No user found with this email';
-    }
-    return e.message;
-  }
-
-  /// Clear error message
   void clearError() {
     state = state.copyWith(errorMessage: null);
   }

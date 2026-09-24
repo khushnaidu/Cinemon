@@ -5,7 +5,11 @@ import '../../providers/auth/auth_provider.dart';
 import '../../screens/splash_screen.dart';
 import '../../screens/auth/login_screen.dart';
 import '../../screens/auth/signup_screen.dart';
-import '../../screens/auth/profile_setup_screen.dart';
+import '../../providers/auth/onboarding_provider.dart';
+import '../../screens/auth/onboarding_screen.dart';
+import '../../screens/auth/password_reset_screens.dart';
+import '../../screens/auth/verify_code_screen.dart';
+import 'redirect_hold.dart';
 import '../../screens/homefeed.dart';
 import '../../screens/shell/glass_shell.dart';
 import '../../screens/post.dart' show MovieSearchPage;
@@ -23,56 +27,67 @@ import '../../screens/person/person_screen.dart';
 import '../../screens/trailers/trailers_screen.dart';
 import '../../share/shared_link_screens.dart';
 
-/// GoRouter configuration with auth guard
+/// Pings the router to re-run its redirect.
+class _RouterRefresh extends ChangeNotifier {
+  void ping() => notifyListeners();
+}
+
+/// Screens you can be on signed out.
+const _signedOutPages = {'/login', '/signup', '/verify', '/forgot'};
+
+/// One router for the life of the app. Signing in or out, finishing
+/// onboarding and the login screen's hold re-run [redirect] rather than
+/// rebuilding the router, which used to replay the splash on every login.
 final goRouterProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
+  final refresh = _RouterRefresh();
+  ref.listen(authStateProvider, (_, __) => refresh.ping());
+  ref.listen(onboardedProvider, (_, __) => refresh.ping());
+  authRedirectHold.addListener(refresh.ping);
+  ref.onDispose(() {
+    authRedirectHold.removeListener(refresh.ping);
+    refresh.dispose();
+  });
 
   return GoRouter(
     initialLocation: '/',
+    refreshListenable: refresh,
     // Lets the glass shell unmount its platform view whenever a route or a
     // modal sheet covers it — see shellRouteObserver.
     observers: [shellRouteObserver],
-    redirect: (context, state) async {
+    redirect: (context, state) {
       final location = state.matchedLocation;
 
-      // Allow splash screen to always show
-      if (location == '/') {
+      // The splash moves itself on; the login screen holds while its logo
+      // zoom plays.
+      if (location == '/' || authRedirectHold.value) return null;
+
+      final auth = ref.read(authStateProvider);
+      if (auth.isLoading && !auth.hasValue) return null;
+
+      final user = auth.valueOrNull;
+      if (user == null) {
+        return _signedOutPages.contains(location) ? null : '/login';
+      }
+
+      // A reset code signs you in; finish by choosing the password.
+      if (location == '/new-password') return null;
+      if (location == '/verify' &&
+          state.uri.queryParameters['purpose'] == 'recovery') {
+        return '/new-password';
+      }
+
+      // Everyone new picks a username first (ADR 0004 D7). If the lookup
+      // fails, let them in: everyone from before onboarding counts as done.
+      final onboarded = ref.read(onboardedProvider);
+      if (onboarded.isLoading && !onboarded.hasValue) {
         return null;
       }
-
-      // Check if user is loading
-      final isLoading = authState.isLoading;
-      if (isLoading) {
-        return null; // Wait for auth to load
+      if (onboarded.valueOrNull == false) {
+        return location == '/onboarding' ? null : '/onboarding';
       }
-
-      // Check if user is authenticated
-      final user = authState.value;
-      final isAuthenticated = user != null;
-
-      // Define page categories
-      final isOnAuthPage = location == '/login' || location == '/signup';
-
-      // Redirect logic for unauthenticated users
-      if (!isAuthenticated) {
-        if (isOnAuthPage) {
-          return null; // Stay on auth page
-        }
-        return '/login'; // Redirect to login
+      if (_signedOutPages.contains(location) || location == '/onboarding') {
+        return '/home';
       }
-
-      // User is authenticated
-      if (isAuthenticated) {
-        // If on auth pages, redirect to home
-        if (isOnAuthPage) {
-          return '/home';
-        }
-
-        // Profile setup is now optional - users can skip it
-        // No automatic redirect to profile-setup
-      }
-
-      // No redirect needed
       return null;
     },
     routes: [
@@ -92,9 +107,26 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SignupScreen(),
       ),
       GoRoute(
-        path: '/profile-setup',
-        name: 'profile-setup',
-        builder: (context, state) => const ProfileSetupScreen(),
+        path: '/verify',
+        builder: (context, state) => VerifyCodeScreen(
+          email: state.uri.queryParameters['email'] ?? '',
+          purpose: state.uri.queryParameters['purpose'] == 'recovery'
+              ? CodePurpose.recovery
+              : CodePurpose.signup,
+        ),
+      ),
+      GoRoute(
+        path: '/forgot',
+        builder: (context, state) =>
+            ForgotPasswordScreen(email: state.uri.queryParameters['email']),
+      ),
+      GoRoute(
+        path: '/new-password',
+        builder: (context, state) => const NewPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => const OnboardingScreen(),
       ),
       // The five tabs live in a shell so the glass bar persists across
       // switches and each branch keeps its own stack and scroll position.
