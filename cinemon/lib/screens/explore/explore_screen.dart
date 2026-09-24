@@ -144,14 +144,31 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                 parent: BouncingScrollPhysics(),
               ),
               slivers: [
-                SliverToBoxAdapter(child: SizedBox(height: pad.top + 4)),
+                // Pull to refresh. It only sees the overscroll as the first
+                // sliver, so it sits above the status-bar spacer and draws
+                // its spinner below the Dynamic Island instead.
                 if (!_searching)
                   CupertinoSliverRefreshControl(
+                    refreshTriggerPullDistance: pad.top + 90,
+                    refreshIndicatorExtent: pad.top + 44,
+                    builder: (context, mode, pulled, trigger, extent) =>
+                        Padding(
+                      padding: EdgeInsets.only(top: pad.top),
+                      child:
+                          CupertinoSliverRefreshControl.buildRefreshIndicator(
+                        context,
+                        mode,
+                        (pulled - pad.top).clamp(0.0, double.infinity),
+                        trigger - pad.top,
+                        extent - pad.top,
+                      ),
+                    ),
                     onRefresh: () {
                       ref.invalidate(newFromFollowedProvider);
                       return ref.read(exploreFeedProvider.notifier).refresh();
                     },
                   ),
+                SliverToBoxAdapter(child: SizedBox(height: pad.top + 4)),
 
                 // Title. The compose button floats beside it (see below).
                 const SliverToBoxAdapter(
