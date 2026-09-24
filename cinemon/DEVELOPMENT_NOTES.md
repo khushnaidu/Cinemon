@@ -147,6 +147,62 @@ author's live username/photo (so profile edits propagate everywhere) and
 aggregates likes into a `text[]` and reactions into a `jsonb` map, matching
 ActivityModel's shape exactly. Writes go to the `activities` table.
 
+### Migrations
+
+`supabase/migrations/` holds the deltas, each idempotent. Run new ones in the
+SQL Editor (there is no CLI link on this machine):
+
+| File | Adds |
+|---|---|
+| `001_fix_notifications.sql` | notification RLS/realtime fixes, server-side creation |
+| `002_review_media.sql` | voice notes + photos on activities, `review-media` bucket |
+| `003_episodes_and_shows.sql` | `season_number` / `episode_number` / `episode_title` / `episode_still_path` on activities, `favorite_show_ids` on profiles, rebuilt view |
+| `004_explore.sql` | `explore_posts`, `explore_post_votes`, `explore_comments`, `content_reports`, count triggers, `explore_feed` view |
+| `005_comment_replies.sql` | `parent_id` on `comments` + `explore_comments` (one-level threads, flattened by trigger); Explore comments only on thought/discussion |
+
+Until 003 is applied, episode posts and the Top 3 shows picker fail on save
+(the columns don't exist); everything else keeps working.
+
+### Explore (tab 3, `/explore`)
+Public posts from everyone, in `explore_posts` — deliberately not `activities`,
+so they never land in home feeds, profile grids or review counts.
+- Kinds (`ExploreKind`): thought, take (hot take), review, critique, discussion.
+  Each is a layout in `explore_post_card.dart`; `exploreBodyStyle` is shared
+  with the composer so the text field is already set in the post's type.
+- Optional subject: film, show or one episode (denormalised columns, same as
+  activities). Tapping a subject filters the feed; filtering a show includes
+  its episodes.
+- Hot takes get agree/disagree (`explore_post_votes.value` 1 / -1, split shown
+  only after you vote); every other kind uses value 1 as a like.
+- Report (App Store 1.2) writes `content_reports`; review them in the dashboard.
+- Comments only on thoughts and discussions (`ExploreKind.allowsComments`, enforced by RLS in 005).
+- Comment replies (home feed + Explore): one level deep, hidden behind "View N replies" (`comment_thread.dart`).
+- Not yet: notifications for Explore likes/replies or for comment replies, blocking users.
+
+### Episode posts
+
+A post about one episode keeps `film_id` = the show's TMDB id and adds the
+four episode columns. `feed_activities` picks them up via `a.*`.
+`FeedRepository.getUserFilmActivity` filters `season_number is null` so a
+show-level "your activity" isn't confused with an episode one;
+`getUserEpisodeActivities` returns the episode ones keyed "S{n} E{m}".
+
+### Glass panels
+
+`lib/screens/widgets/glass_panel.dart` is the one modal surface: floating
+Liquid Glass pane on the root navigator with a blurred scrim. Settings, the
+favorite pickers, the new-post panel, the editor and the episode detail all
+use `showGlassPanel`. The same file has the pill buttons, chips, segmented
+control, menu rows, `showGlassToast` (replaces every SnackBar) and
+`showGlassConfirm` (replaces every AlertDialog).
+
+Rule: selection and primary actions are a brighter glass lens (`GlassLens`,
+the same construction as the native tab bar's indicator), never a solid fill.
+
+Fonts: `AppText` uses `CupertinoSystemText` / `CupertinoSystemDisplay`, which
+Flutter maps to real San Francisco. `.SF Pro Text` is not a resolvable family
+and silently falls back to Helvetica Neue.
+
 ### Triggers (server-authoritative — never write these from the client)
 
 | Trigger | Does |

@@ -1,8 +1,10 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show immutable;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../models/activity_model.dart';
+import '../../models/episode_model.dart';
 import '../../models/film_model.dart';
 import '../../models/user_model.dart';
 import '../../repositories/feed_repository.dart';
@@ -110,6 +112,26 @@ final userFilmActivityProvider =
   );
 });
 
+/// The current user's episode posts for one show, keyed "S{n}E{m}" so the
+/// episode list can mark what's already been reviewed in O(1).
+final userEpisodeActivitiesProvider =
+    FutureProvider.family<Map<String, ActivityModel>, int>((ref, showId) async {
+  final currentUser = ref.watch(currentUserProvider);
+  if (currentUser == null) return const {};
+
+  final feedRepo = ref.watch(feedRepositoryProvider);
+  final rows = await feedRepo.getUserEpisodeActivities(
+    userId: currentUser.uid,
+    showId: showId,
+  );
+  final map = <String, ActivityModel>{};
+  for (final a in rows) {
+    // Newest first, so the first one seen per episode wins.
+    map.putIfAbsent(a.episodeCode!, () => a);
+  }
+  return map;
+});
+
 /// Provider to get friends' activities for a specific film
 final friendsFilmActivitiesProvider =
     FutureProvider.family<List<ActivityModel>, int>((ref, filmId) async {
@@ -138,12 +160,14 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
   /// Stores recently unlocked badges for UI notification
   List<String> lastUnlockedBadges = [];
 
-  CreateActivityNotifier(this._feedRepo, this._userRepo, this._badgeService, this._ref)
+  CreateActivityNotifier(
+      this._feedRepo, this._userRepo, this._badgeService, this._ref)
       : super(const AsyncValue.data(null));
 
   /// Post a new "watched" activity (no review required)
   Future<ActivityModel?> postWatched({
     required FilmModel film,
+    EpisodeModel? episode,
   }) async {
     final currentUser = _ref.read(currentUserProvider);
     if (currentUser == null) {
@@ -169,6 +193,10 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
         filmBackdropPath: film.backdropPath,
         filmYear: film.year,
         mediaType: film.isMovie ? 'movie' : 'tv',
+        seasonNumber: episode?.seasonNumber,
+        episodeNumber: episode?.episodeNumber,
+        episodeTitle: episode?.name,
+        episodeStillPath: episode?.stillPath,
         createdAt: DateTime.now(),
       );
 
@@ -178,6 +206,8 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
       // Refresh the feed and user's activities
       _ref.invalidate(homeFeedProvider);
       _ref.invalidate(userActivitiesProvider(currentUser.uid));
+      _ref.invalidate(userFilmActivityProvider(film.id));
+      _ref.invalidate(userEpisodeActivitiesProvider(film.id));
 
       return created;
     } catch (e, st) {
@@ -189,6 +219,7 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
   /// Post a new review activity (with rating and optional text)
   Future<ActivityModel?> postReview({
     required FilmModel film,
+    EpisodeModel? episode,
     required double rating,
     String? reviewText,
     File? voiceNote,
@@ -257,6 +288,10 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
         filmBackdropPath: film.backdropPath,
         filmYear: film.year,
         mediaType: film.isMovie ? 'movie' : 'tv',
+        seasonNumber: episode?.seasonNumber,
+        episodeNumber: episode?.episodeNumber,
+        episodeTitle: episode?.name,
+        episodeStillPath: episode?.stillPath,
         rating: rating,
         reviewText: reviewText,
         voiceNoteUrl: voiceNoteUrl,
@@ -284,6 +319,8 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
       _ref.invalidate(homeFeedProvider);
       _ref.invalidate(currentUserProfileProvider);
       _ref.invalidate(userActivitiesProvider(currentUser.uid));
+      _ref.invalidate(userFilmActivityProvider(film.id));
+      _ref.invalidate(userEpisodeActivitiesProvider(film.id));
 
       return created;
     } catch (e, st) {
@@ -301,7 +338,8 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
 
   /// Delete an activity
   /// Pass isReview=true to also decrement the review count
-  Future<void> deleteActivity(String activityId, {bool isReview = false, int? filmId}) async {
+  Future<void> deleteActivity(String activityId,
+      {bool isReview = false, int? filmId}) async {
     final currentUser = _ref.read(currentUserProvider);
     if (currentUser == null) {
       state = AsyncValue.error('Not logged in', StackTrace.current);
@@ -334,6 +372,7 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
       _ref.invalidate(userActivitiesProvider(currentUser.uid));
       if (filmId != null) {
         _ref.invalidate(userFilmActivityProvider(filmId));
+        _ref.invalidate(userEpisodeActivitiesProvider(filmId));
         _ref.invalidate(friendsFilmActivitiesProvider(filmId));
       }
     } catch (e, st) {
@@ -347,6 +386,7 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
     required ActivityModel activity,
     double? newRating,
     String? newReviewText,
+    ReviewMediaEdit? media,
   }) async {
     final currentUser = _ref.read(currentUserProvider);
     if (currentUser == null) {
@@ -356,30 +396,92 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
 
     // Verify ownership
     if (activity.userId != currentUser.uid) {
-      state = AsyncValue.error('Cannot edit others\' activities', StackTrace.current);
+      state = AsyncValue.error(
+          'Cannot edit others\' activities', StackTrace.current);
       return false;
     }
 
     state = const AsyncValue.loading();
 
     try {
-      final wasReview = activity.activityType == ActivityType.reviewed;
       final hasNewRating = newRating != null && newRating > 0;
       final trimmedReviewText = newReviewText?.trim();
-      final hasNewReview = trimmedReviewText != null && trimmedReviewText.isNotEmpty;
-      final isNowReview = hasNewRating || hasNewReview;
+      final hasNewReview =
+          trimmedReviewText != null && trimmedReviewText.isNotEmpty;
 
-      // Determine new activity type
-      final newActivityType = isNowReview ? ActivityType.reviewed : ActivityType.watched;
+      // Media the post will end up with. A null [media] means the caller isn't
+      // touching it, so the activity keeps whatever it already had.
+      var voiceNoteUrl = activity.voiceNoteUrl;
+      var voiceNoteDurationMs = activity.voiceNoteDurationMs;
+      var voiceNoteWaveform = activity.voiceNoteWaveform;
+      var photoUrls = activity.photoUrls;
 
-      // Update the activity
+      // Files that are no longer referenced once this save lands. Collected
+      // first and deleted last: a storage error must not be able to leave the
+      // row pointing at something that's already gone.
+      final orphaned = <String>[];
+
+      if (media != null) {
+        if (media.newVoiceNote != null) {
+          voiceNoteUrl = await _feedRepo.uploadVoiceNote(
+            uid: currentUser.uid,
+            activityId: activity.id,
+            file: media.newVoiceNote!,
+          );
+          voiceNoteDurationMs = media.newVoiceNoteDurationMs;
+          voiceNoteWaveform = media.newWaveform;
+          if (activity.voiceNoteUrl != null) {
+            orphaned.add(activity.voiceNoteUrl!);
+          }
+        } else if (media.keptVoiceNoteUrl == null) {
+          if (activity.voiceNoteUrl != null) {
+            orphaned.add(activity.voiceNoteUrl!);
+          }
+          voiceNoteUrl = null;
+          voiceNoteDurationMs = 0;
+          voiceNoteWaveform = const [];
+        }
+
+        final uploaded = media.newPhotos.isEmpty
+            ? const <String>[]
+            : await _feedRepo.uploadReviewPhotos(
+                uid: currentUser.uid,
+                activityId: activity.id,
+                files: media.newPhotos,
+              );
+        photoUrls = [...media.keptPhotoUrls, ...uploaded];
+        orphaned.addAll(
+          activity.photoUrls.where((u) => !media.keptPhotoUrls.contains(u)),
+        );
+      }
+
+      // A spoken review with no stars and no text is still a review — the type
+      // has to follow the media too, or removing the text off a voice-only
+      // post would silently downgrade it to a bare "watched".
+      final isNowReview = hasNewRating ||
+          hasNewReview ||
+          voiceNoteUrl != null ||
+          photoUrls.isNotEmpty;
+
       final updatedActivity = activity.copyWith(
-        activityType: newActivityType,
+        activityType:
+            isNowReview ? ActivityType.reviewed : ActivityType.watched,
         rating: hasNewRating ? newRating : null,
         reviewText: hasNewReview ? trimmedReviewText : null,
+        voiceNoteUrl: voiceNoteUrl,
+        voiceNoteDurationMs: voiceNoteDurationMs,
+        voiceNoteWaveform: voiceNoteWaveform,
+        photoUrls: photoUrls,
       );
 
       await _feedRepo.updateActivity(updatedActivity);
+
+      // Only now that the row no longer points at them.
+      if (orphaned.isNotEmpty) {
+        try {
+          await _feedRepo.deleteReviewMediaUrls(orphaned);
+        } catch (_) {}
+      }
 
       state = const AsyncValue.data(null);
 
@@ -388,6 +490,7 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
       _ref.invalidate(currentUserProfileProvider);
       _ref.invalidate(userActivitiesProvider(currentUser.uid));
       _ref.invalidate(userFilmActivityProvider(activity.filmId));
+      _ref.invalidate(userEpisodeActivitiesProvider(activity.filmId));
       _ref.invalidate(friendsFilmActivitiesProvider(activity.filmId));
 
       return true;
@@ -396,6 +499,35 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
       return false;
     }
   }
+}
+
+/// The media half of an edit: what to keep, what's new, what goes.
+///
+/// Only what changed is described. Deletions are implied by absence — an
+/// existing URL that isn't in [keptPhotoUrls] is being removed — because the
+/// editor works by removing things from a list, and asking it to also report
+/// what it removed would just be the same information twice.
+@immutable
+class ReviewMediaEdit {
+  const ReviewMediaEdit({
+    this.keptVoiceNoteUrl,
+    this.newVoiceNote,
+    this.newVoiceNoteDurationMs = 0,
+    this.newWaveform = const [],
+    this.keptPhotoUrls = const [],
+    this.newPhotos = const [],
+  });
+
+  /// The existing voice note, if it survived. Null with no [newVoiceNote]
+  /// means the post is losing its audio.
+  final String? keptVoiceNoteUrl;
+
+  final File? newVoiceNote;
+  final int newVoiceNoteDurationMs;
+  final List<double> newWaveform;
+
+  final List<String> keptPhotoUrls;
+  final List<File> newPhotos;
 }
 
 /// Provider for creating activities
@@ -566,6 +698,7 @@ class CommentNotifier extends StateNotifier<AsyncValue<void>> {
   Future<CommentModel?> addComment({
     required String activityId,
     required String content,
+    String? parentId,
   }) async {
     final currentUser = _ref.read(currentUserProvider);
     if (currentUser == null) {
@@ -586,6 +719,7 @@ class CommentNotifier extends StateNotifier<AsyncValue<void>> {
         username: userProfile?.username ?? 'Unknown',
         userPhotoUrl: userProfile?.photoUrl,
         content: content.trim(),
+        parentId: parentId,
         createdAt: DateTime.now(),
       );
 

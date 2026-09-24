@@ -53,6 +53,13 @@ mixin _$ActivityModel {
   /// Media type (movie or tv)
   String get mediaType => throw _privateConstructorUsedError;
 
+  /// For a post about one episode of a show rather than the show itself.
+  /// All four travel together: null season means a show- or film-level post.
+  int? get seasonNumber => throw _privateConstructorUsedError;
+  int? get episodeNumber => throw _privateConstructorUsedError;
+  String? get episodeTitle => throw _privateConstructorUsedError;
+  String? get episodeStillPath => throw _privateConstructorUsedError;
+
   /// User's rating (0-5 stars, nullable if just "watched")
   double? get rating => throw _privateConstructorUsedError;
 
@@ -114,6 +121,10 @@ abstract class $ActivityModelCopyWith<$Res> {
       String? filmBackdropPath,
       String? filmYear,
       String mediaType,
+      int? seasonNumber,
+      int? episodeNumber,
+      String? episodeTitle,
+      String? episodeStillPath,
       double? rating,
       String? reviewText,
       String? voiceNoteUrl,
@@ -150,6 +161,10 @@ class _$ActivityModelCopyWithImpl<$Res, $Val extends ActivityModel>
     Object? filmBackdropPath = freezed,
     Object? filmYear = freezed,
     Object? mediaType = null,
+    Object? seasonNumber = freezed,
+    Object? episodeNumber = freezed,
+    Object? episodeTitle = freezed,
+    Object? episodeStillPath = freezed,
     Object? rating = freezed,
     Object? reviewText = freezed,
     Object? voiceNoteUrl = freezed,
@@ -206,6 +221,22 @@ class _$ActivityModelCopyWithImpl<$Res, $Val extends ActivityModel>
           ? _value.mediaType
           : mediaType // ignore: cast_nullable_to_non_nullable
               as String,
+      seasonNumber: freezed == seasonNumber
+          ? _value.seasonNumber
+          : seasonNumber // ignore: cast_nullable_to_non_nullable
+              as int?,
+      episodeNumber: freezed == episodeNumber
+          ? _value.episodeNumber
+          : episodeNumber // ignore: cast_nullable_to_non_nullable
+              as int?,
+      episodeTitle: freezed == episodeTitle
+          ? _value.episodeTitle
+          : episodeTitle // ignore: cast_nullable_to_non_nullable
+              as String?,
+      episodeStillPath: freezed == episodeStillPath
+          ? _value.episodeStillPath
+          : episodeStillPath // ignore: cast_nullable_to_non_nullable
+              as String?,
       rating: freezed == rating
           ? _value.rating
           : rating // ignore: cast_nullable_to_non_nullable
@@ -270,6 +301,10 @@ abstract class _$$ActivityModelImplCopyWith<$Res>
       String? filmBackdropPath,
       String? filmYear,
       String mediaType,
+      int? seasonNumber,
+      int? episodeNumber,
+      String? episodeTitle,
+      String? episodeStillPath,
       double? rating,
       String? reviewText,
       String? voiceNoteUrl,
@@ -304,6 +339,10 @@ class __$$ActivityModelImplCopyWithImpl<$Res>
     Object? filmBackdropPath = freezed,
     Object? filmYear = freezed,
     Object? mediaType = null,
+    Object? seasonNumber = freezed,
+    Object? episodeNumber = freezed,
+    Object? episodeTitle = freezed,
+    Object? episodeStillPath = freezed,
     Object? rating = freezed,
     Object? reviewText = freezed,
     Object? voiceNoteUrl = freezed,
@@ -360,6 +399,22 @@ class __$$ActivityModelImplCopyWithImpl<$Res>
           ? _value.mediaType
           : mediaType // ignore: cast_nullable_to_non_nullable
               as String,
+      seasonNumber: freezed == seasonNumber
+          ? _value.seasonNumber
+          : seasonNumber // ignore: cast_nullable_to_non_nullable
+              as int?,
+      episodeNumber: freezed == episodeNumber
+          ? _value.episodeNumber
+          : episodeNumber // ignore: cast_nullable_to_non_nullable
+              as int?,
+      episodeTitle: freezed == episodeTitle
+          ? _value.episodeTitle
+          : episodeTitle // ignore: cast_nullable_to_non_nullable
+              as String?,
+      episodeStillPath: freezed == episodeStillPath
+          ? _value.episodeStillPath
+          : episodeStillPath // ignore: cast_nullable_to_non_nullable
+              as String?,
       rating: freezed == rating
           ? _value.rating
           : rating // ignore: cast_nullable_to_non_nullable
@@ -420,6 +475,10 @@ class _$ActivityModelImpl extends _ActivityModel {
       this.filmBackdropPath,
       this.filmYear,
       this.mediaType = 'movie',
+      this.seasonNumber,
+      this.episodeNumber,
+      this.episodeTitle,
+      this.episodeStillPath,
       this.rating,
       this.reviewText,
       this.voiceNoteUrl,
@@ -483,6 +542,17 @@ class _$ActivityModelImpl extends _ActivityModel {
   @override
   @JsonKey()
   final String mediaType;
+
+  /// For a post about one episode of a show rather than the show itself.
+  /// All four travel together: null season means a show- or film-level post.
+  @override
+  final int? seasonNumber;
+  @override
+  final int? episodeNumber;
+  @override
+  final String? episodeTitle;
+  @override
+  final String? episodeStillPath;
 
   /// User's rating (0-5 stars, nullable if just "watched")
   @override
@@ -573,7 +643,7 @@ class _$ActivityModelImpl extends _ActivityModel {
 
   @override
   String toString() {
-    return 'ActivityModel(id: $id, userId: $userId, username: $username, userPhotoUrl: $userPhotoUrl, activityType: $activityType, filmId: $filmId, filmTitle: $filmTitle, filmPosterPath: $filmPosterPath, filmBackdropPath: $filmBackdropPath, filmYear: $filmYear, mediaType: $mediaType, rating: $rating, reviewText: $reviewText, voiceNoteUrl: $voiceNoteUrl, voiceNoteDurationMs: $voiceNoteDurationMs, voiceNoteWaveform: $voiceNoteWaveform, photoUrls: $photoUrls, createdAt: $createdAt, likes: $likes, commentCount: $commentCount, reactions: $reactions)';
+    return 'ActivityModel(id: $id, userId: $userId, username: $username, userPhotoUrl: $userPhotoUrl, activityType: $activityType, filmId: $filmId, filmTitle: $filmTitle, filmPosterPath: $filmPosterPath, filmBackdropPath: $filmBackdropPath, filmYear: $filmYear, mediaType: $mediaType, seasonNumber: $seasonNumber, episodeNumber: $episodeNumber, episodeTitle: $episodeTitle, episodeStillPath: $episodeStillPath, rating: $rating, reviewText: $reviewText, voiceNoteUrl: $voiceNoteUrl, voiceNoteDurationMs: $voiceNoteDurationMs, voiceNoteWaveform: $voiceNoteWaveform, photoUrls: $photoUrls, createdAt: $createdAt, likes: $likes, commentCount: $commentCount, reactions: $reactions)';
   }
 
   @override
@@ -600,6 +670,14 @@ class _$ActivityModelImpl extends _ActivityModel {
                 other.filmYear == filmYear) &&
             (identical(other.mediaType, mediaType) ||
                 other.mediaType == mediaType) &&
+            (identical(other.seasonNumber, seasonNumber) ||
+                other.seasonNumber == seasonNumber) &&
+            (identical(other.episodeNumber, episodeNumber) ||
+                other.episodeNumber == episodeNumber) &&
+            (identical(other.episodeTitle, episodeTitle) ||
+                other.episodeTitle == episodeTitle) &&
+            (identical(other.episodeStillPath, episodeStillPath) ||
+                other.episodeStillPath == episodeStillPath) &&
             (identical(other.rating, rating) || other.rating == rating) &&
             (identical(other.reviewText, reviewText) ||
                 other.reviewText == reviewText) &&
@@ -635,6 +713,10 @@ class _$ActivityModelImpl extends _ActivityModel {
         filmBackdropPath,
         filmYear,
         mediaType,
+        seasonNumber,
+        episodeNumber,
+        episodeTitle,
+        episodeStillPath,
         rating,
         reviewText,
         voiceNoteUrl,
@@ -674,6 +756,10 @@ abstract class _ActivityModel extends ActivityModel {
       final String? filmBackdropPath,
       final String? filmYear,
       final String mediaType,
+      final int? seasonNumber,
+      final int? episodeNumber,
+      final String? episodeTitle,
+      final String? episodeStillPath,
       final double? rating,
       final String? reviewText,
       final String? voiceNoteUrl,
@@ -733,6 +819,17 @@ abstract class _ActivityModel extends ActivityModel {
 
   /// Media type (movie or tv)
   String get mediaType;
+  @override
+
+  /// For a post about one episode of a show rather than the show itself.
+  /// All four travel together: null season means a show- or film-level post.
+  int? get seasonNumber;
+  @override
+  int? get episodeNumber;
+  @override
+  String? get episodeTitle;
+  @override
+  String? get episodeStillPath;
   @override
 
   /// User's rating (0-5 stars, nullable if just "watched")
@@ -810,6 +907,10 @@ mixin _$CommentModel {
   /// Comment text
   String get content => throw _privateConstructorUsedError;
 
+  /// The top-level comment this replies to; null for a top-level comment.
+  /// Threads are one level deep — a reply to a reply joins the same thread.
+  String? get parentId => throw _privateConstructorUsedError;
+
   /// When comment was created
   DateTime get createdAt => throw _privateConstructorUsedError;
 
@@ -832,6 +933,7 @@ abstract class $CommentModelCopyWith<$Res> {
       String username,
       String? userPhotoUrl,
       String content,
+      String? parentId,
       DateTime createdAt});
 }
 
@@ -854,6 +956,7 @@ class _$CommentModelCopyWithImpl<$Res, $Val extends CommentModel>
     Object? username = null,
     Object? userPhotoUrl = freezed,
     Object? content = null,
+    Object? parentId = freezed,
     Object? createdAt = null,
   }) {
     return _then(_value.copyWith(
@@ -881,6 +984,10 @@ class _$CommentModelCopyWithImpl<$Res, $Val extends CommentModel>
           ? _value.content
           : content // ignore: cast_nullable_to_non_nullable
               as String,
+      parentId: freezed == parentId
+          ? _value.parentId
+          : parentId // ignore: cast_nullable_to_non_nullable
+              as String?,
       createdAt: null == createdAt
           ? _value.createdAt
           : createdAt // ignore: cast_nullable_to_non_nullable
@@ -904,6 +1011,7 @@ abstract class _$$CommentModelImplCopyWith<$Res>
       String username,
       String? userPhotoUrl,
       String content,
+      String? parentId,
       DateTime createdAt});
 }
 
@@ -924,6 +1032,7 @@ class __$$CommentModelImplCopyWithImpl<$Res>
     Object? username = null,
     Object? userPhotoUrl = freezed,
     Object? content = null,
+    Object? parentId = freezed,
     Object? createdAt = null,
   }) {
     return _then(_$CommentModelImpl(
@@ -951,6 +1060,10 @@ class __$$CommentModelImplCopyWithImpl<$Res>
           ? _value.content
           : content // ignore: cast_nullable_to_non_nullable
               as String,
+      parentId: freezed == parentId
+          ? _value.parentId
+          : parentId // ignore: cast_nullable_to_non_nullable
+              as String?,
       createdAt: null == createdAt
           ? _value.createdAt
           : createdAt // ignore: cast_nullable_to_non_nullable
@@ -970,6 +1083,7 @@ class _$CommentModelImpl extends _CommentModel {
       required this.username,
       this.userPhotoUrl,
       required this.content,
+      this.parentId,
       required this.createdAt})
       : super._();
 
@@ -1000,13 +1114,18 @@ class _$CommentModelImpl extends _CommentModel {
   @override
   final String content;
 
+  /// The top-level comment this replies to; null for a top-level comment.
+  /// Threads are one level deep — a reply to a reply joins the same thread.
+  @override
+  final String? parentId;
+
   /// When comment was created
   @override
   final DateTime createdAt;
 
   @override
   String toString() {
-    return 'CommentModel(id: $id, activityId: $activityId, userId: $userId, username: $username, userPhotoUrl: $userPhotoUrl, content: $content, createdAt: $createdAt)';
+    return 'CommentModel(id: $id, activityId: $activityId, userId: $userId, username: $username, userPhotoUrl: $userPhotoUrl, content: $content, parentId: $parentId, createdAt: $createdAt)';
   }
 
   @override
@@ -1023,6 +1142,8 @@ class _$CommentModelImpl extends _CommentModel {
             (identical(other.userPhotoUrl, userPhotoUrl) ||
                 other.userPhotoUrl == userPhotoUrl) &&
             (identical(other.content, content) || other.content == content) &&
+            (identical(other.parentId, parentId) ||
+                other.parentId == parentId) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt));
   }
@@ -1030,7 +1151,7 @@ class _$CommentModelImpl extends _CommentModel {
   @JsonKey(ignore: true)
   @override
   int get hashCode => Object.hash(runtimeType, id, activityId, userId, username,
-      userPhotoUrl, content, createdAt);
+      userPhotoUrl, content, parentId, createdAt);
 
   @JsonKey(ignore: true)
   @override
@@ -1054,6 +1175,7 @@ abstract class _CommentModel extends CommentModel {
       required final String username,
       final String? userPhotoUrl,
       required final String content,
+      final String? parentId,
       required final DateTime createdAt}) = _$CommentModelImpl;
   const _CommentModel._() : super._();
 
@@ -1084,6 +1206,11 @@ abstract class _CommentModel extends CommentModel {
 
   /// Comment text
   String get content;
+  @override
+
+  /// The top-level comment this replies to; null for a top-level comment.
+  /// Threads are one level deep — a reply to a reply joins the same thread.
+  String? get parentId;
   @override
 
   /// When comment was created

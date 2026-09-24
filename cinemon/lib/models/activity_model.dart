@@ -55,6 +55,13 @@ class ActivityModel with _$ActivityModel {
     /// Media type (movie or tv)
     @Default('movie') String mediaType,
 
+    /// For a post about one episode of a show rather than the show itself.
+    /// All four travel together: null season means a show- or film-level post.
+    int? seasonNumber,
+    int? episodeNumber,
+    String? episodeTitle,
+    String? episodeStillPath,
+
     /// User's rating (0-5 stars, nullable if just "watched")
     double? rating,
 
@@ -115,6 +122,20 @@ class ActivityModel with _$ActivityModel {
     });
   }
 
+  /// Whether this post is about a single episode.
+  bool get isEpisode => seasonNumber != null && episodeNumber != null;
+
+  /// "S2 E5", or null for a film/show-level post.
+  String? get episodeCode => isEpisode ? 'S$seasonNumber E$episodeNumber' : null;
+
+  /// What to call the thing that was watched: the episode's name for an
+  /// episode post, the film's otherwise.
+  String get displayTitle => isEpisode
+      ? (episodeTitle == null || episodeTitle!.isEmpty
+          ? 'Episode $episodeNumber'
+          : episodeTitle!)
+      : filmTitle;
+
   /// Whether this activity has a rating
   bool get hasRating => rating != null && rating! > 0;
 
@@ -122,8 +143,7 @@ class ActivityModel with _$ActivityModel {
   bool get hasReview => reviewText != null && reviewText!.isNotEmpty;
 
   /// Whether a spoken review was recorded.
-  bool get hasVoiceNote =>
-      voiceNoteUrl != null && voiceNoteUrl!.isNotEmpty;
+  bool get hasVoiceNote => voiceNoteUrl != null && voiceNoteUrl!.isNotEmpty;
 
   /// Whether any photos were taken with the review.
   bool get hasPhotos => photoUrls.isNotEmpty;
@@ -193,6 +213,10 @@ class ActivityModel with _$ActivityModel {
       'film_backdrop_path': filmBackdropPath,
       'film_year': filmYear,
       'media_type': mediaType,
+      'season_number': seasonNumber,
+      'episode_number': episodeNumber,
+      'episode_title': episodeTitle,
+      'episode_still_path': episodeStillPath,
       'rating': rating,
       'review_text': reviewText,
       'voice_note_url': voiceNoteUrl,
@@ -228,6 +252,10 @@ class CommentModel with _$CommentModel {
     /// Comment text
     required String content,
 
+    /// The top-level comment this replies to; null for a top-level comment.
+    /// Threads are one level deep — a reply to a reply joins the same thread.
+    String? parentId,
+
     /// When comment was created
     required DateTime createdAt,
   }) = _CommentModel;
@@ -258,6 +286,7 @@ class CommentModel with _$CommentModel {
       'activity_id': activityId,
       'user_id': userId,
       'content': content,
+      if (parentId != null) 'parent_id': parentId,
     };
   }
 }

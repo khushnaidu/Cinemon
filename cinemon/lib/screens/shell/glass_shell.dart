@@ -199,19 +199,22 @@ class _GlassShellState extends State<GlassShell> with RouteAware {
                         fallbackIcon: CupertinoIcons.house,
                         fallbackActiveIcon: CupertinoIcons.house_fill,
                       ),
-                      GlassTabItem(
-                        symbol: 'magnifyingglass',
-                        activeSymbol: 'magnifyingglass',
-                        label: 'Search',
-                        fallbackIcon: CupertinoIcons.search,
-                        fallbackActiveIcon: CupertinoIcons.search,
-                      ),
+                      // Search is where a post starts (find the film, post
+                      // about it), so it wears the plus. The globe is
+                      // Explore: posts from everyone.
                       GlassTabItem(
                         symbol: 'plus.square',
                         activeSymbol: 'plus.square.fill',
-                        label: 'Create',
+                        label: 'Post',
                         fallbackIcon: CupertinoIcons.plus_square,
                         fallbackActiveIcon: CupertinoIcons.plus_square_fill,
+                      ),
+                      GlassTabItem(
+                        symbol: 'globe',
+                        activeSymbol: 'globe.americas.fill',
+                        label: 'Explore',
+                        fallbackIcon: CupertinoIcons.globe,
+                        fallbackActiveIcon: CupertinoIcons.globe,
                       ),
                       GlassTabItem(
                         symbol: 'person',

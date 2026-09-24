@@ -9,7 +9,7 @@ import '../../screens/auth/profile_setup_screen.dart';
 import '../../screens/homefeed.dart';
 import '../../screens/shell/glass_shell.dart';
 import '../../screens/post.dart' show MovieSearchPage;
-import '../../screens/create_post_screen.dart';
+import '../../screens/explore/explore_screen.dart';
 import '../../screens/profile.dart';
 import '../../screens/edit_profile_screen.dart';
 import '../../screens/search_users_screen.dart';
@@ -102,28 +102,36 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state, navigationShell) =>
             GlassShell(navigationShell: navigationShell),
         branches: [
-          StatefulShellBranch(observers: [branchDepthObserver()], routes: [
+          StatefulShellBranch(observers: [
+            branchDepthObserver()
+          ], routes: [
             GoRoute(
               path: '/home',
               name: 'home',
               builder: (context, state) => const HomeFeedPage(),
             ),
           ]),
-          StatefulShellBranch(observers: [branchDepthObserver()], routes: [
+          StatefulShellBranch(observers: [
+            branchDepthObserver()
+          ], routes: [
             GoRoute(
               path: '/search',
               name: 'search',
               builder: (context, state) => const MovieSearchPage(),
             ),
           ]),
-          StatefulShellBranch(observers: [branchDepthObserver()], routes: [
+          StatefulShellBranch(observers: [
+            branchDepthObserver()
+          ], routes: [
             GoRoute(
-              path: '/create',
-              name: 'create',
-              builder: (context, state) => const CreatePostScreen(),
+              path: '/explore',
+              name: 'explore',
+              builder: (context, state) => const ExploreScreen(),
             ),
           ]),
-          StatefulShellBranch(observers: [branchDepthObserver()], routes: [
+          StatefulShellBranch(observers: [
+            branchDepthObserver()
+          ], routes: [
             GoRoute(
               path: '/profile',
               name: 'profile',
@@ -192,7 +200,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                 ),
               ),
               body: const Center(
-                child: Text('Invalid film ID', style: TextStyle(color: Colors.white)),
+                child: Text('Invalid film ID',
+                    style: TextStyle(color: Colors.white)),
               ),
             );
           }

@@ -19,6 +19,10 @@ _$ActivityModelImpl _$$ActivityModelImplFromJson(Map<String, dynamic> json) =>
       filmBackdropPath: json['film_backdrop_path'] as String?,
       filmYear: json['film_year'] as String?,
       mediaType: json['media_type'] as String? ?? 'movie',
+      seasonNumber: (json['season_number'] as num?)?.toInt(),
+      episodeNumber: (json['episode_number'] as num?)?.toInt(),
+      episodeTitle: json['episode_title'] as String?,
+      episodeStillPath: json['episode_still_path'] as String?,
       rating: (json['rating'] as num?)?.toDouble(),
       reviewText: json['review_text'] as String?,
       voiceNoteUrl: json['voice_note_url'] as String?,
@@ -56,6 +60,10 @@ Map<String, dynamic> _$$ActivityModelImplToJson(_$ActivityModelImpl instance) =>
       'film_backdrop_path': instance.filmBackdropPath,
       'film_year': instance.filmYear,
       'media_type': instance.mediaType,
+      'season_number': instance.seasonNumber,
+      'episode_number': instance.episodeNumber,
+      'episode_title': instance.episodeTitle,
+      'episode_still_path': instance.episodeStillPath,
       'rating': instance.rating,
       'review_text': instance.reviewText,
       'voice_note_url': instance.voiceNoteUrl,
@@ -81,6 +89,7 @@ _$CommentModelImpl _$$CommentModelImplFromJson(Map<String, dynamic> json) =>
       username: json['username'] as String,
       userPhotoUrl: json['user_photo_url'] as String?,
       content: json['content'] as String,
+      parentId: json['parent_id'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
 
@@ -92,5 +101,6 @@ Map<String, dynamic> _$$CommentModelImplToJson(_$CommentModelImpl instance) =>
       'username': instance.username,
       'user_photo_url': instance.userPhotoUrl,
       'content': instance.content,
+      'parent_id': instance.parentId,
       'created_at': instance.createdAt.toIso8601String(),
     };
