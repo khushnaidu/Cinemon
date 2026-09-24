@@ -1,10 +1,12 @@
-import 'package:flutter/cupertino.dart' show CupertinoIcons;
+import 'package:flutter/cupertino.dart' show CupertinoIcons, CupertinoSwitch;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../models/explore_post_model.dart' show ExploreKind;
 import '../../models/film_model.dart';
 import '../../models/list_model.dart';
+import '../../providers/explore/explore_provider.dart';
 import '../../providers/lists/list_provider.dart';
 import '../widgets/glass_panel.dart';
 import 'playlist_cover.dart';
@@ -72,6 +74,10 @@ class _PlaylistEditorState extends ConsumerState<_PlaylistEditor> {
       widget.editing?.visibility ?? ListVisibility.public;
   bool _busy = false;
 
+  /// New public playlists go on Explore unless this is switched off. The
+  /// card's cover follows the list, so it fills in as films are added.
+  bool _shareToExplore = true;
+
   bool get _isNew => widget.editing == null;
   String get _titleText => _title.text.trim();
 
@@ -112,6 +118,16 @@ class _PlaylistEditorState extends ConsumerState<_PlaylistEditor> {
       showGlassToast(context, "Couldn't save your playlist.",
           destructive: true);
       return;
+    }
+    if (_isNew && _shareToExplore && _visibility == ListVisibility.public) {
+      // Best effort: the playlist exists either way, and it can be posted
+      // from its own screen later.
+      await ref.read(exploreActionsProvider).createPost(
+            kind: ExploreKind.list,
+            body: '',
+            listId: saved.id,
+          );
+      if (!mounted) return;
     }
     Navigator.of(context).pop(PlaylistSaved(saved));
   }
@@ -183,8 +199,8 @@ class _PlaylistEditorState extends ConsumerState<_PlaylistEditor> {
                 const SizedBox(height: AppSpace.xs),
                 Text(
                   'Starting with ${widget.first!.displayTitle}',
-                  style: AppText.footnote
-                      .copyWith(color: AppColors.inkSecondary),
+                  style:
+                      AppText.footnote.copyWith(color: AppColors.inkSecondary),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -221,10 +237,45 @@ class _PlaylistEditorState extends ConsumerState<_PlaylistEditor> {
               const SizedBox(height: AppSpace.sm),
               Text(
                 _visibility.detail,
-                style:
-                    AppText.footnote.copyWith(color: AppColors.inkTertiary),
+                style: AppText.footnote.copyWith(color: AppColors.inkTertiary),
                 textAlign: TextAlign.center,
               ),
+              if (_isNew && _visibility == ListVisibility.public) ...[
+                const SizedBox(height: AppSpace.lg),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(
+                      AppSpace.lg, AppSpace.md, AppSpace.md, AppSpace.md),
+                  decoration: glassWellDecoration(radius: AppRadius.md + 2),
+                  child: Row(
+                    children: [
+                      const Icon(CupertinoIcons.globe,
+                          size: 18, color: AppColors.inkSecondary),
+                      const SizedBox(width: AppSpace.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Share to Explore',
+                                style: AppText.body
+                                    .copyWith(color: AppColors.ink)),
+                            const SizedBox(height: 1),
+                            Text(
+                              'Your friends see it on Home too.',
+                              style: AppText.caption.copyWith(
+                                  fontSize: 12, color: AppColors.inkTertiary),
+                            ),
+                          ],
+                        ),
+                      ),
+                      CupertinoSwitch(
+                        value: _shareToExplore,
+                        onChanged: (v) => setState(() => _shareToExplore = v),
+                        activeTrackColor: Colors.white.withValues(alpha: 0.55),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               if (!_isNew) ...[
                 const SizedBox(height: AppSpace.xxl),
                 GlassPillButton(

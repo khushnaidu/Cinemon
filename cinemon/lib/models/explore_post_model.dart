@@ -21,7 +21,9 @@ enum ExploreKind {
   critique('critique', 'Critique', 'Critiques', CupertinoIcons.book,
       'A titled, long-form piece.'),
   discussion('discussion', 'Discussion', 'Discussions',
-      CupertinoIcons.chat_bubble_2, 'Ask a question and start a thread.');
+      CupertinoIcons.chat_bubble_2, 'Ask a question and start a thread.'),
+  list('list', 'List', 'Lists', CupertinoIcons.rectangle_stack,
+      'Share one of your public playlists.');
 
   const ExploreKind(
       this.value, this.label, this.plural, this.icon, this.description);
@@ -41,6 +43,7 @@ enum ExploreKind {
         ExploreKind.take => 280,
         ExploreKind.critique => 4000,
         ExploreKind.review => 2000,
+        ExploreKind.list => 500,
         _ => 1000,
       };
 
@@ -49,14 +52,21 @@ enum ExploreKind {
   bool get hasHeadline => this == ExploreKind.critique;
   bool get hasRating => this == ExploreKind.review;
 
+  /// A list post is about a playlist, never a film, and its text is an
+  /// optional caption.
+  bool get isList => this == ExploreKind.list;
+
   /// Hot takes are voted on; everything else is liked.
   bool get isVoted => this == ExploreKind.take;
 
   /// Only conversational posts take comments. Takes, reviews and critiques
   /// are someone's stated opinion — a reply thread under them turns into a
-  /// pile-on. The database enforces the same rule (migration 005).
+  /// pile-on. A list invites "you forgot X", so it's open. The database
+  /// enforces the same rule (migrations 005 and 010).
   bool get allowsComments =>
-      this == ExploreKind.thought || this == ExploreKind.discussion;
+      this == ExploreKind.thought ||
+      this == ExploreKind.discussion ||
+      this == ExploreKind.list;
 }
 
 /// The film, show or episode a post is about.
@@ -182,6 +192,25 @@ class ExploreSubject {
       Object.hash(filmId, mediaType, seasonNumber, episodeNumber);
 }
 
+/// The playlist a list post shares, as `explore_feed` joins it.
+class ExploreListRef {
+  const ExploreListRef({
+    required this.id,
+    required this.title,
+    this.description,
+    this.itemCount = 0,
+    this.posters = const [],
+  });
+
+  final String id;
+  final String title;
+  final String? description;
+  final int itemCount;
+
+  /// The first four posters, for the cover.
+  final List<String?> posters;
+}
+
 /// One row of `explore_feed`.
 class ExplorePost {
   const ExplorePost({
@@ -195,6 +224,7 @@ class ExplorePost {
     this.rating,
     this.hasSpoilers = false,
     this.subject,
+    this.list,
     this.agreeCount = 0,
     this.disagreeCount = 0,
     this.commentCount = 0,
@@ -205,6 +235,7 @@ class ExplorePost {
 
   factory ExplorePost.fromRow(Map<String, dynamic> row) {
     final filmId = row['film_id'] as int?;
+    final listId = row['list_id'] as String?;
     return ExplorePost(
       id: row['id'] as String,
       userId: row['user_id'] as String,
@@ -229,6 +260,18 @@ class ExplorePost {
               episodeTitle: row['episode_title'] as String?,
               episodeStillPath: row['episode_still_path'] as String?,
             ),
+      list: listId == null
+          ? null
+          : ExploreListRef(
+              id: listId,
+              title: row['list_title'] as String? ?? 'Untitled',
+              description: row['list_description'] as String?,
+              itemCount: row['list_item_count'] as int? ?? 0,
+              posters: [
+                for (final p in (row['list_posters'] as List?) ?? const [])
+                  p as String?,
+              ],
+            ),
       agreeCount: row['agree_count'] as int? ?? 0,
       disagreeCount: row['disagree_count'] as int? ?? 0,
       commentCount: row['comment_count'] as int? ?? 0,
@@ -250,6 +293,9 @@ class ExplorePost {
   final double? rating;
   final bool hasSpoilers;
   final ExploreSubject? subject;
+
+  /// Set on list posts only.
+  final ExploreListRef? list;
   final int agreeCount;
   final int disagreeCount;
   final int commentCount;
@@ -289,27 +335,19 @@ class ExplorePost {
     var disagree = disagreeCount - (myVote == -1 ? 1 : 0);
     if (value == 1) agree++;
     if (value == -1) disagree++;
-    return ExplorePost(
-      id: id,
-      userId: userId,
-      username: username,
-      userPhotoUrl: userPhotoUrl,
-      kind: kind,
-      headline: headline,
-      body: body,
-      rating: rating,
-      hasSpoilers: hasSpoilers,
-      subject: subject,
-      agreeCount: agree,
-      disagreeCount: disagree,
-      commentCount: commentCount,
-      myVote: value,
-      createdAt: createdAt,
-      updatedAt: updatedAt,
-    );
+    return _copy(agreeCount: agree, disagreeCount: disagree, myVote: value);
   }
 
-  ExplorePost withCommentDelta(int delta) => ExplorePost(
+  ExplorePost withCommentDelta(int delta) =>
+      _copy(commentCount: (commentCount + delta).clamp(0, 1 << 30));
+
+  ExplorePost _copy({
+    int? agreeCount,
+    int? disagreeCount,
+    int? commentCount,
+    int? myVote,
+  }) =>
+      ExplorePost(
         id: id,
         userId: userId,
         username: username,
@@ -320,10 +358,11 @@ class ExplorePost {
         rating: rating,
         hasSpoilers: hasSpoilers,
         subject: subject,
-        agreeCount: agreeCount,
-        disagreeCount: disagreeCount,
-        commentCount: (commentCount + delta).clamp(0, 1 << 30),
-        myVote: myVote,
+        list: list,
+        agreeCount: agreeCount ?? this.agreeCount,
+        disagreeCount: disagreeCount ?? this.disagreeCount,
+        commentCount: commentCount ?? this.commentCount,
+        myVote: myVote ?? this.myVote,
         createdAt: createdAt,
         updatedAt: updatedAt,
       );

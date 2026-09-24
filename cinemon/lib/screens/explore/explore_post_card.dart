@@ -11,6 +11,7 @@ import '../../core/constants/api_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/explore_post_model.dart';
 import '../../providers/explore/explore_provider.dart';
+import '../lists/playlist_cover.dart';
 import '../widgets/comments_sheet.dart' show CommentAvatar;
 import '../widgets/glass_panel.dart';
 import '../widgets/liquid_glass.dart' show GlassLens;
@@ -50,7 +51,7 @@ TextStyle exploreBodyStyle(ExploreKind kind, {bool expanded = false}) {
         height: 1.45,
         color: AppColors.ink.withValues(alpha: 0.92),
       ),
-    ExploreKind.thought => AppText.body.copyWith(
+    ExploreKind.thought || ExploreKind.list => AppText.body.copyWith(
         fontSize: 16.5,
         height: 1.42,
         color: AppColors.ink.withValues(alpha: 0.94),
@@ -79,6 +80,8 @@ TextStyle exploreHeadlineStyle({bool expanded = false}) =>
 ///                   title and stars, then the verdict.
 ///   * Critique    — an article: kicker, title, standfirst, read time.
 ///   * Discussion  — the question, large, and the thread as the call to act.
+///   * List        — a playlist's cover and title, then the caption. Tapping
+///                   it opens the playlist; the thread is behind comments.
 ///
 /// [expanded] is the thread view: nothing truncated, critiques at reading
 /// size. Cards in the feed avoid BackdropFilter — dozens of live blurs in a
@@ -107,13 +110,16 @@ class ExplorePostCard extends ConsumerStatefulWidget {
 class _ExplorePostCardState extends ConsumerState<ExplorePostCard> {
   bool _revealed = false;
 
-  ExplorePost get post => widget.post;
+  /// The newest copy of the post, which may be newer than the one passed in
+  /// if it was voted on or replied to from somewhere else. Build watches it;
+  /// callbacks read it.
+  ExplorePost get post =>
+      ref.read(explorePostPatchesProvider)[widget.post.id] ?? widget.post;
   bool get _veiled => post.hasSpoilers && !_revealed;
 
   Future<void> _vote(int value) async {
     HapticFeedback.selectionClick();
-    final ok =
-        await ref.read(exploreFeedProvider.notifier).vote(post.id, value);
+    final ok = await ref.read(exploreActionsProvider).vote(post, value);
     if (!ok && mounted) {
       showGlassToast(context, "Couldn't save that. Try again.",
           destructive: true);
@@ -122,6 +128,7 @@ class _ExplorePostCardState extends ConsumerState<ExplorePostCard> {
 
   @override
   Widget build(BuildContext context) {
+    final post = watchLivePost(ref, widget.post);
     final subject = post.subject;
     final ambient = post.kind == ExploreKind.take && subject != null;
 
@@ -150,7 +157,7 @@ class _ExplorePostCardState extends ConsumerState<ExplorePostCard> {
             children: [
               _AuthorRow(post: post, onMenu: widget.onMenu),
               const SizedBox(height: AppSpace.md),
-              ..._kindBody(context),
+              ..._kindBody(context, post),
               if (subject != null && post.kind != ExploreKind.review) ...[
                 const SizedBox(height: AppSpace.md),
                 SubjectChip(
@@ -175,8 +182,11 @@ class _ExplorePostCardState extends ConsumerState<ExplorePostCard> {
       ],
     );
 
+    final list = post.list;
     return GestureDetector(
-      onTap: widget.onOpen,
+      onTap: list != null
+          ? () => context.push('/lists/${list.id}')
+          : widget.onOpen,
       behavior: HitTestBehavior.opaque,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(26),
@@ -202,7 +212,7 @@ class _ExplorePostCardState extends ConsumerState<ExplorePostCard> {
     );
   }
 
-  List<Widget> _kindBody(BuildContext context) {
+  List<Widget> _kindBody(BuildContext context, ExplorePost post) {
     final expanded = widget.expanded;
     final bodyStyle = exploreBodyStyle(post.kind, expanded: expanded);
 
@@ -292,6 +302,24 @@ class _ExplorePostCardState extends ConsumerState<ExplorePostCard> {
             maxLines: expanded ? null : 8,
             overflow: expanded ? null : TextOverflow.ellipsis,
           )),
+        ];
+
+      case ExploreKind.list:
+        final list = post.list;
+        return [
+          const _Kicker(
+              icon: CupertinoIcons.rectangle_stack_fill, text: 'List'),
+          const SizedBox(height: AppSpace.md),
+          if (list != null) _ListHero(list: list, username: post.username),
+          if (post.body.isNotEmpty) ...[
+            const SizedBox(height: AppSpace.md),
+            veil(Text(
+              post.body,
+              style: bodyStyle,
+              maxLines: expanded ? null : 5,
+              overflow: expanded ? null : TextOverflow.ellipsis,
+            )),
+          ],
         ];
     }
   }
@@ -530,6 +558,64 @@ class SubjectChip extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// A shared playlist: its cover, title and size. The whole card opens it.
+class _ListHero extends StatelessWidget {
+  const _ListHero({required this.list, required this.username});
+
+  final ExploreListRef list;
+  final String username;
+
+  @override
+  Widget build(BuildContext context) {
+    final count = list.itemCount;
+    return Row(
+      children: [
+        PlaylistCover(posters: list.posters, size: 96, radius: 12),
+        const SizedBox(width: AppSpace.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                list.title,
+                style: AppText.title.copyWith(
+                  fontSize: 20,
+                  height: 1.15,
+                  color: AppColors.ink,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 3),
+              Text(
+                '$count ${count == 1 ? 'title' : 'titles'}  ·  by @$username',
+                style: AppText.caption.copyWith(
+                  fontSize: 12,
+                  color: AppColors.inkSecondary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if ((list.description ?? '').isNotEmpty) ...[
+                const SizedBox(height: AppSpace.xs),
+                Text(
+                  list.description!,
+                  style:
+                      AppText.footnote.copyWith(color: AppColors.inkTertiary),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ],
+          ),
+        ),
+        const Icon(CupertinoIcons.chevron_right,
+            size: 13, color: AppColors.inkTertiary),
+      ],
     );
   }
 }

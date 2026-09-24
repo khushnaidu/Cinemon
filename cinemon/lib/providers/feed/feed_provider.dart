@@ -1,17 +1,20 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show immutable;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../models/activity_model.dart';
+import '../../models/badge_model.dart';
 import '../../models/episode_model.dart';
 import '../../models/film_model.dart';
+import '../../models/home_feed.dart';
 import '../../models/person_page.dart';
 import '../../models/user_model.dart';
 import '../../repositories/feed_repository.dart';
 import '../../repositories/user_repository.dart';
-import '../../services/badge_service.dart';
 import '../auth/auth_provider.dart';
+import '../explore/explore_provider.dart' show exploreRepositoryProvider;
 import '../friendship/friendship_provider.dart';
 import '../lists/list_provider.dart' show watchlistActionsProvider;
 import '../movie/movie_provider.dart' show personPageProvider;
@@ -26,21 +29,28 @@ final userRepositoryProvider = Provider<UserRepository>((ref) {
   return UserRepository();
 });
 
-/// Provider for BadgeService
-final badgeServiceProvider = Provider<BadgeService>((ref) {
-  return BadgeService(
-    userRepo: ref.watch(userRepositoryProvider),
-    feedRepo: ref.watch(feedRepositoryProvider),
-  );
-});
-
 /// Provider for current user's profile data
 final currentUserProfileProvider = FutureProvider<UserModel?>((ref) async {
   final authUser = ref.watch(currentUserProvider);
   if (authUser == null) return null;
 
   final userRepo = ref.watch(userRepositoryProvider);
+  // Once a launch, for the badges that go by the poster's own clock.
+  unawaited(userRepo.reportTimeZone(authUser.uid));
   return userRepo.getUser(authUser.uid);
+});
+
+/// What someone has earned, newest first, with dates (migration 009).
+final earnedBadgesProvider = FutureProvider.autoDispose
+    .family<List<EarnedBadge>, String>((ref, userId) async {
+  return ref.watch(userRepositoryProvider).getEarnedBadges(userId);
+});
+
+/// Your counts toward badges you haven't earned. Only ever your own.
+final myBadgeProgressProvider =
+    FutureProvider.autoDispose<Map<String, int>>((ref) async {
+  if (ref.watch(currentUserProvider) == null) return const {};
+  return ref.watch(userRepositoryProvider).getMyBadgeProgress();
 });
 
 /// Provider for a specific user's profile
@@ -50,27 +60,73 @@ final userProfileProvider =
   return userRepo.getUser(userId);
 });
 
-/// Provider for the home feed activities (from friends + self)
-final homeFeedProvider = FutureProvider<List<ActivityModel>>((ref) async {
-  final currentUser = ref.watch(currentUserProvider);
-  if (currentUser == null) {
-    throw Exception('Not logged in');
+/// Home: your and your friends' logs, and their Explore posts, in one
+/// timeline (ADR 0001, 4.6). Each page is a list of references from the
+/// `home_feed` view, then two batch reads to fill them in.
+class HomeFeedNotifier extends AsyncNotifier<HomeFeed> {
+  static const _pageSize = 20;
+
+  @override
+  Future<HomeFeed> build() async {
+    final currentUser = ref.watch(currentUserProvider);
+    if (currentUser == null) {
+      throw Exception('Not logged in');
+    }
+    // The view works out who your friends are itself; this only rebuilds
+    // Home when that changes.
+    await ref.watch(friendIdsProvider.future);
+    try {
+      return await _page(null, const []);
+    } catch (e) {
+      throw Exception('Failed to load feed: $e');
+    }
   }
 
-  try {
-    final friendIds = await ref.watch(friendIdsProvider.future);
-
-    // Always include current user's own posts, plus friends' posts
-    final allUserIds = [currentUser.uid, ...friendIds];
-
-    final feedRepo = ref.watch(feedRepositoryProvider);
-    final activities = await feedRepo.getFeedActivities(userIds: allUserIds);
-    return activities;
-  } catch (e) {
-    // Re-throw with more context for debugging
-    throw Exception('Failed to load feed: $e');
+  Future<HomeFeed> _page(HomeFeedRef? after, List<HomeFeedItem> before) async {
+    final refs = await ref
+        .read(feedRepositoryProvider)
+        .getHomeFeedRefs(after: after, limit: _pageSize);
+    final activityIds = [
+      for (final r in refs)
+        if (!r.isExplore) r.id
+    ];
+    final postIds = [
+      for (final r in refs)
+        if (r.isExplore) r.id
+    ];
+    final (activities, posts) = await (
+      ref.read(feedRepositoryProvider).getActivitiesByIds(activityIds),
+      ref.read(exploreRepositoryProvider).getPostsByIds(postIds),
+    ).wait;
+    final items = zipHomeFeed(
+      refs,
+      activities: {for (final a in activities) a.id: a},
+      posts: {for (final p in posts) p.id: p},
+    );
+    return HomeFeed(
+      items: [...before, ...items],
+      cursor: refs.isEmpty ? after : refs.last,
+      hasMore: refs.length == _pageSize,
+    );
   }
-});
+
+  /// The next page, once the reader is near the end.
+  Future<void> loadMore() async {
+    final current = state.valueOrNull;
+    if (current == null || !current.hasMore || current.loadingMore) return;
+    state = AsyncData(current.copyWith(loadingMore: true));
+    try {
+      final next = await _page(current.cursor, current.items);
+      state = AsyncData(next);
+    } catch (_) {
+      // Keep what's shown; the next swipe will try again.
+      state = AsyncData(current.copyWith(loadingMore: false));
+    }
+  }
+}
+
+final homeFeedProvider =
+    AsyncNotifierProvider<HomeFeedNotifier, HomeFeed>(HomeFeedNotifier.new);
 
 /// Stream provider for real-time feed updates
 final homeFeedStreamProvider = StreamProvider<List<ActivityModel>>((ref) {
@@ -116,8 +172,8 @@ final userFilmActivityProvider =
 });
 
 /// How many of a person's titles you've logged, and your average rating.
-final personHistoryProvider =
-    FutureProvider.autoDispose.family<PersonHistory, int>((ref, personId) async {
+final personHistoryProvider = FutureProvider.autoDispose
+    .family<PersonHistory, int>((ref, personId) async {
   final currentUser = ref.watch(currentUserProvider);
   if (currentUser == null) return PersonHistory.none;
   final page = await ref.watch(personPageProvider(personId).future);
@@ -169,15 +225,25 @@ final friendsFilmActivitiesProvider =
 class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
   final FeedRepository _feedRepo;
   final UserRepository _userRepo;
-  final BadgeService _badgeService;
   final Ref _ref;
 
-  /// Stores recently unlocked badges for UI notification
+  /// Badges the last post earned, for the toast. The database awards them
+  /// (migration 009); this is only the difference it made.
   List<String> lastUnlockedBadges = [];
 
-  CreateActivityNotifier(
-      this._feedRepo, this._userRepo, this._badgeService, this._ref)
+  CreateActivityNotifier(this._feedRepo, this._userRepo, this._ref)
       : super(const AsyncValue.data(null));
+
+  /// What [before] didn't have that the profile has now.
+  Future<List<String>> _newBadges(String uid, List<String> before) async {
+    try {
+      final after = await _userRepo.getUser(uid);
+      final had = before.toSet();
+      return [...?after?.badgeIds.where((b) => !had.contains(b))];
+    } catch (_) {
+      return const [];
+    }
+  }
 
   /// Post a new "watched" activity (no review required)
   Future<ActivityModel?> postWatched({
@@ -215,7 +281,11 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
         createdAt: DateTime.now(),
       );
 
-      final created = await _feedRepo.createActivity(activity);
+      final created =
+          await _feedRepo.createActivity(activity, genreIds: film.genreIds);
+      // A log can strike a watchlist title, which can earn Clean Slate.
+      lastUnlockedBadges =
+          await _newBadges(currentUser.uid, userProfile?.badgeIds ?? const []);
       state = const AsyncValue.data(null);
 
       // Refresh the feed and user's activities
@@ -318,17 +388,13 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
         createdAt: DateTime.now(),
       );
 
-      final created = await _feedRepo.createActivity(activity);
+      final created =
+          await _feedRepo.createActivity(activity, genreIds: film.genreIds);
 
-      // review_count is maintained by the activities_review_count_trg trigger
-
-      // Check for badge unlocks
-      // Get first genre ID if available
-      final genreId = film.genreIds.isNotEmpty ? film.genreIds.first : null;
-      lastUnlockedBadges = await _badgeService.checkAndUnlockBadges(
-        userId: currentUser.uid,
-        genreId: genreId,
-      );
+      // review_count and badges are both the database's now (triggers on
+      // activities); this only reads back what changed.
+      lastUnlockedBadges =
+          await _newBadges(currentUser.uid, userProfile?.badgeIds ?? const []);
 
       state = const AsyncValue.data(null);
 
@@ -554,8 +620,7 @@ final createActivityProvider =
     StateNotifierProvider<CreateActivityNotifier, AsyncValue<void>>((ref) {
   final feedRepo = ref.watch(feedRepositoryProvider);
   final userRepo = ref.watch(userRepositoryProvider);
-  final badgeService = ref.watch(badgeServiceProvider);
-  return CreateActivityNotifier(feedRepo, userRepo, badgeService, ref);
+  return CreateActivityNotifier(feedRepo, userRepo, ref);
 });
 
 /// State notifier for like/unlike actions

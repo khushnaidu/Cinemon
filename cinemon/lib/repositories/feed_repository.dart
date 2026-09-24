@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/config/supabase_config.dart';
 import '../models/activity_model.dart';
+import '../models/home_feed.dart';
 import '../models/person_page.dart';
 
 /// Repository for feed/activity operations.
@@ -125,9 +126,18 @@ class FeedRepository {
   }
 
   /// Create a new activity post.
-  Future<ActivityModel> createActivity(ActivityModel activity) async {
-    final row =
-        await _client.from(_table).insert(activity.toDbMap()).select().single();
+  ///
+  /// [genreIds] are the title's TMDB genres. They're stored with the row for
+  /// the genre badges the database awards (migration 009).
+  Future<ActivityModel> createActivity(
+    ActivityModel activity, {
+    List<int> genreIds = const [],
+  }) async {
+    final row = await _client
+        .from(_table)
+        .insert({...activity.toDbMap(), 'genre_ids': genreIds})
+        .select()
+        .single();
     // Re-read through the view so the returned model carries username/likes.
     return (await getActivity(row['id'] as String))!;
   }
@@ -157,6 +167,36 @@ class FeedRepository {
     }
 
     final rows = await query.order('created_at', ascending: false).limit(limit);
+    return rows.map(ActivityModel.fromRow).toList();
+  }
+
+  /// One page of Home: activities and Explore posts by you and the people
+  /// you follow each other with, newest first, as references.
+  ///
+  /// Keyset-paged on (created_at, id): rows arriving in either table while
+  /// someone scrolls can't shift a page the way an offset would.
+  Future<List<HomeFeedRef>> getHomeFeedRefs({
+    HomeFeedRef? after,
+    int limit = 20,
+  }) async {
+    var query = _client.from('home_feed').select();
+    if (after != null) {
+      // UTC with a Z: a '+00:00' offset would have to survive URL encoding.
+      final at = DateTime.parse(after.createdAt).toUtc().toIso8601String();
+      query = query
+          .or('created_at.lt.$at,and(created_at.eq.$at,id.lt.${after.id})');
+    }
+    final rows = await query
+        .order('created_at', ascending: false)
+        .order('id', ascending: false)
+        .limit(limit);
+    return rows.map(HomeFeedRef.fromRow).toList();
+  }
+
+  /// Activities by id, in no particular order.
+  Future<List<ActivityModel>> getActivitiesByIds(List<String> ids) async {
+    if (ids.isEmpty) return const [];
+    final rows = await _client.from(_view).select().inFilter('id', ids);
     return rows.map(ActivityModel.fromRow).toList();
   }
 
@@ -324,7 +364,8 @@ class FeedRepository {
     final logged = <String>{};
     final ratings = <double>[];
     for (final r in rows) {
-      final title = (id: r['film_id'] as int, mediaType: r['media_type'] as String);
+      final title =
+          (id: r['film_id'] as int, mediaType: r['media_type'] as String);
       // Ids are only unique within a media type.
       if (!titles.contains(title)) continue;
       logged.add('${title.mediaType}:${title.id}');

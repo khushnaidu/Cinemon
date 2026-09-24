@@ -2,6 +2,7 @@
 enum BadgeType {
   reviews, // Review count milestones
   genres, // Genre-specific achievements
+  lists, // Watchlist and playlists
   special, // Special achievements
 }
 
@@ -15,6 +16,11 @@ class BadgeModel {
   final BadgeType type;
   final int? requiredCount; // For milestone badges
 
+  /// Which count in `my_badge_progress` moves toward [requiredCount], and
+  /// what it counts: "12 / 25 reviews". Null for yes-or-no badges.
+  final String? progressKey;
+  final String? progressNoun;
+
   const BadgeModel({
     required this.id,
     required this.name,
@@ -23,7 +29,31 @@ class BadgeModel {
     this.imagePath,
     required this.type,
     this.requiredCount,
+    this.progressKey,
+    this.progressNoun,
   });
+
+  /// "12 / 25 reviews", or null when this badge has no count to show.
+  String? progressLabel(Map<String, int> progress) {
+    final key = progressKey;
+    final target = requiredCount;
+    if (key == null || target == null || target <= 1) return null;
+    final have = (progress[key] ?? 0).clamp(0, target);
+    return '$have / $target ${progressNoun ?? ''}'.trimRight();
+  }
+}
+
+/// A badge someone has, and when they got it.
+class EarnedBadge {
+  const EarnedBadge({required this.id, required this.earnedAt});
+
+  factory EarnedBadge.fromRow(Map<String, dynamic> row) => EarnedBadge(
+        id: row['badge_id'] as String,
+        earnedAt: DateTime.parse(row['earned_at'] as String).toLocal(),
+      );
+
+  final String id;
+  final DateTime earnedAt;
 }
 
 /// Static registry of all available badges
@@ -49,6 +79,8 @@ class BadgeRegistry {
     imagePath: 'assets/badges/24.png',
     type: BadgeType.reviews,
     requiredCount: 10,
+    progressKey: 'reviews',
+    progressNoun: 'reviews',
   );
 
   static const reviewer25 = BadgeModel(
@@ -59,6 +91,8 @@ class BadgeRegistry {
     imagePath: 'assets/badges/23.png',
     type: BadgeType.reviews,
     requiredCount: 25,
+    progressKey: 'reviews',
+    progressNoun: 'reviews',
   );
 
   static const reviewer50 = BadgeModel(
@@ -69,6 +103,8 @@ class BadgeRegistry {
     imagePath: 'assets/badges/25.png',
     type: BadgeType.reviews,
     requiredCount: 50,
+    progressKey: 'reviews',
+    progressNoun: 'reviews',
   );
 
   static const reviewer100 = BadgeModel(
@@ -79,6 +115,8 @@ class BadgeRegistry {
     // No image yet
     type: BadgeType.reviews,
     requiredCount: 100,
+    progressKey: 'reviews',
+    progressNoun: 'reviews',
   );
 
   // Genre badges
@@ -99,6 +137,8 @@ class BadgeRegistry {
     imagePath: 'assets/badges/29.png',
     type: BadgeType.genres,
     requiredCount: 5,
+    progressKey: 'comedy',
+    progressNoun: 'comedies',
   );
 
   static const actionHero = BadgeModel(
@@ -109,6 +149,8 @@ class BadgeRegistry {
     imagePath: 'assets/badges/27.png',
     type: BadgeType.genres,
     requiredCount: 5,
+    progressKey: 'action',
+    progressNoun: 'action films',
   );
 
   static const romanticSoul = BadgeModel(
@@ -119,6 +161,39 @@ class BadgeRegistry {
     imagePath: 'assets/badges/26.png',
     type: BadgeType.genres,
     requiredCount: 5,
+    progressKey: 'romance',
+    progressNoun: 'romances',
+  );
+
+  // List badges
+  static const curator = BadgeModel(
+    id: 'curator',
+    name: 'Curator',
+    description: 'Made your first public playlist',
+    emoji: '\u{1F5C2}\u{FE0F}', // 🗂️
+    type: BadgeType.lists,
+  );
+
+  static const tastemaker = BadgeModel(
+    id: 'tastemaker',
+    name: 'Tastemaker',
+    description: '10 people saved one of your playlists',
+    emoji: '\u{2728}', // ✨
+    type: BadgeType.lists,
+    requiredCount: 10,
+    progressKey: 'top_saves',
+    progressNoun: 'saves',
+  );
+
+  static const cleanSlate = BadgeModel(
+    id: 'clean_slate',
+    name: 'Clean Slate',
+    description: 'Struck 10 titles off your watchlist',
+    emoji: '\u{2705}', // ✅
+    type: BadgeType.lists,
+    requiredCount: 10,
+    progressKey: 'strikes',
+    progressNoun: 'struck off',
   );
 
   // Special badges
@@ -144,7 +219,7 @@ class BadgeRegistry {
   static const earlyAdopter = BadgeModel(
     id: 'early_adopter',
     name: 'Early Adopter',
-    description: 'Joined during the beta',
+    description: 'Joined before 35mm launched',
     emoji: '\u{2B50}', // ⭐
     // No image yet
     type: BadgeType.special,
@@ -163,6 +238,10 @@ class BadgeRegistry {
     comedyLover,
     actionHero,
     romanticSoul,
+    // List badges
+    curator,
+    tastemaker,
+    cleanSlate,
     // Special badges
     nightOwl,
     bingeWatcher,

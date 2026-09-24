@@ -8,8 +8,8 @@ import '../../models/list_model.dart';
 import '../../providers/lists/list_provider.dart';
 import '../widgets/glass_panel.dart';
 
-/// The Watchlist link under a profile's header. Takes no space when the
-/// watchlist is hidden from you. Becomes a row in the Lists tab in Phase 5.
+/// The Watchlist row pinned to the top of a profile's Lists tab. Takes no
+/// space when the watchlist is hidden from you.
 class ProfileWatchlistRow extends ConsumerWidget {
   const ProfileWatchlistRow({
     super.key,

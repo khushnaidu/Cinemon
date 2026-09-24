@@ -10,7 +10,7 @@ import '../../screens/homefeed.dart';
 import '../../screens/shell/glass_shell.dart';
 import '../../screens/post.dart' show MovieSearchPage;
 import '../../screens/explore/explore_screen.dart';
-import '../../screens/profile.dart';
+import '../../screens/profile/profile_screen.dart';
 import '../../screens/edit_profile_screen.dart';
 import '../../screens/search_users_screen.dart';
 import '../../screens/friends_list_screen.dart';

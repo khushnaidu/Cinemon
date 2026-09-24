@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../models/badge_model.dart';
 import '../../models/episode_model.dart';
 import '../../models/film_model.dart';
 import '../../providers/feed/feed_provider.dart';
@@ -120,7 +121,19 @@ class _PostReviewSheetState extends ConsumerState<PostReviewSheet> {
 
     // Toast first, then pop: the toast lives in the root overlay and survives
     // this panel going away, but it needs a live context to find it.
-    showGlassToast(context, 'Posted $_subject');
+    // Badges are awarded by the database as the post lands; the notifier
+    // read back which ones this one earned.
+    final earned = [
+      for (final id in notifier.getAndClearUnlockedBadges())
+        if (BadgeRegistry.getBadgeById(id) case final b?) b,
+    ];
+    showGlassToast(
+      context,
+      earned.isEmpty
+          ? 'Posted $_subject'
+          : 'Posted $_subject, and earned ${earned.map((b) => '${b.emoji} ${b.name}').join(', ')}',
+      icon: earned.isEmpty ? null : CupertinoIcons.rosette,
+    );
     Navigator.of(context).pop();
   }
 

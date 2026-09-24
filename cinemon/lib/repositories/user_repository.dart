@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/config/supabase_config.dart';
+import '../models/badge_model.dart';
 import '../models/user_model.dart';
 
 /// Repository for user profile operations against the `profiles` table.
@@ -218,22 +219,47 @@ class UserRepository {
 
   // ============ BADGES ============
 
-  /// Unlock a badge. Returns false if already unlocked.
-  Future<bool> unlockBadge(String uid, String badgeId) async {
-    final user = await getUser(uid);
-    if (user == null || user.badgeIds.contains(badgeId)) return false;
-    await updateUserFields(
-      uid: uid,
-      fields: {
-        'badge_ids': [...user.badgeIds, badgeId]
-      },
-    );
-    return true;
+  // The database awards badges (migration 009); the app only reads them.
+
+  /// Everything [uid] has earned, newest first.
+  Future<List<EarnedBadge>> getEarnedBadges(String uid) async {
+    final rows = await _client
+        .from('user_badges')
+        .select('badge_id, earned_at')
+        .eq('user_id', uid)
+        .order('earned_at', ascending: false);
+    return rows.map(EarnedBadge.fromRow).toList();
   }
 
-  /// Get a user's unlocked badge ids.
-  Future<List<String>> getUserBadgeIds(String uid) async =>
-      (await getUser(uid))?.badgeIds ?? [];
+  /// The signed-in user's counts toward badges they haven't earned yet:
+  /// reviews, per-genre reviews, top playlist saves, watchlist strikes.
+  Future<Map<String, int>> getMyBadgeProgress() async {
+    final res = await _client.rpc('my_badge_progress');
+    return {
+      for (final e in (res as Map<String, dynamic>).entries)
+        e.key: (e.value as num).toInt(),
+    };
+  }
+
+  static bool _reportedTimeZone = false;
+
+  /// Tell the server this device's UTC offset, once per launch, so Night Owl
+  /// and Binge Watcher go by the poster's own clock.
+  Future<void> reportTimeZone(String uid) async {
+    if (_reportedTimeZone) return;
+    _reportedTimeZone = true;
+    final offset = DateTime.now().timeZoneOffset;
+    final minutes = offset.inMinutes.abs();
+    final zone = '${offset.isNegative ? '-' : '+'}'
+        '${(minutes ~/ 60).toString().padLeft(2, '0')}:'
+        '${(minutes % 60).toString().padLeft(2, '0')}';
+    try {
+      await updateUserFields(uid: uid, fields: {'time_zone': zone});
+    } catch (_) {
+      // Before migration 009 there's no column; badges fall back to UTC.
+      _reportedTimeZone = false;
+    }
+  }
 
   // ============ INTERNAL ============
 

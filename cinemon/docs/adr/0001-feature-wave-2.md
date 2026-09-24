@@ -79,7 +79,16 @@ Phase 7  Trailers tab         ── reuses the player from Phase 1
   - the playlist screen: Save, Share, Shuffle, drag to reorder with fractional positions (`planMove`), swipe to remove
   - a Playlists rail on profiles, and share links to `https://35mm.contact/l/<id>`
 
-  Universal links go through Flutter's built-in deep linking straight into go_router (`/l/:id` redirects to `/lists/:id`), so `app_links` wasn't needed. Still to come: posting a list to Explore (Phase 5), and OG images of the cover (v2).
+  Universal links go through Flutter's built-in deep linking straight into go_router (`/l/:id` redirects to `/lists/:id`), so `app_links` wasn't needed. OG images of the cover are still to come (v2).
+- **Phase 5** built 2026-09-24, with migrations `009_profile_badges.sql` and `010_home_feed_and_list_posts.sql`:
+  - **Profile tabs:** `profile/profile_screen.dart`, `profile_header.dart` and `tabs/`. Posts, Lists, Favorites and Badges sit under a pinned `GlassSegmentedControl`. Each tab keeps its scroll position once the bar is pinned, and a horizontal flick changes tab. Recently watched stays above the tabs.
+  - **Badges** are awarded by triggers into `user_badges`, with dates, and `profiles.badge_ids` is kept in step for older builds. The client can no longer write either, and `BadgeService` is gone. New badges: Curator, Tastemaker and Clean Slate. Night Owl and Binge Watcher use the UTC offset the app reports on each launch. Genre badges use `activities.genre_ids`, which is sent with each log from now on. Locked badges show progress on your own profile (`my_badge_progress`). Early Adopter covers everyone who joins before `early_adopter_until()`, currently 2027-01-01.
+  - **List posts (D13):** `ExploreKind.list` with `explore_posts.list_id`. `explore_feed` joins the title, count and first four posters, and hides the post while the list isn't public.
+    - The card shows the cover, and tapping it opens the playlist.
+    - Entry points: a "Share to Explore" switch when creating a public playlist (on by default), a Post pill on your playlist (which offers to make a private one public), and a List tile in the composer.
+  - **Home (4.6):** the `home_feed` view merges activities and Explore posts by you and your friends. It is keyset-paged on `(created_at, id)` and hydrated with two `in` queries (`zipHomeFeed`). Explore posts appear as their own pages under a "Posted on Explore" kicker, and Home now pages past the first 20.
+  - **Shared post state:** votes, replies and edits go through `explorePostPatchesProvider`, so a post matches wherever it's drawn.
+  - Deferred: reporting a playlist directly (`content_reports.list_id`). Reporting its Explore post covers what's public today.
 
 ### Why this order
 

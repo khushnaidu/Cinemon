@@ -4,6 +4,7 @@ import '../../models/activity_model.dart' show CommentModel;
 import '../../models/explore_post_model.dart';
 import '../../repositories/explore_repository.dart';
 import '../auth/auth_provider.dart';
+import '../feed/feed_provider.dart' show homeFeedProvider;
 
 final exploreRepositoryProvider =
     Provider<ExploreRepository>((ref) => ExploreRepository());
@@ -14,10 +15,14 @@ class ExploreFilter {
     this.kind,
     this.subject,
     this.sort = ExploreSort.latest,
+    this.userId,
   });
 
   /// Null means every kind.
   final ExploreKind? kind;
+
+  /// Null means everyone. Set for a profile's Posts tab.
+  final String? userId;
 
   /// Null means every title. Always title-level: filtering a show includes
   /// posts about its episodes.
@@ -35,6 +40,7 @@ class ExploreFilter {
       kind: clearKind ? null : (kind ?? this.kind),
       subject: clearSubject ? null : (subject?.titleOnly ?? this.subject),
       sort: sort ?? this.sort,
+      userId: userId,
     );
   }
 }
@@ -80,19 +86,19 @@ class ExploreFeedState {
 /// Rebuilt whenever the filter changes, so a page landing after the user has
 /// moved on is dropped by the `mounted` checks rather than mixed in.
 class ExploreFeedNotifier extends StateNotifier<ExploreFeedState> {
-  ExploreFeedNotifier(this._repo, this._filter, this._userId)
+  ExploreFeedNotifier(this._repo, this._filter)
       : super(const ExploreFeedState()) {
     refresh();
   }
 
   final ExploreRepository _repo;
   final ExploreFilter _filter;
-  final String? _userId;
 
   static const _pageSize = 20;
 
   Future<List<ExplorePost>> _page(int offset) => _repo.getFeed(
         kind: _filter.kind,
+        userId: _filter.userId,
         filmId: _filter.subject?.filmId,
         mediaType: _filter.subject?.mediaType,
         sort: _filter.sort,
@@ -136,26 +142,6 @@ class ExploreFeedNotifier extends StateNotifier<ExploreFeedState> {
     }
   }
 
-  /// Tap a vote. Tapping the one you already hold clears it.
-  ///
-  /// Optimistic: the count moves on the tap and moves back if the write fails.
-  Future<bool> vote(String postId, int value) async {
-    final uid = _userId;
-    final index = state.posts.indexWhere((p) => p.id == postId);
-    if (uid == null || index == -1) return false;
-
-    final before = state.posts[index];
-    final next = before.myVote == value ? 0 : value;
-    _replace(before.withVote(next));
-    try {
-      await _repo.vote(postId: postId, userId: uid, value: next);
-      return true;
-    } catch (_) {
-      if (mounted) _replace(before);
-      return false;
-    }
-  }
-
   void insert(ExplorePost post) {
     if (!_matches(post)) return;
     state = state.copyWith(posts: [post, ...state.posts]);
@@ -177,11 +163,6 @@ class ExploreFeedNotifier extends StateNotifier<ExploreFeedState> {
     );
   }
 
-  void bumpComments(String postId, int delta) {
-    final i = state.posts.indexWhere((p) => p.id == postId);
-    if (i != -1) _replace(state.posts[i].withCommentDelta(delta));
-  }
-
   void _replace(ExplorePost post) {
     state = state.copyWith(
       posts: [
@@ -192,6 +173,7 @@ class ExploreFeedNotifier extends StateNotifier<ExploreFeedState> {
 
   bool _matches(ExplorePost post) {
     if (_filter.kind != null && post.kind != _filter.kind) return false;
+    if (_filter.userId != null && post.userId != _filter.userId) return false;
     final s = _filter.subject;
     if (s != null &&
         (post.subject?.filmId != s.filmId ||
@@ -204,12 +186,41 @@ class ExploreFeedNotifier extends StateNotifier<ExploreFeedState> {
 
 final exploreFeedProvider =
     StateNotifierProvider<ExploreFeedNotifier, ExploreFeedState>((ref) {
+  // Rows carry the viewer's own vote, so a different account starts over.
+  ref.watch(currentUserProvider);
   return ExploreFeedNotifier(
     ref.watch(exploreRepositoryProvider),
     ref.watch(exploreFilterProvider),
-    ref.watch(currentUserProvider)?.id,
   );
 });
+
+/// One person's posts, newest first: their profile's Posts tab.
+final userExploreFeedProvider = StateNotifierProvider.autoDispose.family<
+    ExploreFeedNotifier,
+    ExploreFeedState,
+    ({String userId, ExploreKind? kind})>((ref, key) {
+  ref.watch(currentUserProvider);
+  return ExploreFeedNotifier(
+    ref.watch(exploreRepositoryProvider),
+    ExploreFilter(userId: key.userId, kind: key.kind),
+  );
+});
+
+/// The newest copy of every post the viewer has changed this session: a
+/// vote, a reply, an edit.
+///
+/// The same post can be drawn on Explore, on Home and on a profile, each
+/// from its own page of rows. Cards read through this so a like on one shows
+/// on all of them, without the three feeds having to know about each other.
+final explorePostPatchesProvider =
+    StateProvider<Map<String, ExplorePost>>((ref) {
+  ref.watch(currentUserProvider);
+  return const {};
+});
+
+/// [post], or the newer copy of it if the viewer has changed it.
+ExplorePost watchLivePost(WidgetRef ref, ExplorePost post) =>
+    ref.watch(explorePostPatchesProvider.select((m) => m[post.id])) ?? post;
 
 /// Post count for the subject banner.
 final exploreSubjectCountProvider =
@@ -236,6 +247,47 @@ class ExploreActions {
   ExploreRepository get _repo => _ref.read(exploreRepositoryProvider);
   String? get _uid => _ref.read(currentUserProvider)?.id;
 
+  /// The newest copy of a post this session knows: patched, in the Explore
+  /// feed, or the one the caller is holding.
+  ExplorePost _current(ExplorePost post) {
+    final patched = _ref.read(explorePostPatchesProvider)[post.id];
+    if (patched != null) return patched;
+    for (final p in _ref.read(exploreFeedProvider).posts) {
+      if (p.id == post.id) return p;
+    }
+    return post;
+  }
+
+  void _patch(ExplorePost post) {
+    final patches = _ref.read(explorePostPatchesProvider.notifier);
+    patches.state = {...patches.state, post.id: post};
+    _ref.read(exploreFeedProvider.notifier).replace(post);
+  }
+
+  /// Every list of posts that isn't Explore itself: profiles and Home.
+  void _refreshElsewhere() {
+    _ref.invalidate(userExploreFeedProvider);
+    _ref.invalidate(homeFeedProvider);
+  }
+
+  /// Tap a vote. Tapping the one you already hold clears it.
+  ///
+  /// Optimistic: the count moves on the tap and moves back if the write fails.
+  Future<bool> vote(ExplorePost post, int value) async {
+    final uid = _uid;
+    if (uid == null) return false;
+    final before = _current(post);
+    final next = before.myVote == value ? 0 : value;
+    _patch(before.withVote(next));
+    try {
+      await _repo.vote(postId: post.id, userId: uid, value: next);
+      return true;
+    } catch (_) {
+      _patch(before);
+      return false;
+    }
+  }
+
   Future<ExplorePost?> createPost({
     required ExploreKind kind,
     required String body,
@@ -243,6 +295,7 @@ class ExploreActions {
     double? rating,
     bool hasSpoilers = false,
     ExploreSubject? subject,
+    String? listId,
   }) async {
     final uid = _uid;
     if (uid == null) return null;
@@ -255,8 +308,10 @@ class ExploreActions {
         rating: rating,
         hasSpoilers: hasSpoilers,
         subject: subject,
+        listId: listId,
       );
       _ref.read(exploreFeedProvider.notifier).insert(post);
+      _refreshElsewhere();
       final s = subject;
       if (s != null) {
         _ref.invalidate(exploreSubjectCountProvider(
@@ -285,7 +340,7 @@ class ExploreActions {
         hasSpoilers: hasSpoilers,
         subject: subject,
       );
-      _ref.read(exploreFeedProvider.notifier).replace(post);
+      _patch(post);
       for (final s in {original.subject, subject}) {
         if (s == null) continue;
         _ref.invalidate(exploreSubjectCountProvider(
@@ -301,6 +356,7 @@ class ExploreActions {
     try {
       await _repo.deletePost(post.id);
       _ref.read(exploreFeedProvider.notifier).remove(post.id);
+      _refreshElsewhere();
       final s = post.subject;
       if (s != null) {
         _ref.invalidate(exploreSubjectCountProvider(
@@ -313,10 +369,11 @@ class ExploreActions {
   }
 
   Future<CommentModel?> addComment(
-    String postId,
+    ExplorePost post,
     String content, {
     String? parentId,
   }) async {
+    final postId = post.id;
     final uid = _uid;
     if (uid == null) return null;
     try {
@@ -327,18 +384,19 @@ class ExploreActions {
         parentId: parentId,
       );
       _ref.invalidate(exploreCommentsProvider(postId));
-      _ref.read(exploreFeedProvider.notifier).bumpComments(postId, 1);
+      _patch(_current(post).withCommentDelta(1));
       return c;
     } catch (_) {
       return null;
     }
   }
 
-  Future<bool> deleteComment(String postId, String commentId) async {
+  Future<bool> deleteComment(ExplorePost post, String commentId) async {
+    final postId = post.id;
     try {
       await _repo.deleteComment(commentId);
       _ref.invalidate(exploreCommentsProvider(postId));
-      _ref.read(exploreFeedProvider.notifier).bumpComments(postId, -1);
+      _patch(_current(post).withCommentDelta(-1));
       return true;
     } catch (_) {
       return false;
@@ -350,6 +408,9 @@ class ExploreActions {
     if (uid == null) return false;
     try {
       await _repo.reportPost(postId: postId, reporterId: uid, reason: reason);
+      // Out of every feed straight away; the report is reviewed separately.
+      _ref.read(exploreFeedProvider.notifier).remove(postId);
+      _refreshElsewhere();
       return true;
     } catch (_) {
       return false;

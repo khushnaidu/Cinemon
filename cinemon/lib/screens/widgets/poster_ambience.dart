@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,9 +23,14 @@ class PosterAmbience extends ConsumerStatefulWidget {
     required this.posterUrl,
     required this.cardCenter,
     required this.cardSize,
+    this.intensity = 1,
   });
 
   final String posterUrl;
+
+  /// Scales every layer's brightness. Below 1 for cards that aren't a poster,
+  /// where the light should sit further back.
+  final double intensity;
 
   /// Where the card sits, in this widget's coordinates — the light is aimed at
   /// it, so it has to follow it rather than assume screen centre.
@@ -53,6 +61,16 @@ class _PosterAmbienceState extends ConsumerState<PosterAmbience>
     duration: const Duration(seconds: 14),
     vsync: this,
   )..repeat(reverse: true);
+
+  ui.Image? _grain;
+
+  @override
+  void initState() {
+    super.initState();
+    _grainImage.then((img) {
+      if (mounted) setState(() => _grain = img);
+    });
+  }
 
   @override
   void dispose() {
@@ -87,6 +105,8 @@ class _PosterAmbienceState extends ConsumerState<PosterAmbience>
               breathe: Curves.easeInOut.transform(_breathe.value),
               cardCenter: widget.cardCenter,
               cardSize: widget.cardSize,
+              intensity: widget.intensity,
+              grain: _grain,
             ),
           );
         },
@@ -95,6 +115,55 @@ class _PosterAmbienceState extends ConsumerState<PosterAmbience>
   }
 }
 
+/// A tile of faint noise, laid over the light to dither it.
+///
+/// The light is a few percent of colour on black, which leaves each gradient
+/// only a handful of 8-bit steps to fall through; on its own that shows as
+/// bands. A pixel or two of random lift and dip per texel breaks the steps
+/// up below the point anyone can see grain. Made once and shared.
+final Future<ui.Image> _grainImage = () {
+  const side = 64;
+  final rnd = math.Random(35);
+  final pixels = Uint8List(side * side * 4);
+  for (var i = 0; i < side * side; i++) {
+    // Half the texels lift, half darken, each by up to ~1.5% alpha.
+    //
+    // The engine reads these pixels as premultiplied, so a lifting texel's
+    // colour has to be its alpha, not 255: full white over a tiny alpha
+    // doesn't blend as a faint lift, it adds straight white. That was
+    // snow across the whole screen.
+    final a = rnd.nextInt(5);
+    final v = rnd.nextBool() ? a : 0;
+    pixels[i * 4] = v;
+    pixels[i * 4 + 1] = v;
+    pixels[i * 4 + 2] = v;
+    pixels[i * 4 + 3] = a;
+  }
+  final done = Completer<ui.Image>();
+  ui.decodeImageFromPixels(
+      pixels, side, side, ui.PixelFormat.rgba8888, done.complete);
+  return done.future;
+}();
+
+/// [samples] points of a curve as gradient stops, so a falloff is smooth
+/// rather than a few straight ramps with a visible kink at every stop.
+({List<Color> colors, List<double> stops}) _curve(
+  Color color,
+  double Function(double t) f, {
+  int samples = 24,
+}) {
+  final stops = [for (var i = 0; i < samples; i++) i / (samples - 1)];
+  return (
+    colors: [
+      for (final t in stops)
+        color.withValues(alpha: (color.a * f(t)).clamp(0.0, 1.0)),
+    ],
+    stops: stops,
+  );
+}
+
+double _smoothstep(double t) => t * t * (3 - 2 * t);
+
 class _AmbiencePainter extends CustomPainter {
   const _AmbiencePainter({
     required this.palette,
@@ -102,7 +171,12 @@ class _AmbiencePainter extends CustomPainter {
     required this.breathe,
     required this.cardCenter,
     required this.cardSize,
+    this.intensity = 1,
+    this.grain,
   });
+
+  final double intensity;
+  final ui.Image? grain;
 
   final PosterPalette palette;
   final double reveal;
@@ -159,6 +233,16 @@ class _AmbiencePainter extends CustomPainter {
       color: palette.secondary,
       peak: 0.09 - drift * 0.012,
     );
+
+    final noise = grain;
+    if (noise != null) {
+      canvas.drawRect(
+        Offset.zero & size,
+        Paint()
+          ..shader = ImageShader(noise, TileMode.repeated, TileMode.repeated,
+              Matrix4.identity().storage),
+      );
+    }
   }
 
   /// One layer's slice of [reveal], eased inside its own window.
@@ -232,18 +316,36 @@ class _AmbiencePainter extends CustomPainter {
       bounds,
       Paint()
         ..blendMode = BlendMode.dstIn
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: const [
-            Color(0x00FFFFFF),
-            Color(0xD9FFFFFF),
-            Color(0xFFFFFFFF),
-            Color(0x8CFFFFFF),
-            Color(0x00FFFFFF),
-          ],
-          stops: [0, rise, focus, fall, 1],
-        ).createShader(bounds),
+        ..shader = () {
+          // The same key points as before (0, 85%, full, 55%, 0), eased
+          // between rather than joined by straight lines.
+          final keys = [
+            (0.0, 0.0),
+            (rise, 0.85),
+            (focus, 1.0),
+            (fall, 0.55),
+            (1.0, 0.0),
+          ];
+          double at(double t) {
+            for (var i = 1; i < keys.length; i++) {
+              final (t1, v1) = keys[i];
+              if (t <= t1) {
+                final (t0, v0) = keys[i - 1];
+                final u = t1 == t0 ? 1.0 : (t - t0) / (t1 - t0);
+                return v0 + (v1 - v0) * _smoothstep(u);
+              }
+            }
+            return 0;
+          }
+
+          final ramp = _curve(Colors.white, at, samples: 32);
+          return LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: ramp.colors,
+            stops: ramp.stops,
+          ).createShader(bounds);
+        }(),
     );
 
     canvas.restore();
@@ -259,7 +361,7 @@ class _AmbiencePainter extends CustomPainter {
     required double halfWidth,
     required double peak,
   }) {
-    final alpha = math.max(0.0, peak) * progress;
+    final alpha = math.max(0.0, peak) * progress * intensity;
     if (alpha <= 0.001) return;
 
     final rect = Rect.fromLTRB(
@@ -268,20 +370,21 @@ class _AmbiencePainter extends CustomPainter {
       cardCenter.dx + halfWidth,
       size.height,
     );
+    // A bell across the shaft: the same 30% at 0.18 out that the old
+    // five-stop ramp had, without its corners, and truly gone at the edges.
+    final bell = _curve(palette.primary.withValues(alpha: alpha), (t) {
+      final d = (t - 0.5) / 0.164;
+      final edge = 1 - _smoothstep(((t - 0.5).abs() - 0.4).clamp(0, 0.1) / 0.1);
+      return math.exp(-d * d) * edge;
+    });
     canvas.drawRect(
       rect,
       Paint()
         ..shader = LinearGradient(
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
-          colors: [
-            palette.primary.withValues(alpha: 0),
-            palette.primary.withValues(alpha: alpha * 0.30),
-            palette.primary.withValues(alpha: alpha),
-            palette.primary.withValues(alpha: alpha * 0.30),
-            palette.primary.withValues(alpha: 0),
-          ],
-          stops: const [0, 0.32, 0.5, 0.68, 1],
+          colors: bell.colors,
+          stops: bell.stops,
         ).createShader(rect),
     );
   }
@@ -307,7 +410,7 @@ class _AmbiencePainter extends CustomPainter {
     required Color color,
     required double peak,
   }) {
-    final alpha = math.max(0.0, peak) * progress;
+    final alpha = math.max(0.0, peak) * progress * intensity;
     if (alpha <= 0.001) return;
 
     // Swells from [from] of its final size as it lights, so it spreads rather
@@ -324,14 +427,17 @@ class _AmbiencePainter extends CustomPainter {
         // Additive, so where the beam and an accent overlap the light adds up
         // instead of the top one flattening the one beneath.
         ..blendMode = BlendMode.plus
-        ..shader = RadialGradient(
-          colors: [
-            color.withValues(alpha: alpha),
-            color.withValues(alpha: alpha * 0.32),
-            color.withValues(alpha: 0),
-          ],
-          stops: const [0, 0.45, 1],
-        ).createShader(Rect.fromCircle(center: Offset.zero, radius: 1)),
+        ..shader = () {
+          // Gaussian, matching the old 32% at 0.45, eased to nothing at the
+          // rim so the ellipse has no edge.
+          final fall = _curve(color.withValues(alpha: alpha), (r) {
+            final d = r / 0.42;
+            return math.exp(-d * d) *
+                (1 - _smoothstep(((r - 0.6) / 0.4).clamp(0.0, 1.0)));
+          }, samples: 16);
+          return RadialGradient(colors: fall.colors, stops: fall.stops)
+              .createShader(Rect.fromCircle(center: Offset.zero, radius: 1));
+        }(),
     );
     canvas.restore();
   }
@@ -345,5 +451,7 @@ class _AmbiencePainter extends CustomPainter {
       old.palette.primary != palette.primary ||
       old.palette.secondary != palette.secondary ||
       old.cardCenter != cardCenter ||
-      old.cardSize != cardSize;
+      old.cardSize != cardSize ||
+      old.intensity != intensity ||
+      old.grain != grain;
 }

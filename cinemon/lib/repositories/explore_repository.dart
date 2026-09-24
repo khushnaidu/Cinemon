@@ -24,8 +24,10 @@ class ExploreRepository {
   ///
   /// [filmId] + [mediaType] narrow it to posts about one title — episodes of
   /// a show included, since that's what someone searching a show wants.
+  /// [userId] narrows it to one author, for their profile.
   Future<List<ExplorePost>> getFeed({
     ExploreKind? kind,
+    String? userId,
     int? filmId,
     String? mediaType,
     ExploreSort sort = ExploreSort.latest,
@@ -34,6 +36,7 @@ class ExploreRepository {
   }) async {
     var query = _client.from(_view).select();
     if (kind != null) query = query.eq('kind', kind.value);
+    if (userId != null) query = query.eq('user_id', userId);
     if (filmId != null) {
       query = query.eq('film_id', filmId);
       if (mediaType != null) query = query.eq('media_type', mediaType);
@@ -64,6 +67,24 @@ class ExploreRepository {
     return row == null ? null : ExplorePost.fromRow(row);
   }
 
+  /// Posts by id, in no particular order. Missing ids are posts the viewer
+  /// can't see (reported, or a list that's gone private).
+  Future<List<ExplorePost>> getPostsByIds(List<String> ids) async {
+    if (ids.isEmpty) return const [];
+    final rows = await _client.from(_view).select().inFilter('id', ids);
+    return rows.map(ExplorePost.fromRow).toList();
+  }
+
+  /// How many times a playlist has been posted. The database allows three.
+  Future<int> countListPosts(String listId) async {
+    final res = await _client
+        .from(_table)
+        .select('id')
+        .eq('list_id', listId)
+        .count(CountOption.exact);
+    return res.count;
+  }
+
   /// How many posts there are about one title, for the filter banner.
   Future<int> countForSubject({
     required int filmId,
@@ -86,6 +107,7 @@ class ExploreRepository {
     double? rating,
     bool hasSpoilers = false,
     ExploreSubject? subject,
+    String? listId,
   }) async {
     final row = await _client
         .from(_table)
@@ -97,6 +119,7 @@ class ExploreRepository {
           'rating': rating,
           'has_spoilers': hasSpoilers,
           ...?subject?.toDbMap(),
+          if (listId != null) 'list_id': listId,
         })
         .select('id')
         .single();

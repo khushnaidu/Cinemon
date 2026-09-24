@@ -4,6 +4,9 @@ import '../../models/film_model.dart';
 import '../../models/list_model.dart';
 import '../../repositories/list_repository.dart';
 import '../auth/auth_provider.dart';
+import '../explore/explore_provider.dart'
+    show exploreFeedProvider, userExploreFeedProvider;
+import '../feed/feed_provider.dart' show homeFeedProvider;
 
 final listRepositoryProvider =
     Provider<ListRepository>((ref) => ListRepository());
@@ -213,6 +216,8 @@ class PlaylistActions {
       return false;
     }
     _refresh(list.id);
+    // Leaving public hides its Explore posts, and coming back shows them.
+    if (visibility != list.visibility) _refreshPosts();
     return true;
   }
 
@@ -223,12 +228,21 @@ class PlaylistActions {
       return false;
     }
     _refresh(list.id);
+    // Its Explore posts went with it.
+    _refreshPosts();
     return true;
+  }
+
+  void _refreshPosts() {
+    _ref.invalidate(exploreFeedProvider);
+    _ref.invalidate(userExploreFeedProvider);
+    _ref.invalidate(homeFeedProvider);
   }
 
   /// Put a title on a list or take it off. Returns whether it's now on it,
   /// or null if the write failed.
-  Future<bool?> toggle(String listId, FilmModel film, {required bool on}) async {
+  Future<bool?> toggle(String listId, FilmModel film,
+      {required bool on}) async {
     final mediaType = film.isTv ? 'tv' : 'movie';
     try {
       if (on) {

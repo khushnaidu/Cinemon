@@ -12,10 +12,13 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../core/constants/api_constants.dart';
 import '../../core/theme/app_theme.dart';
+import '../../models/explore_post_model.dart' show ExploreListRef;
 import '../../models/list_model.dart';
 import '../../providers/auth/auth_provider.dart';
 import '../../providers/feed/feed_provider.dart' show userProfileProvider;
 import '../../providers/lists/list_provider.dart';
+import '../explore/explore_composer.dart'
+    show confirmListRepost, showExploreComposer;
 import '../widgets/glass_panel.dart';
 import 'add_films_panel.dart';
 import 'playlist_cover.dart';
@@ -92,7 +95,7 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
                 'people you follow each other with.',
         confirmLabel: 'Share anyway',
       );
-      if (!go || !mounted) return;
+      if (!go || !buttonContext.mounted) return;
     }
     final box = buttonContext.findRenderObject() as RenderBox?;
     await SharePlus.instance.share(ShareParams(
@@ -101,6 +104,43 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
       sharePositionOrigin:
           box == null ? null : box.localToGlobal(Offset.zero) & box.size,
     ));
+  }
+
+  /// Share it on Explore, where friends see it on Home too. Only a public
+  /// playlist can go there, so a private one is offered the switch first.
+  Future<void> _postToExplore(List<ListItem> items) async {
+    if (list.visibility != ListVisibility.public) {
+      final go = await showGlassConfirm(
+        context,
+        title: 'Make it public?',
+        message: 'Only public playlists can go on Explore. Anyone on 35mm '
+            'will be able to see "${list.displayTitle}".',
+        confirmLabel: 'Make public',
+      );
+      if (!go || !mounted) return;
+      final ok = await ref.read(playlistActionsProvider).update(
+            list,
+            title: list.displayTitle,
+            description: list.description,
+            visibility: ListVisibility.public,
+          );
+      if (!mounted) return;
+      if (!ok) {
+        showGlassToast(context, "Couldn't change who can see it.",
+            destructive: true);
+        return;
+      }
+    }
+    final shared = ExploreListRef(
+      id: list.id,
+      title: list.displayTitle,
+      description: list.description,
+      itemCount: items.length,
+      posters: [for (final i in items.take(4)) i.posterPath],
+    );
+    if (!mounted || !await confirmListRepost(context, ref, shared)) return;
+    if (!mounted) return;
+    await showExploreComposer(context, list: shared);
   }
 
   Future<void> _toggleSaved(bool saved) async {
@@ -215,6 +255,13 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
             compact: true,
             onTap: () => _share(buttonContext),
           ),
+          if (isOwner && !_reordering)
+            GlassPillButton(
+              label: 'Post',
+              icon: CupertinoIcons.globe,
+              compact: true,
+              onTap: () => _postToExplore(items),
+            ),
           if (items.length > 1 && !_reordering)
             GlassPillButton(
               label: 'Pick for me',

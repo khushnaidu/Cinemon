@@ -14,10 +14,14 @@ import 'widgets/native_glass_button.dart';
 import 'widgets/poster_ambience.dart';
 import 'widgets/review_card_back.dart';
 import '../models/activity_model.dart';
+import '../models/explore_post_model.dart';
+import '../models/home_feed.dart';
 import '../models/sticker_model.dart';
 import '../providers/auth/auth_provider.dart';
 import '../providers/feed/feed_provider.dart';
 import '../providers/notification/notification_provider.dart';
+import 'explore/explore_post_card.dart';
+import 'explore/explore_thread.dart';
 import 'widgets/comments_sheet.dart';
 import 'widgets/episode_card_front.dart';
 
@@ -80,8 +84,9 @@ class _HomeFeedPageState extends ConsumerState<HomeFeedPage> {
                 error: error.toString(),
                 onRetry: () => ref.refresh(homeFeedProvider),
               ),
-              data: (activities) {
-                if (activities.isEmpty) {
+              data: (feed) {
+                final items = feed.items;
+                if (items.isEmpty) {
                   return RefreshIndicator(
                     onRefresh: () async {
                       ref.invalidate(homeFeedProvider);
@@ -115,9 +120,19 @@ class _HomeFeedPageState extends ConsumerState<HomeFeedPage> {
                     physics: const AlwaysScrollableScrollPhysics(
                       parent: BouncingScrollPhysics(),
                     ),
-                    itemCount: activities.length,
-                    itemBuilder: (context, index) {
-                      return _ActivityCard(activity: activities[index]);
+                    itemCount: items.length,
+                    // A few pages before the end, so the next page is there
+                    // by the time anyone reaches it.
+                    onPageChanged: (i) {
+                      if (i >= items.length - 4) {
+                        ref.read(homeFeedProvider.notifier).loadMore();
+                      }
+                    },
+                    itemBuilder: (context, index) => switch (items[index]) {
+                      HomeActivity(:final activity) => _ActivityCard(
+                          key: ValueKey(activity.id), activity: activity),
+                      HomeExplorePost(:final post) =>
+                        _ExplorePostPage(key: ValueKey(post.id), post: post),
                     },
                   ),
                 );
@@ -284,7 +299,7 @@ class _PostAuthor extends StatelessWidget {
 class _ActivityCard extends ConsumerStatefulWidget {
   final ActivityModel activity;
 
-  const _ActivityCard({required this.activity});
+  const _ActivityCard({super.key, required this.activity});
 
   @override
   ConsumerState<_ActivityCard> createState() => _ActivityCardState();
@@ -802,6 +817,165 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
           ),
         ],
       ),
+    );
+  }
+}
+
+/// A friend's Explore post, on Home (ADR 0001, 4.6).
+///
+/// The same card as on Explore, so a like here is a like there, under a
+/// small kicker that says it's public. Centred in the band between the
+/// floating chrome, and scaled down rather than clipped if a long one
+/// doesn't fit. Lit like the log cards, from the post's own artwork.
+class _ExplorePostPage extends ConsumerStatefulWidget {
+  const _ExplorePostPage({super.key, required this.post});
+
+  final ExplorePost post;
+
+  @override
+  ConsumerState<_ExplorePostPage> createState() => _ExplorePostPageState();
+}
+
+class _ExplorePostPageState extends ConsumerState<_ExplorePostPage> {
+  final _page = GlobalKey();
+  final _card = GlobalKey();
+
+  /// Where the card ended up, in page coordinates. The card's height depends
+  /// on what's in it, so the light is aimed after layout rather than guessed.
+  Rect? _cardRect;
+
+  ExplorePost get post => widget.post;
+
+  /// What to light the page with: the film, the playlist's lead poster, or
+  /// for a post about nothing in particular, the author's photo.
+  String get _lightSource {
+    final s = post.subject;
+    if (s != null) {
+      final url = ApiConstants.getPosterUrl(s.posterPath,
+          size: ApiConstants.posterSizeLarge);
+      if (url.isNotEmpty) return url;
+    }
+    final lead = post.list?.posters.whereType<String>().firstOrNull;
+    if (lead != null) {
+      return ApiConstants.getPosterUrl(lead,
+          size: ApiConstants.posterSizeLarge);
+    }
+    return post.userPhotoUrl ?? '';
+  }
+
+  void _measure() {
+    final page = _page.currentContext?.findRenderObject() as RenderBox?;
+    final card = _card.currentContext?.findRenderObject() as RenderBox?;
+    if (page == null || card == null || !card.hasSize) return;
+    final rect = card.localToGlobal(Offset.zero, ancestor: page) & card.size;
+    if (rect != _cardRect) setState(() => _cardRect = rect);
+  }
+
+  void _openSubject(ExploreSubject s) =>
+      context.push('/film/${s.filmId}/${s.mediaType}');
+
+  @override
+  Widget build(BuildContext context) {
+    final safeArea = MediaQuery.paddingOf(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _measure();
+    });
+    final light = _lightSource;
+    final rect = _cardRect;
+
+    return Stack(
+      key: _page,
+      children: [
+        if (light.isNotEmpty && rect != null)
+          Positioned.fill(
+            child: PosterAmbience(
+              posterUrl: light,
+              cardCenter: rect.center,
+              cardSize: rect.size,
+              // A text card, not a poster: the light sits further back.
+              intensity: 0.7,
+            ),
+          ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            AppSpace.lg,
+            safeArea.top + kFloatingHeaderInset,
+            AppSpace.lg,
+            safeArea.bottom + kFloatingTabBarInset,
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final width = math.min(constraints.maxWidth, 420.0);
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(CupertinoIcons.globe,
+                            size: 13, color: AppColors.inkSecondary),
+                        const SizedBox(width: 5),
+                        Text(
+                          'POSTED ON EXPLORE',
+                          style: AppText.footnote.copyWith(
+                            color: AppColors.inkSecondary,
+                            letterSpacing: 1.3,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpace.md),
+                    Flexible(
+                      child: FittedBox(
+                        key: _card,
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.topCenter,
+                        child: SizedBox(
+                          width: width,
+                          // The card's own fill is nearly clear; over the
+                          // light it needs a darker base to stay readable.
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.45),
+                              borderRadius: BorderRadius.circular(26),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.4),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: ExplorePostCard(
+                              post: post,
+                              onOpen: () => showExploreThread(
+                                context,
+                                post,
+                                onSubjectTap: _openSubject,
+                              ),
+                              onSubjectTap: _openSubject,
+                              onMenu: () =>
+                                  showExplorePostMenu(context, ref, post),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpace.md),
+                    Text(
+                      post.relativeTime,
+                      style: AppText.caption
+                          .copyWith(color: AppColors.inkSecondary),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

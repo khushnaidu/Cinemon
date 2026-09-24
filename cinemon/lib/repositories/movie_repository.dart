@@ -107,7 +107,7 @@ class MovieRepository {
       final response = await _dio.get('${ApiConstants.movieDetails}/$movieId');
 
       return FilmModel.fromJson({
-        ...response.data as Map<String, dynamic>,
+        ..._withGenreIds(response.data as Map<String, dynamic>),
         'media_type': 'movie',
       });
     } on DioException catch (e) {
@@ -121,7 +121,7 @@ class MovieRepository {
       final response = await _dio.get('${ApiConstants.tvDetails}/$tvId');
 
       return FilmModel.fromJson({
-        ...response.data as Map<String, dynamic>,
+        ..._withGenreIds(response.data as Map<String, dynamic>),
         'media_type': 'tv',
       });
     } on DioException catch (e) {
@@ -336,7 +336,7 @@ class MovieRepository {
       final json = response.data as Map<String, dynamic>;
       return (
         film: FilmModel.fromJson({
-          ...json,
+          ..._withGenreIds(json),
           'media_type': isTv ? 'tv' : 'movie',
         }),
         extras: FilmExtras.fromTmdb(json, isTv: isTv, region: region),
@@ -473,5 +473,19 @@ class MovieRepository {
       default:
         return Exception('Something went wrong. Please try again.');
     }
+  }
+
+  /// Detail responses name genres as objects (`genres: [{id, name}]`) where
+  /// lists and search give `genre_ids`. Badges need the ids either way.
+  static Map<String, dynamic> _withGenreIds(Map<String, dynamic> json) {
+    if (json['genre_ids'] != null) return json;
+    final genres = json['genres'] as List<dynamic>? ?? const [];
+    return {
+      ...json,
+      'genre_ids': [
+        for (final g in genres)
+          if (g is Map && g['id'] is int) g['id'] as int,
+      ],
+    };
   }
 }

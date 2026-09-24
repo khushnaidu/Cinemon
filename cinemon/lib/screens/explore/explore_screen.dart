@@ -318,6 +318,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     ExploreKind.review,
     ExploreKind.critique,
     ExploreKind.discussion,
+    ExploreKind.list,
     ExploreKind.thought,
   ];
 
@@ -398,7 +399,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
               post: post,
               onOpen: () => _open(post),
               onSubjectTap: _filterBySubject,
-              onMenu: () => showExplorePostMenu(context, post,
+              onMenu: () => showExplorePostMenu(context, ref, post,
                   onSubjectTap: _filterBySubject),
             );
           },

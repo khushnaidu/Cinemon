@@ -19,8 +19,8 @@ import 'explore_post_card.dart';
 
 /// A post in full with its thread under it, as one tall glass pane.
 ///
-/// Reads the post back out of the feed by id, so a vote cast here moves the
-/// card underneath too; falls back to [post] if it has left the feed.
+/// Reads the post back through the shared patches, so a vote cast here moves
+/// the card underneath too, wherever it was opened from.
 Future<void> showExploreThread(
   BuildContext context,
   ExplorePost post, {
@@ -100,7 +100,7 @@ class _ExploreThreadState extends ConsumerState<ExploreThread> {
     super.dispose();
   }
 
-  Future<void> _send(String postId) async {
+  Future<void> _send(ExplorePost post) async {
     final text = _controller.text.trim();
     if (text.isEmpty || _sending) return;
     setState(() => _sending = true);
@@ -110,7 +110,7 @@ class _ExploreThreadState extends ConsumerState<ExploreThread> {
     final root = replyTo == null ? null : (replyTo.parentId ?? replyTo.id);
     final c = await ref
         .read(exploreActionsProvider)
-        .addComment(postId, text, parentId: root);
+        .addComment(post, text, parentId: root);
     if (!mounted) return;
     setState(() => _sending = false);
 
@@ -137,7 +137,7 @@ class _ExploreThreadState extends ConsumerState<ExploreThread> {
     });
   }
 
-  Future<void> _deleteComment(String postId, CommentModel c) async {
+  Future<void> _deleteComment(ExplorePost post, CommentModel c) async {
     final ok = await showGlassConfirm(
       context,
       title: 'Delete reply?',
@@ -147,7 +147,7 @@ class _ExploreThreadState extends ConsumerState<ExploreThread> {
     );
     if (!ok || !mounted) return;
     final done =
-        await ref.read(exploreActionsProvider).deleteComment(postId, c.id);
+        await ref.read(exploreActionsProvider).deleteComment(post, c.id);
     if (!done && mounted) {
       showGlassToast(context, "Couldn't delete that reply.", destructive: true);
     }
@@ -155,13 +155,13 @@ class _ExploreThreadState extends ConsumerState<ExploreThread> {
 
   @override
   Widget build(BuildContext context) {
-    final live = ref.watch(exploreFeedProvider.select((s) {
+    final inFeed = ref.watch(exploreFeedProvider.select((s) {
       for (final p in s.posts) {
         if (p.id == widget.post.id) return p;
       }
       return null;
     }));
-    final post = live ?? widget.post;
+    final post = watchLivePost(ref, inFeed ?? widget.post);
     final open = post.kind.allowsComments;
     final comments = open ? ref.watch(exploreCommentsProvider(post.id)) : null;
     final me = ref.watch(currentUserProvider)?.id;
@@ -171,7 +171,8 @@ class _ExploreThreadState extends ConsumerState<ExploreThread> {
       children: [
         GlassPanelHeader(
           title: post.kind.label,
-          subtitle: post.subject?.title ?? '@${post.username}',
+          subtitle:
+              post.subject?.title ?? post.list?.title ?? '@${post.username}',
           trailingLabel: 'Done',
           onTrailing: () => Navigator.of(context).pop(),
         ),
@@ -187,7 +188,7 @@ class _ExploreThreadState extends ConsumerState<ExploreThread> {
                   child: ExplorePostCard(
                     post: post,
                     expanded: true,
-                    onMenu: () => showExplorePostMenu(context, post,
+                    onMenu: () => showExplorePostMenu(context, ref, post,
                         onSubjectTap: widget.onSubjectTap, fromThread: true),
                     onSubjectTap: widget.onSubjectTap == null
                         ? null
@@ -258,7 +259,7 @@ class _ExploreThreadState extends ConsumerState<ExploreThread> {
                               canDelete: (c) =>
                                   c.userId == me || post.userId == me,
                               isAuthor: (c) => c.userId == post.userId,
-                              onDelete: (c) => _deleteComment(post.id, c),
+                              onDelete: (c) => _deleteComment(post, c),
                             ),
                           ),
                         ],
@@ -290,7 +291,7 @@ class _ExploreThreadState extends ConsumerState<ExploreThread> {
                       cursorColor: AppColors.ink,
                       textCapitalization: TextCapitalization.sentences,
                       textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _send(post.id),
+                      onSubmitted: (_) => _send(post),
                       onChanged: (_) => setState(() {}),
                       style: AppText.body
                           .copyWith(fontSize: 16, color: AppColors.ink),
@@ -316,7 +317,7 @@ class _ExploreThreadState extends ConsumerState<ExploreThread> {
                 CommentSendButton(
                   enabled: _controller.text.trim().isNotEmpty && !_sending,
                   busy: _sending,
-                  onTap: () => _send(post.id),
+                  onTap: () => _send(post),
                 ),
               ],
             ),
@@ -327,17 +328,23 @@ class _ExploreThreadState extends ConsumerState<ExploreThread> {
 }
 
 /// The "…" menu on a post.
+///
+/// [context] and [ref] are the screen's, not the menu's: every action closes
+/// the menu first and then carries on (a confirm, a toast, the delete
+/// itself), and the menu's own context is gone by then. Using it made those
+/// actions stop silently at their `mounted` check.
 Future<void> showExplorePostMenu(
   BuildContext context,
+  WidgetRef ref,
   ExplorePost post, {
   ValueChanged<ExploreSubject>? onSubjectTap,
   bool fromThread = false,
 }) {
   return showGlassPanel<void>(
     context,
-    builder: (panelContext) => Consumer(
-      builder: (context, ref, _) {
-        final me = ref.watch(currentUserProvider)?.id;
+    builder: (panelContext) => Builder(
+      builder: (_) {
+        final me = ref.read(currentUserProvider)?.id;
         final own = me == post.userId;
         final subject = post.subject;
 
@@ -501,8 +508,6 @@ Future<void> _report(
   final ok = await ref.read(exploreActionsProvider).report(post.id, reason);
   if (!context.mounted) return;
   if (ok) {
-    // Out of your feed straight away; the report is reviewed separately.
-    ref.read(exploreFeedProvider.notifier).remove(post.id);
     showGlassToast(context, 'Thanks. We\'ll take a look.',
         icon: CupertinoIcons.flag_fill);
     if (fromThread) Navigator.of(context).pop();
