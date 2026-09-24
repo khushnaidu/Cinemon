@@ -106,42 +106,6 @@ class PodiumTop3Card extends StatelessWidget {
             ),
           ),
         Positioned(
-          left: 7.u,
-          right: 7.u,
-          top: 145.u,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (var i = 0; i < films.length; i++) ...[
-                if (i > 0) SizedBox(width: 2.u),
-                Expanded(
-                  child: Text.rich(
-                    TextSpan(children: [
-                      TextSpan(
-                        text: '${i + 1}  ',
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      TextSpan(
-                        text: films[i].displayTitle,
-                        style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.75)),
-                      ),
-                    ]),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: kHelvetica,
-                      fontSize: 3.u,
-                      height: 1.2,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        Positioned(
           left: 0,
           right: 0,
           bottom: 17.u,

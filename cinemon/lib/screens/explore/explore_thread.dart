@@ -367,8 +367,7 @@ Future<void> showExplorePostMenu(
             if (share != null) ...[
               GlassMenuRow(
                 icon: CupertinoIcons.square_arrow_up,
-                title: 'Share to story',
-                subtitle: 'Instagram, Facebook or Photos',
+                title: 'Share',
                 onTap: () {
                   close();
                   showShareSheet(context, share);

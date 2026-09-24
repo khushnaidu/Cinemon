@@ -132,7 +132,7 @@ ADR 0002 promises no analytics. The only measure of sharing we allow ourselves i
 
 **Progress:**
 
-- **Phase 1:** built 2026-09-24. Share appears on Explore takes and reviews (••• → Share to story) and on your own feed reviews. The Instagram and Facebook buttons are waiting on `META_APP_ID`.
+- **Phase 1:** built 2026-09-24. Share appears on Explore takes and reviews (••• → Share) and on your own feed reviews. Instagram and Facebook stories confirmed working on device 2026-09-24 with the Meta app ID in `dart_defines.json`.
 - **Phase 2:** built 2026-09-24.
   - Critiques join the ••• menu.
   - Top 3 cards (T1, T2) for films and shows are in the profile's share carousel after P1 and P2 (moved 2026-09-24; there's no separate Share pill on the shelf).
