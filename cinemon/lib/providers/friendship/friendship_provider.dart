@@ -27,7 +27,8 @@ final friendIdsStreamProvider = StreamProvider<List<String>>((ref) {
 });
 
 /// Provider for pending friend requests (received)
-final pendingRequestsProvider = FutureProvider<List<FriendshipModel>>((ref) async {
+final pendingRequestsProvider =
+    FutureProvider<List<FriendshipModel>>((ref) async {
   final currentUser = ref.watch(currentUserProvider);
   if (currentUser == null) return [];
 
@@ -36,7 +37,8 @@ final pendingRequestsProvider = FutureProvider<List<FriendshipModel>>((ref) asyn
 });
 
 /// Stream provider for real-time pending requests
-final pendingRequestsStreamProvider = StreamProvider<List<FriendshipModel>>((ref) {
+final pendingRequestsStreamProvider =
+    StreamProvider<List<FriendshipModel>>((ref) {
   final currentUser = ref.watch(currentUserProvider);
   if (currentUser == null) return Stream.value([]);
 

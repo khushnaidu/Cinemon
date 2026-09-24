@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import '../core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'widgets/glass_panel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/constants/api_constants.dart';
@@ -13,7 +14,8 @@ class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
 
   @override
-  ConsumerState<NotificationsScreen> createState() => _NotificationsScreenState();
+  ConsumerState<NotificationsScreen> createState() =>
+      _NotificationsScreenState();
 }
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
@@ -173,41 +175,21 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }
 
   void _handleDismiss(NotificationModel notification) {
-    ref.read(notificationNotifierProvider.notifier)
+    ref
+        .read(notificationNotifierProvider.notifier)
         .deleteNotification(notification.id);
   }
 
-  void _showClearConfirmation() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text(
-          'Clear all activity?',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: const Text(
-          'This will remove all notifications. This action cannot be undone.',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ref.read(notificationNotifierProvider.notifier).clearAllNotifications();
-            },
-            child: const Text(
-              'Clear',
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-        ],
-      ),
+  Future<void> _showClearConfirmation() async {
+    final confirmed = await showGlassConfirm(
+      context,
+      title: 'Clear all activity?',
+      message: 'This removes every notification. It can\'t be undone.',
+      confirmLabel: 'Clear',
+      destructive: true,
     );
+    if (!confirmed || !mounted) return;
+    ref.read(notificationNotifierProvider.notifier).clearAllNotifications();
   }
 }
 
@@ -328,7 +310,8 @@ class _NotificationTile extends StatelessWidget {
 
   Widget _buildTrailing() {
     // Show sticker for reaction notifications
-    if (notification.type == NotificationType.reaction && notification.stickerId != null) {
+    if (notification.type == NotificationType.reaction &&
+        notification.stickerId != null) {
       final sticker = StickerRegistry.getStickerById(notification.stickerId!);
       if (sticker != null) {
         return SizedBox(

@@ -34,16 +34,20 @@ class FriendshipRepository {
     String? receiverUsername,
     String? receiverPhotoUrl,
   }) async {
-    final existing = await getFriendship(userId1: senderId, userId2: receiverId);
+    final existing =
+        await getFriendship(userId1: senderId, userId2: receiverId);
     if (existing != null) {
       throw Exception('Friend request already exists');
     }
 
-    final row = await _friendships.insert({
-      'sender_id': senderId,
-      'receiver_id': receiverId,
-      'status': FriendshipStatus.pending.name,
-    }).select(_withProfiles).single();
+    final row = await _friendships
+        .insert({
+          'sender_id': senderId,
+          'receiver_id': receiverId,
+          'status': FriendshipStatus.pending.name,
+        })
+        .select(_withProfiles)
+        .single();
 
     return _fromRow(row);
   }
@@ -58,9 +62,8 @@ class FriendshipRepository {
 
   /// Decline a friend request.
   Future<void> declineFriendRequest(String friendshipId) async {
-    await _friendships
-        .update({'status': FriendshipStatus.declined.name})
-        .eq('id', friendshipId);
+    await _friendships.update({'status': FriendshipStatus.declined.name}).eq(
+        'id', friendshipId);
   }
 
   /// Remove a friendship (unfriend), whichever direction it was created in.
@@ -150,8 +153,7 @@ class FriendshipRepository {
   Stream<List<String>> watchFriendIds(String userId) {
     return _client
         .from('friendships')
-        .stream(primaryKey: ['id'])
-        .asyncMap((_) => getFriendIds(userId));
+        .stream(primaryKey: ['id']).asyncMap((_) => getFriendIds(userId));
   }
 
   /// Number of accepted friends.
@@ -169,7 +171,8 @@ class FriendshipRepository {
       'sender_photo_url': sender?['photo_url'],
       'receiver_username': receiver?['username'],
       'receiver_photo_url': receiver?['photo_url'],
-    }..remove('sender')
+    }
+      ..remove('sender')
       ..remove('receiver'));
   }
 }

@@ -105,7 +105,8 @@ class ProfileSetupController extends StateNotifier<ProfileSetupState> {
       state = state.copyWith(
         isCheckingUsername: false,
         isUsernameAvailable: false,
-        usernameError: username.isEmpty ? null : 'Username must be at least 3 characters',
+        usernameError:
+            username.isEmpty ? null : 'Username must be at least 3 characters',
       );
       return;
     }
@@ -124,7 +125,8 @@ class ProfileSetupController extends StateNotifier<ProfileSetupState> {
     state = state.copyWith(isCheckingUsername: true, usernameError: null);
 
     try {
-      final isAvailable = await _userRepo.isUsernameAvailable(username.toLowerCase());
+      final isAvailable =
+          await _userRepo.isUsernameAvailable(username.toLowerCase());
       state = state.copyWith(
         isCheckingUsername: false,
         isUsernameAvailable: isAvailable,
@@ -266,7 +268,8 @@ class EditProfileController extends StateNotifier<EditProfileState> {
       state = state.copyWith(
         isCheckingUsername: false,
         isUsernameAvailable: false,
-        usernameError: username.isEmpty ? null : 'Username must be at least 3 characters',
+        usernameError:
+            username.isEmpty ? null : 'Username must be at least 3 characters',
       );
       return;
     }
@@ -285,7 +288,8 @@ class EditProfileController extends StateNotifier<EditProfileState> {
     state = state.copyWith(isCheckingUsername: true, usernameError: null);
 
     try {
-      final isAvailable = await _userRepo.isUsernameAvailable(username.toLowerCase());
+      final isAvailable =
+          await _userRepo.isUsernameAvailable(username.toLowerCase());
       state = state.copyWith(
         isCheckingUsername: false,
         isUsernameAvailable: isAvailable,

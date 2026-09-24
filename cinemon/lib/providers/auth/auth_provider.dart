@@ -131,7 +131,8 @@ class AuthController extends StateNotifier<AuthState> {
       );
       state = state.copyWith(isLoading: false);
     } on AuthException catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: _getErrorMessage(e));
+      state =
+          state.copyWith(isLoading: false, errorMessage: _getErrorMessage(e));
     } on PostgrestException catch (e) {
       // unique_violation from the profiles.username index
       state = state.copyWith(

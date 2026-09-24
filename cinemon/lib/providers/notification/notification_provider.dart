@@ -9,7 +9,8 @@ final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
 });
 
 /// Provider for user's notifications list
-final notificationsProvider = FutureProvider<List<NotificationModel>>((ref) async {
+final notificationsProvider =
+    FutureProvider<List<NotificationModel>>((ref) async {
   final currentUser = ref.watch(currentUserProvider);
   if (currentUser == null) return [];
 
@@ -18,7 +19,8 @@ final notificationsProvider = FutureProvider<List<NotificationModel>>((ref) asyn
 });
 
 /// Stream provider for real-time notification updates
-final notificationsStreamProvider = StreamProvider<List<NotificationModel>>((ref) {
+final notificationsStreamProvider =
+    StreamProvider<List<NotificationModel>>((ref) {
   final currentUser = ref.watch(currentUserProvider);
   if (currentUser == null) return Stream.value([]);
 

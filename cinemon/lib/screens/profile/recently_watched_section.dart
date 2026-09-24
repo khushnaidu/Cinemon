@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/episode_card_front.dart' show EpisodeTileTag;
 import '../../core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -187,6 +188,7 @@ class _RecentPosterItem extends StatelessWidget {
                       ),
                     ),
                   ),
+                  EpisodeTileTag(activity: activity),
                   // Rating badge if reviewed
                   if (activity.rating != null)
                     Positioned(

@@ -1,17 +1,42 @@
-import 'package:flutter/material.dart';
-import '../../core/theme/app_theme.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/theme/app_theme.dart';
+import '../../models/episode_model.dart';
 import '../../models/film_model.dart';
 import '../../providers/feed/feed_provider.dart';
+import 'episodes_section.dart' show EpisodeStill;
+import 'glass_panel.dart';
 import 'review_media_composer.dart';
+import 'star_input.dart';
 
-/// Bottom sheet for posting a review/watch
+/// Open the new-post panel for a film, or for one [episode] of a show.
+///
+/// A tall glass panel, not a bottom sheet, so it matches the editor and every
+/// other surface. Not dismissible by tapping the scrim: a half-written review
+/// or a fresh recording shouldn't vanish on a stray touch — Cancel asks.
+Future<void> showPostReviewSheet(
+  BuildContext context,
+  FilmModel film, {
+  EpisodeModel? episode,
+}) {
+  return showGlassPanel<void>(
+    context,
+    tall: true,
+    dismissible: false,
+    builder: (_) => PostReviewSheet(film: film, episode: episode),
+  );
+}
+
 class PostReviewSheet extends ConsumerStatefulWidget {
   final FilmModel film;
 
-  const PostReviewSheet({super.key, required this.film});
+  /// When set, the post is about this one episode of [film] (a show).
+  final EpisodeModel? episode;
+
+  const PostReviewSheet({super.key, required this.film, this.episode});
 
   @override
   ConsumerState<PostReviewSheet> createState() => _PostReviewSheetState();
@@ -29,345 +54,260 @@ class _PostReviewSheetState extends ConsumerState<PostReviewSheet> {
     super.dispose();
   }
 
-  Future<void> _postWatch() async {
+  bool get _hasContent =>
+      _rating > 0 ||
+      _reviewController.text.trim().isNotEmpty ||
+      !_media.isEmpty;
+
+  String get _subject => widget.episode == null
+      ? widget.film.displayTitle
+      : '${widget.episode!.code} of ${widget.film.displayTitle}';
+
+  Future<void> _close() async {
+    if (_isPosting) return;
+    if (!_hasContent) {
+      Navigator.of(context).pop();
+      return;
+    }
+    final discard = await showGlassConfirm(
+      context,
+      title: 'Discard this post?',
+      message: 'Your rating, review and anything you recorded will be lost.',
+      confirmLabel: 'Discard',
+      cancelLabel: 'Keep writing',
+      destructive: true,
+    );
+    if (discard && mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _post() async {
+    if (_isPosting) return;
     setState(() => _isPosting = true);
 
     final notifier = ref.read(createActivityProvider.notifier);
+    final text = _reviewController.text.trim();
 
     // Media makes it a review even with no stars and no text: a spoken take is
     // a review, and posting it as a bare "watched" would throw the recording
     // away.
-    if (_rating > 0 || _reviewController.text.isNotEmpty || !_media.isEmpty) {
-      // Post as a review
-      await notifier.postReview(
-        film: widget.film,
-        rating: _rating,
-        reviewText:
-            _reviewController.text.isNotEmpty ? _reviewController.text : null,
-        voiceNote: _media.voiceNote,
-        voiceNoteDurationMs: _media.voiceNoteDurationMs,
-        voiceNoteWaveform: _media.waveform,
-        photos: _media.photos,
+    final created = _hasContent
+        ? await notifier.postReview(
+            film: widget.film,
+            episode: widget.episode,
+            rating: _rating,
+            reviewText: text.isNotEmpty ? text : null,
+            voiceNote: _media.voiceNote,
+            voiceNoteDurationMs: _media.voiceNoteDurationMs,
+            voiceNoteWaveform: _media.waveform,
+            photos: _media.photos,
+          )
+        : await notifier.postWatched(
+            film: widget.film,
+            episode: widget.episode,
+          );
+
+    if (!mounted) return;
+
+    if (created == null) {
+      setState(() => _isPosting = false);
+      showGlassToast(
+        context,
+        "Couldn't post that. Check your connection and try again.",
+        destructive: true,
       );
-    } else {
-      // Post as just watched
-      await notifier.postWatched(film: widget.film);
+      return;
     }
 
-    if (mounted) {
-      context.pop(); // Close bottom sheet
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Posted ${widget.film.displayTitle}!'),
-          backgroundColor: Colors.green[700],
-        ),
-      );
-    }
+    // Toast first, then pop: the toast lives in the root overlay and survives
+    // this panel going away, but it needs a live context to find it.
+    showGlassToast(context, 'Posted $_subject');
+    Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final episode = widget.episode;
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppColors.surface,
-            AppColors.canvas,
-          ],
+    return Column(
+      children: [
+        GlassPanelHeader(
+          title: 'New post',
+          leadingLabel: 'Cancel',
+          onLeading: _close,
+          trailingLabel: 'Post',
+          trailingEnabled: !_isPosting,
+          trailingBusy: _isPosting,
+          onTrailing: _post,
         ),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        children: [
-          // Handle bar
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey[600],
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-
-          Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.only(
-                left: 24,
-                right: 24,
-                top: 24,
-                bottom: 24 + bottomInset,
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(
+                AppSpace.xl, AppSpace.sm, AppSpace.xl, AppSpace.xl),
+            children: [
+              if (episode != null)
+                _EpisodeHeader(film: widget.film, episode: episode)
+              else
+                _FilmHeader(film: widget.film),
+              const SizedBox(height: AppSpace.xl),
+              const GlassSectionLabel('Rating'),
+              const SizedBox(height: AppSpace.sm),
+              StarInput(
+                rating: _rating,
+                onChanged: (v) => setState(() => _rating = v),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Film poster and info
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Poster
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: widget.film.posterUrl.isNotEmpty
-                            ? CachedNetworkImage(
-                                imageUrl: widget.film.posterUrl,
-                                width: 100,
-                                height: 150,
-                                fit: BoxFit.cover,
-                              )
-                            : Container(
-                                width: 100,
-                                height: 150,
-                                color: Colors.grey[800],
-                                child:
-                                    const Icon(Icons.movie, color: Colors.grey),
-                              ),
-                      ),
-                      const SizedBox(width: 16),
-
-                      // Film info
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.film.displayTitle,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            if (widget.film.year != null) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                widget.film.year!,
-                                style: TextStyle(
-                                  color: Colors.grey[400],
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                widget.film.isMovie ? 'Movie' : 'TV Show',
-                                style: TextStyle(
-                                  color: Colors.grey[300],
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                            if (widget.film.overview != null &&
-                                widget.film.overview!.isNotEmpty) ...[
-                              const SizedBox(height: 12),
-                              Text(
-                                widget.film.overview!,
-                                style: TextStyle(
-                                  color: Colors.grey[400],
-                                  fontSize: 12,
-                                  height: 1.4,
-                                ),
-                                maxLines: 4,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  // Rating section
-                  Text(
-                    'Your Rating (optional)',
-                    style: TextStyle(
-                      color: Colors.grey[300],
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Star rating input (supports half stars)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(5, (index) {
-                      final fullValue = index + 1.0;
-                      final halfValue = index + 0.5;
-                      return GestureDetector(
-                        onTapUp: (details) {
-                          setState(() {
-                            // Determine if tap was on left half (half star) or right half (full star)
-                            final tapX = details.localPosition.dx;
-                            final isLeftHalf = tapX < 20; // Half of 40px icon
-                            final newRating =
-                                isLeftHalf ? halfValue : fullValue;
-
-                            // Toggle: tap same value to remove rating
-                            if (_rating == newRating) {
-                              _rating = 0;
-                            } else {
-                              _rating = newRating;
-                            }
-                          });
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Icon(
-                            _rating >= fullValue
-                                ? Icons.star
-                                : _rating >= halfValue
-                                    ? Icons.star_half
-                                    : Icons.star_border,
-                            color: _rating >= halfValue
-                                ? Colors.amber
-                                : Colors.grey[600],
-                            size: 40,
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-
-                  // Rating hint
-                  if (_rating == 0)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        'Tap left side for half star, right side for full star',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
-
-                  const SizedBox(height: 24),
-
-                  // Review text input
-                  Text(
-                    'Your Review (optional)',
-                    style: TextStyle(
-                      color: Colors.grey[300],
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.1),
-                      ),
-                    ),
-                    child: TextField(
-                      controller: _reviewController,
-                      maxLines: 4,
-                      maxLength: 500,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: 'What did you think?',
-                        hintStyle: TextStyle(color: Colors.grey[600]),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.all(16),
-                        counterStyle: TextStyle(color: Colors.grey[600]),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  ReviewMediaComposer(
-                    onChanged: (draft) => setState(() => _media = draft),
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  // Post button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: _isPosting ? null : _postWatch,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: _isPosting
-                          ? const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor:
-                                    AlwaysStoppedAnimation(Colors.black),
-                              ),
-                            )
-                          : Text(
-                              _rating > 0 || _reviewController.text.isNotEmpty
-                                  ? 'Post Review'
-                                  : 'Post Watch',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Cancel button
-                  TextButton(
-                    onPressed: () => context.pop(),
-                    child: Text(
-                      'Cancel',
-                      style: TextStyle(
-                        color: Colors.grey[400],
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ],
+              const SizedBox(height: AppSpace.xl),
+              const GlassSectionLabel('Review'),
+              const SizedBox(height: AppSpace.sm),
+              GlassTextWell(
+                controller: _reviewController,
+                hint: 'What did you think?',
+                maxLength: 500,
+                onChanged: (_) => setState(() {}),
               ),
-            ),
+              const SizedBox(height: AppSpace.xl),
+              ReviewMediaComposer(
+                onChanged: (draft) => setState(() => _media = draft),
+              ),
+              const SizedBox(height: AppSpace.xl),
+              Text(
+                _hasContent
+                    ? 'Posts as a review.'
+                    : 'Posts as watched. Add stars, words, a voice note or a photo to make it a review.',
+                style: AppText.footnote.copyWith(color: AppColors.inkTertiary),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-/// Helper function to show the post review sheet
-void showPostReviewSheet(BuildContext context, FilmModel film) {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (context) => PostReviewSheet(film: film),
-  );
+class _FilmHeader extends StatelessWidget {
+  const _FilmHeader({required this.film});
+
+  final FilmModel film;
+
+  @override
+  Widget build(BuildContext context) {
+    final meta = [
+      film.year,
+      film.isMovie ? 'Film' : 'Show',
+      film.formattedRuntime,
+    ].whereType<String>().join('  ·  ');
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 64,
+          height: 96,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.sm + 2),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadius.sm + 2),
+            child: film.posterUrl.isNotEmpty
+                ? CachedNetworkImage(
+                    imageUrl: film.posterUrl, fit: BoxFit.cover)
+                : Container(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    child: const Icon(CupertinoIcons.film,
+                        color: AppColors.inkTertiary),
+                  ),
+          ),
+        ),
+        const SizedBox(width: AppSpace.lg),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                film.displayTitle,
+                style: AppText.title.copyWith(fontSize: 20),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (meta.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  meta,
+                  style:
+                      AppText.caption.copyWith(color: AppColors.inkSecondary),
+                ),
+              ],
+              if (film.overview != null && film.overview!.isNotEmpty) ...[
+                const SizedBox(height: AppSpace.sm),
+                Text(
+                  film.overview!,
+                  style: AppText.caption.copyWith(color: AppColors.inkTertiary),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EpisodeHeader extends StatelessWidget {
+  const _EpisodeHeader({required this.film, required this.episode});
+
+  final FilmModel film;
+  final EpisodeModel episode;
+
+  @override
+  Widget build(BuildContext context) {
+    final meta = [
+      episode.formattedAirDate,
+      episode.formattedRuntime,
+    ].whereType<String>().join('  ·  ');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Stack(
+          children: [
+            EpisodeStill(path: episode.stillPath, large: true),
+            Positioned(
+              left: AppSpace.md,
+              bottom: AppSpace.md,
+              child: GlassTag(episode.code),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpace.md),
+        Text(
+          film.displayTitle,
+          style: AppText.caption.copyWith(
+            color: AppColors.inkSecondary,
+            fontWeight: FontWeight.w600,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 2),
+        Text(episode.displayName, style: AppText.title.copyWith(fontSize: 20)),
+        if (meta.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            meta,
+            style: AppText.caption.copyWith(color: AppColors.inkSecondary),
+          ),
+        ],
+      ],
+    );
+  }
 }

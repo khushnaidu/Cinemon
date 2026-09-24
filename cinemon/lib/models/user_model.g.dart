@@ -29,6 +29,10 @@ _$UserModelImpl _$$UserModelImplFromJson(Map<String, dynamic> json) =>
               ?.map((e) => (e as num).toInt())
               .toList() ??
           const [],
+      favoriteShowIds: (json['favorite_show_ids'] as List<dynamic>?)
+              ?.map((e) => (e as num).toInt())
+              .toList() ??
+          const [],
       favoriteActorIds: (json['favorite_actor_ids'] as List<dynamic>?)
               ?.map((e) => (e as num).toInt())
               .toList() ??
@@ -54,6 +58,7 @@ Map<String, dynamic> _$$UserModelImplToJson(_$UserModelImpl instance) =>
       'following_count': instance.followingCount,
       'favorite_genres': instance.favoriteGenres,
       'favorite_film_ids': instance.favoriteFilmIds,
+      'favorite_show_ids': instance.favoriteShowIds,
       'favorite_actor_ids': instance.favoriteActorIds,
       'favorite_director_ids': instance.favoriteDirectorIds,
       'created_at': instance.createdAt.toIso8601String(),

@@ -1,8 +1,8 @@
 /// Badge types for categorization
 enum BadgeType {
-  reviews,  // Review count milestones
-  genres,   // Genre-specific achievements
-  special,  // Special achievements
+  reviews, // Review count milestones
+  genres, // Genre-specific achievements
+  special, // Special achievements
 }
 
 /// Represents an achievement badge

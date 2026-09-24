@@ -16,13 +16,13 @@ import '../providers/feed/feed_provider.dart'
         syncReviewCountProvider;
 import '../providers/friendship/friendship_provider.dart';
 import '../providers/user/favorites_provider.dart';
-import 'widgets/activity_detail_sheet.dart';
 import 'widgets/arch_profile_frame.dart';
 import 'profile/recently_watched_section.dart';
-import 'profile/favorite_films_picker.dart';
 import 'profile/favorite_people_picker.dart';
 import 'profile/badge_display.dart';
 import 'profile/top3_films_section.dart';
+import 'widgets/glass_panel.dart';
+import 'widgets/review_editor.dart';
 
 /// Profile page showing user info, stats, and posts
 /// Can view own profile (userId = null) or another user's profile
@@ -72,6 +72,7 @@ class ProfilePage extends ConsumerWidget {
                   ref.invalidate(currentUserProfileProvider);
                   ref.invalidate(userActivitiesProvider(profile.uid));
                   ref.invalidate(currentUserFavoriteFilmsProvider);
+                  ref.invalidate(currentUserFavoriteShowsProvider);
                   ref.invalidate(currentUserFavoriteActorsProvider);
                   ref.invalidate(currentUserFavoriteDirectorsProvider);
                   ref.invalidate(currentUserRecentlyWatchedProvider);
@@ -104,7 +105,7 @@ class ProfilePage extends ConsumerWidget {
                     actions: isOwnProfile
                         ? [
                             IconButton(
-                              icon: const Icon(Icons.settings,
+                              icon: const Icon(CupertinoIcons.gear,
                                   color: Colors.white),
                               onPressed: () => _showSettingsMenu(context, ref),
                             ),
@@ -221,10 +222,11 @@ class ProfilePage extends ConsumerWidget {
                     ),
                   ),
 
-                  // Top 3 Films Section
+                  // Top 3 — films, swipe for shows
                   SliverToBoxAdapter(
-                    child: Top3FilmsSection(
+                    child: Top3Section(
                       filmIds: profile.favoriteFilmIds,
+                      showIds: profile.favoriteShowIds,
                       isOwnProfile: isOwnProfile,
                     ),
                   ),
@@ -321,152 +323,87 @@ class ProfilePage extends ConsumerWidget {
   }
 
   void _showSettingsMenu(BuildContext context, WidgetRef ref) {
-    // Captured before the sheet closes: the builder's context is deactivated
-    // the moment it pops, so a messenger looked up from it goes nowhere.
-    final messenger = ScaffoldMessenger.of(context);
+    // Captured before the panel closes: the builder's context is deactivated
+    // the moment it pops, so anything looked up from it goes nowhere. Toasts
+    // are raised from the page's own context, which outlives the panel.
     final router = GoRouter.of(context);
 
-    showModalBottomSheet(
-      context: context,
-      // Colours, radius, and drag handle all come from bottomSheetTheme now.
-      builder: (sheetContext) => SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(
-                  AppSpace.lg, AppSpace.sm, AppSpace.lg, AppSpace.md),
-              child: Text('Settings', style: AppText.headline),
-            ),
-            const Divider(),
-            _SettingsRow(
-              icon: CupertinoIcons.arrow_2_circlepath,
-              title: 'Sync review count',
-              subtitle: 'Recount your reviews if the number looks wrong',
-              onTap: () async {
-                Navigator.pop(sheetContext);
-                final currentUser = ref.read(currentUserProvider);
-                if (currentUser == null) return;
-                messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Syncing review count…'),
-                    duration: Duration(seconds: 1),
-                  ),
-                );
-                final count = await ref
-                    .read(syncReviewCountProvider(currentUser.uid).future);
-                messenger.showSnackBar(
-                  SnackBar(content: Text('Synced — $count reviews')),
-                );
-              },
-            ),
-            const Divider(indent: 60),
-            _SettingsRow(
-              icon: CupertinoIcons.square_arrow_right,
-              title: 'Sign out',
-              destructive: true,
-              onTap: () async {
-                Navigator.pop(sheetContext);
-                // Drop cached user data so the next account doesn't inherit it.
-                ref.invalidate(currentUserProfileProvider);
-                ref.invalidate(homeFeedProvider);
-                ref.invalidate(friendIdsProvider);
-                await ref.read(authControllerProvider.notifier).signOut();
-                router.go('/login');
-              },
-            ),
-            const SizedBox(height: AppSpace.sm),
-          ],
-        ),
+    showGlassPanel(
+      context,
+      builder: (panelContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          GlassPanelHeader(
+            title: 'Settings',
+            trailingLabel: 'Done',
+            onTrailing: () => Navigator.of(panelContext).pop(),
+          ),
+          const SizedBox(height: AppSpace.xs),
+          GlassMenuRow(
+            icon: CupertinoIcons.person_crop_circle,
+            title: 'Edit profile',
+            subtitle: 'Photo, username, bio',
+            chevron: true,
+            onTap: () {
+              Navigator.of(panelContext).pop();
+              router.push('/edit-profile');
+            },
+          ),
+          const GlassMenuDivider(),
+          GlassMenuRow(
+            icon: CupertinoIcons.arrow_2_circlepath,
+            title: 'Sync review count',
+            subtitle: 'Recount your reviews if the number looks wrong',
+            onTap: () async {
+              Navigator.of(panelContext).pop();
+              final currentUser = ref.read(currentUserProvider);
+              if (currentUser == null) return;
+              showGlassToast(
+                context,
+                'Syncing review count…',
+                icon: CupertinoIcons.arrow_2_circlepath,
+              );
+              final count = await ref
+                  .read(syncReviewCountProvider(currentUser.uid).future);
+              if (!context.mounted) return;
+              showGlassToast(context, 'Synced — $count reviews');
+            },
+          ),
+          const GlassMenuDivider(),
+          GlassMenuRow(
+            icon: CupertinoIcons.square_arrow_right,
+            title: 'Sign out',
+            destructive: true,
+            onTap: () async {
+              Navigator.of(panelContext).pop();
+              // Drop cached user data so the next account doesn't inherit it.
+              ref.invalidate(currentUserProfileProvider);
+              ref.invalidate(homeFeedProvider);
+              ref.invalidate(friendIdsProvider);
+              await ref.read(authControllerProvider.notifier).signOut();
+              router.go('/login');
+            },
+          ),
+          const SizedBox(height: AppSpace.md),
+        ],
       ),
     );
   }
 }
 
-/// One row of the settings sheet, at iOS proportions: a 44pt minimum target,
-/// a 22pt glyph in a 60pt gutter that the separators indent to match, and a
-/// press state that fades rather than ripples.
-class _SettingsRow extends StatelessWidget {
-  const _SettingsRow({
-    required this.icon,
-    required this.title,
-    required this.onTap,
-    this.subtitle,
-    this.destructive = false,
-  });
-
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final bool destructive;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final tint = destructive ? AppColors.destructive : AppColors.ink;
-
-    return InkWell(
-      onTap: onTap,
-      highlightColor: AppColors.surfacePressed,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpace.lg,
-          vertical: AppSpace.md,
-        ),
-        child: Row(
-          children: [
-            SizedBox(width: 44, child: Icon(icon, color: tint, size: 22)),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    title,
-                    style: AppText.body.copyWith(fontSize: 17, color: tint),
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle!,
-                      style: AppText.caption
-                          .copyWith(color: AppColors.inkSecondary),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Edit Profile button for own profile
+/// Edit Profile button for own profile: a compact glass capsule, the same
+/// control as the section "Edit" pills further down the page.
 class _EditProfileButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 200,
-      child: OutlinedButton(
-        onPressed: () => context.push('/edit-profile'),
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: Colors.white54),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-        ),
-        child: const Text(
-          'Edit Profile',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+    // Centered so it sizes to its label even under a stretching column.
+    return Center(
+      child: GlassPillButton(
+        label: 'Edit profile',
+        icon: CupertinoIcons.pencil,
+        compact: true,
+        onTap: () => context.push('/edit-profile'),
       ),
     );
   }
@@ -697,43 +634,21 @@ class _FollowButton extends ConsumerWidget {
     );
   }
 
-  void _showUnfollowDialog(
-      BuildContext context, WidgetRef ref, String userId, String username) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color.fromARGB(255, 30, 30, 40),
-        title: const Text(
-          'Unfollow',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: Text(
-          'Are you sure you want to unfollow @$username?',
-          style: const TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await ref
-                  .read(friendshipNotifierProvider.notifier)
-                  .unfriend(userId);
-              ref.invalidate(friendshipStatusProvider(userId));
-              ref.invalidate(currentUserProfileProvider);
-              ref.invalidate(userProfileProvider(userId));
-            },
-            child: const Text(
-              'Unfollow',
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-        ],
-      ),
+  Future<void> _showUnfollowDialog(BuildContext context, WidgetRef ref,
+      String userId, String username) async {
+    final confirmed = await showGlassConfirm(
+      context,
+      title: 'Unfollow @$username?',
+      message:
+          'You\'ll stop seeing each other\'s posts until you follow again.',
+      confirmLabel: 'Unfollow',
+      destructive: true,
     );
+    if (!confirmed) return;
+    await ref.read(friendshipNotifierProvider.notifier).unfriend(userId);
+    ref.invalidate(friendshipStatusProvider(userId));
+    ref.invalidate(currentUserProfileProvider);
+    ref.invalidate(userProfileProvider(userId));
   }
 }
 
@@ -829,13 +744,8 @@ class _PostGridItem extends ConsumerWidget {
     return GestureDetector(
       onTap: () {
         if (isOwnActivity) {
-          // Show activity detail bottom sheet for editing own posts
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
-            builder: (sheetContext) => ActivityDetailSheet(activity: activity),
-          );
+          // Your own post opens the editor; everyone else's opens the film.
+          showReviewEditor(context, activity);
         } else {
           final mediaType =
               activity.mediaType.isNotEmpty ? activity.mediaType : 'movie';

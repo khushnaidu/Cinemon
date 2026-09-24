@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/episode_card_front.dart' show EpisodeTileTag;
 import '../../core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -6,7 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../models/activity_model.dart';
 import '../../providers/auth/auth_provider.dart';
 import '../../providers/feed/feed_provider.dart';
-import '../widgets/activity_detail_sheet.dart';
+import '../widgets/review_editor.dart';
 
 /// Screen showing all user activity/posts in a grid format
 class UserActivityScreen extends ConsumerWidget {
@@ -99,7 +100,8 @@ class UserActivityScreen extends ConsumerWidget {
                 return SliverPadding(
                   padding: const EdgeInsets.all(16),
                   sliver: SliverGrid(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 3,
                       mainAxisSpacing: 4,
                       crossAxisSpacing: 4,
@@ -127,7 +129,8 @@ class UserActivityScreen extends ConsumerWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                      const Icon(Icons.error_outline,
+                          color: Colors.red, size: 48),
                       const SizedBox(height: 16),
                       Text(
                         'Error loading activity',
@@ -135,7 +138,8 @@ class UserActivityScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 8),
                       TextButton(
-                        onPressed: () => ref.invalidate(userActivitiesProvider(userId)),
+                        onPressed: () =>
+                            ref.invalidate(userActivitiesProvider(userId)),
                         child: const Text('Retry'),
                       ),
                     ],
@@ -165,15 +169,11 @@ class _ActivityGridItem extends StatelessWidget {
     return GestureDetector(
       onTap: () {
         if (isOwnActivity) {
-          // Show activity detail bottom sheet for editing own posts
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
-            builder: (sheetContext) => ActivityDetailSheet(activity: activity),
-          );
+          // Your own post opens the editor; everyone else's opens the film.
+          showReviewEditor(context, activity);
         } else {
-          final mediaType = activity.mediaType.isNotEmpty ? activity.mediaType : 'movie';
+          final mediaType =
+              activity.mediaType.isNotEmpty ? activity.mediaType : 'movie';
           context.push('/film/${activity.filmId}/$mediaType', extra: activity);
         }
       },
@@ -181,9 +181,11 @@ class _ActivityGridItem extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           // Poster Image
-          if (activity.filmPosterPath != null && activity.filmPosterPath!.isNotEmpty)
+          if (activity.filmPosterPath != null &&
+              activity.filmPosterPath!.isNotEmpty)
             CachedNetworkImage(
-              imageUrl: 'https://image.tmdb.org/t/p/w300${activity.filmPosterPath}',
+              imageUrl:
+                  'https://image.tmdb.org/t/p/w300${activity.filmPosterPath}',
               fit: BoxFit.cover,
               placeholder: (context, url) => Container(
                 color: Colors.grey[900],
@@ -234,6 +236,8 @@ class _ActivityGridItem extends StatelessWidget {
                 ),
               ),
             ),
+
+          EpisodeTileTag(activity: activity),
 
           // Activity type indicator
           Positioned(

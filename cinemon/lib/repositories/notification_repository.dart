@@ -31,8 +31,7 @@ class NotificationRepository {
     int limit = 50,
     DateTime? before,
   }) async {
-    var query =
-        _notifications.select(_withActor).eq('recipient_id', userId);
+    var query = _notifications.select(_withActor).eq('recipient_id', userId);
     if (before != null) {
       query = query.lt('created_at', before.toIso8601String());
     }

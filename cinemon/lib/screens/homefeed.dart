@@ -18,11 +18,12 @@ import '../models/sticker_model.dart';
 import '../providers/auth/auth_provider.dart';
 import '../providers/feed/feed_provider.dart';
 import '../providers/notification/notification_provider.dart';
-import 'widgets/activity_detail_sheet.dart';
 import 'widgets/comments_sheet.dart';
+import 'widgets/episode_card_front.dart';
 
 import 'widgets/sticker_picker_sheet.dart';
 import 'widgets/reactions_preview.dart' show showReactionsBreakdown;
+import 'widgets/review_editor.dart';
 
 class HomeFeedPage extends ConsumerStatefulWidget {
   const HomeFeedPage({super.key});
@@ -324,23 +325,13 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
     });
   }
 
-  void _onCardTap() {
-    final currentUser = ref.read(currentUserProvider);
-    final isOwnActivity = currentUser?.uid == widget.activity.userId;
-
-    if (isOwnActivity) {
-      // Show activity detail bottom sheet for editing
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => ActivityDetailSheet(activity: widget.activity),
-      );
-    } else {
-      // Keep flip animation for others' posts
-      _toggleCard();
-    }
-  }
+  /// Every card flips, including your own.
+  ///
+  /// Your posts used to open an edit sheet instead, which meant the one person
+  /// who couldn't see their own review the way everyone else does was the
+  /// person who wrote it. Editing is now a button on the back, where it's a
+  /// deliberate choice rather than the only thing a tap can do.
+  void _onCardTap() => _toggleCard();
 
   void _navigateToFilmDetail() {
     final mediaType = widget.activity.mediaType.isNotEmpty
@@ -557,18 +548,21 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
                 borderRadius: BorderRadius.circular(16),
                 child: Stack(
                   children: [
-                    // Poster
+                    // Poster — or, for an episode post, the still with the
+                    // show / season / episode spelled out beneath it.
                     Positioned.fill(
-                      child: posterUrl.isNotEmpty
-                          ? CachedNetworkImage(
-                              imageUrl: posterUrl,
-                              fit: BoxFit.cover,
-                              placeholder: (context, url) =>
-                                  _buildPosterPlaceholder(),
-                              errorWidget: (context, url, error) =>
-                                  _buildPosterPlaceholder(),
-                            )
-                          : _buildPosterPlaceholder(),
+                      child: widget.activity.isEpisode
+                          ? EpisodeCardFront(activity: widget.activity)
+                          : posterUrl.isNotEmpty
+                              ? CachedNetworkImage(
+                                  imageUrl: posterUrl,
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, url) =>
+                                      _buildPosterPlaceholder(),
+                                  errorWidget: (context, url, error) =>
+                                      _buildPosterPlaceholder(),
+                                )
+                              : _buildPosterPlaceholder(),
                     ),
 
                     // Comment count badge at bottom-left
@@ -746,16 +740,12 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
   }
 
   void _showComments() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => CommentsSheet(
-        activityId: widget.activity.id,
-        filmTitle: widget.activity.filmTitle,
-        activityOwnerId: widget.activity.userId,
-        filmPosterPath: widget.activity.filmPosterPath,
-      ),
+    showCommentsSheet(
+      context,
+      activityId: widget.activity.id,
+      filmTitle: widget.activity.displayTitle,
+      activityOwnerId: widget.activity.userId,
+      filmPosterPath: widget.activity.filmPosterPath,
     );
   }
 
@@ -770,6 +760,9 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
       height: 420,
       posterUrl: _posterUrl,
       currentUserId: currentUser?.uid,
+      onEdit: currentUser?.uid == widget.activity.userId
+          ? () => showReviewEditor(context, widget.activity)
+          : null,
       onOpenFilm: _navigateToFilmDetail,
       onComment: _showComments,
       onReact: () => showStickerPicker(
@@ -803,7 +796,7 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
           Icon(Icons.movie, size: 48, color: Colors.grey[700]),
           const SizedBox(height: 8),
           Text(
-            widget.activity.filmTitle,
+            widget.activity.displayTitle,
             style: TextStyle(color: Colors.grey[600]),
             textAlign: TextAlign.center,
           ),

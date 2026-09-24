@@ -1,6 +1,7 @@
 import 'dart:io';
 import '../../core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import '../widgets/glass_panel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -104,12 +105,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        showGlassToast(context, 'Couldn\'t save your profile. ${e.toString()}',
+            destructive: true);
       }
     } finally {
       if (mounted) {
@@ -308,7 +305,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                         const SizedBox(height: 16),
                         // Skip Button
                         TextButton(
-                          onPressed: _isLoading ? null : () => context.go('/home'),
+                          onPressed:
+                              _isLoading ? null : () => context.go('/home'),
                           child: const Text(
                             'Skip for now',
                             style: TextStyle(

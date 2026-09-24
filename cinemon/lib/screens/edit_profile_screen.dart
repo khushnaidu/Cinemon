@@ -2,6 +2,7 @@ import 'dart:async';
 import '../core/theme/app_theme.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'widgets/glass_panel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -57,7 +58,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 500), () {
-      ref.read(editProfileControllerProvider.notifier)
+      ref
+          .read(editProfileControllerProvider.notifier)
           .checkUsernameAvailability(value.trim());
     });
   }
@@ -140,23 +142,19 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     // Check if username changed and if it's available
     if (newUsername.toLowerCase() != _originalUsername?.toLowerCase() &&
         !editState.isUsernameAvailable) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please choose an available username'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      showGlassToast(context, 'Please choose an available username',
+          destructive: true);
       return;
     }
 
-    final success = await ref.read(editProfileControllerProvider.notifier)
-        .updateProfile(
-          username: newUsername,
-          bio: _bioController.text.trim().isEmpty
-              ? null
-              : _bioController.text.trim(),
-          photoFile: _selectedImage,
-        );
+    final success =
+        await ref.read(editProfileControllerProvider.notifier).updateProfile(
+              username: newUsername,
+              bio: _bioController.text.trim().isEmpty
+                  ? null
+                  : _bioController.text.trim(),
+              photoFile: _selectedImage,
+            );
 
     if (success && mounted) {
       // Refresh the profile data
@@ -166,12 +164,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       ref.invalidate(syncUserDataProvider(null));
       await ref.read(syncUserDataProvider(null).future);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profile updated successfully'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      showGlassToast(context, 'Profile updated');
       context.pop();
     }
   }
@@ -183,13 +176,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
     // Show error snackbar if there's an error
     ref.listen<EditProfileState>(editProfileControllerProvider, (prev, next) {
-      if (next.errorMessage != null && prev?.errorMessage != next.errorMessage) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(next.errorMessage!),
-            backgroundColor: Colors.red,
-          ),
-        );
+      if (next.errorMessage != null &&
+          prev?.errorMessage != next.errorMessage) {
+        showGlassToast(context, next.errorMessage!, destructive: true);
       }
     });
 
@@ -263,7 +252,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                             radius: 60,
                             backgroundColor: Colors.white24,
                             backgroundImage: _getProfileImage(profile.photoUrl),
-                            child: _selectedImage == null && profile.photoUrl == null
+                            child: _selectedImage == null &&
+                                    profile.photoUrl == null
                                 ? const Icon(
                                     Icons.person,
                                     size: 60,
@@ -357,7 +347,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                         child: Text(
                           editState.usernameError!,
                           style: const TextStyle(
-                            color: Colors.redAccent,
+                            color: AppColors.destructive,
                             fontSize: 12,
                           ),
                         ),
@@ -406,7 +396,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                       const Padding(
                         padding: EdgeInsets.all(16),
                         child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
                       ),
                   ],

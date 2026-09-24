@@ -35,6 +35,7 @@ class ReviewCardBack extends ConsumerWidget {
     required this.onComment,
     required this.onLike,
     this.currentUserId,
+    this.onEdit,
     this.artifacts = const [],
   });
 
@@ -51,6 +52,10 @@ class ReviewCardBack extends ConsumerWidget {
   final VoidCallback onComment;
   final VoidCallback onLike;
   final String? currentUserId;
+
+  /// Set only when this is the viewer's own post. Its presence is what puts
+  /// the pencil in the row — nothing downstream has to re-derive ownership.
+  final VoidCallback? onEdit;
 
   /// Anything extra to hang on the media row, beyond the voice note and photos
   /// the activity already carries. Empty today; the row is built to take more.
@@ -145,6 +150,7 @@ class ReviewCardBack extends ConsumerWidget {
                     onReact: onReact,
                     onComment: onComment,
                     onLike: onLike,
+                    onEdit: onEdit,
                   ),
                 ],
               ),
@@ -217,10 +223,13 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final meta = [
-      activity.filmYear,
-      activity.mediaType.toUpperCase(),
-    ].whereType<String>().join('  ·  ');
+    // An episode post leads with the episode: its name as the title, and
+    // the show + "S2 E5" underneath where the year and type would be.
+    final meta = (activity.isEpisode
+            ? [activity.episodeCode, activity.filmTitle]
+            : [activity.filmYear, activity.mediaType.toUpperCase()])
+        .whereType<String>()
+        .join('  ·  ');
 
     return GestureDetector(
       // The whole block opens the film. This is what replaced the full-width
@@ -241,7 +250,7 @@ class _Header extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  activity.filmTitle,
+                  activity.displayTitle,
                   style: AppText.title.copyWith(
                     color: AppColors.ink,
                     fontSize: 19,
@@ -438,6 +447,7 @@ class _Tallies extends StatelessWidget {
     required this.onReact,
     required this.onComment,
     required this.onLike,
+    required this.onEdit,
   });
 
   final ActivityModel activity;
@@ -446,6 +456,7 @@ class _Tallies extends StatelessWidget {
   final VoidCallback onReact;
   final VoidCallback onComment;
   final VoidCallback onLike;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -485,6 +496,14 @@ class _Tallies extends StatelessWidget {
             activeColor: AppColors.destructive,
             onTap: onLike,
           ),
+          // Only on your own posts, and last: it's the one action here that
+          // isn't about responding to the review.
+          if (onEdit != null)
+            _Tally(
+              icon: CupertinoIcons.pencil,
+              count: 0,
+              onTap: onEdit!,
+            ),
         ],
       ),
     );

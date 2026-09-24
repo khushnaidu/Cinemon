@@ -55,7 +55,8 @@ class UserRepository {
   Future<bool> isUsernameAvailable(String username) async {
     final trimmed = username.trim();
     if (trimmed.isEmpty) return false;
-    final row = await _users.select('id').ilike('username', trimmed).maybeSingle();
+    final row =
+        await _users.select('id').ilike('username', trimmed).maybeSingle();
     return row == null;
   }
 
@@ -142,6 +143,13 @@ class UserRepository {
   Future<void> setFavoriteFilms(String uid, List<int> filmIds) =>
       updateUserFields(
           uid: uid, fields: {'favorite_film_ids': filmIds.take(4).toList()});
+
+  // ============ FAVORITE SHOWS ============
+
+  /// Replace the ranked top-3 shows.
+  Future<void> setFavoriteShows(String uid, List<int> showIds) =>
+      updateUserFields(
+          uid: uid, fields: {'favorite_show_ids': showIds.take(3).toList()});
 
   // ============ FAVORITE ACTORS ============
 

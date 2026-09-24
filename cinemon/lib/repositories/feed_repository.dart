@@ -39,7 +39,10 @@ class FeedRepository {
     required File file,
   }) async {
     final ext = file.path.split('.').last.toLowerCase();
-    final path = '$uid/$activityId/voice.$ext';
+    // Stamped, not a fixed name. Re-recording a review would otherwise write
+    // over the old path and leave the CDN serving whatever it cached — the
+    // user hears their previous take back and has no way to tell why.
+    final path = '$uid/$activityId/voice_${_stamp()}.$ext';
 
     await _client.storage.from(_mediaBucket).upload(
           path,
@@ -63,8 +66,12 @@ class FeedRepository {
     required List<File> files,
   }) async {
     final urls = <String>[];
+    final stamp = _stamp();
     for (var i = 0; i < files.length; i++) {
-      final path = '$uid/$activityId/photo_$i.jpg';
+      // Stamped for the same reason as the voice note, and because editing can
+      // add photos to a post that already has some — a positional name would
+      // collide with one that's still there.
+      final path = '$uid/$activityId/photo_${stamp}_$i.jpg';
       await _client.storage.from(_mediaBucket).upload(
             path,
             files[i],
@@ -76,6 +83,28 @@ class FeedRepository {
       urls.add(_client.storage.from(_mediaBucket).getPublicUrl(path));
     }
     return urls;
+  }
+
+  static String _stamp() => DateTime.now().millisecondsSinceEpoch.toString();
+
+  /// Remove specific files, addressed by the public URLs we handed out.
+  ///
+  /// Editing a post replaces some of its media and keeps the rest, so the
+  /// prefix delete is too blunt — the only handle the caller has on the ones
+  /// being dropped is their URL. Anything that doesn't look like a URL from
+  /// this bucket is skipped rather than guessed at.
+  Future<void> deleteReviewMediaUrls(List<String> urls) async {
+    const marker = '/$_mediaBucket/';
+    final paths = <String>[];
+    for (final url in urls) {
+      final at = url.indexOf(marker);
+      if (at == -1) continue;
+      // Query strings would make the path not match the stored object.
+      final path = url.substring(at + marker.length).split('?').first;
+      if (path.isNotEmpty) paths.add(Uri.decodeComponent(path));
+    }
+    if (paths.isEmpty) return;
+    await _client.storage.from(_mediaBucket).remove(paths);
   }
 
   /// Remove everything stored for one activity.
@@ -180,7 +209,11 @@ class FeedRepository {
 
   /// Update an activity.
   Future<void> updateActivity(ActivityModel activity) async {
-    await _client.from(_table).update(activity.toDbMap()).eq('id', activity.id);
+    // toDbMap carries the id so inserts can mint their own; an update already
+    // has it in the filter, and writing a primary key to itself is noise at
+    // best.
+    final payload = Map<String, dynamic>.from(activity.toDbMap())..remove('id');
+    await _client.from(_table).update(payload).eq('id', activity.id);
   }
 
   /// Delete an activity. Comments, likes and reactions cascade in the DB.
@@ -282,9 +315,28 @@ class FeedRepository {
         .select()
         .eq('user_id', userId)
         .eq('film_id', filmId)
+        // Film- or show-level only. Episode posts share the film_id and
+        // would otherwise be mistaken for "you've posted about this show".
+        .isFilter('season_number', null)
+        .order('created_at', ascending: false)
         .limit(1);
 
     return rows.isEmpty ? null : ActivityModel.fromRow(rows.first);
+  }
+
+  /// Every episode post a user has made about one show, newest first.
+  Future<List<ActivityModel>> getUserEpisodeActivities({
+    required String userId,
+    required int showId,
+  }) async {
+    final rows = await _client
+        .from(_view)
+        .select()
+        .eq('user_id', userId)
+        .eq('film_id', showId)
+        .not('season_number', 'is', null)
+        .order('created_at', ascending: false);
+    return rows.map(ActivityModel.fromRow).toList();
   }
 
   /// Number of reviews a user has posted.

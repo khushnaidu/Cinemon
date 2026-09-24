@@ -37,14 +37,36 @@ ColorFilter _saturation(double s) {
   const lr = 0.2126, lg = 0.7152, lb = 0.0722;
   final sr = (1 - s) * lr, sg = (1 - s) * lg, sb = (1 - s) * lb;
   return ColorFilter.matrix(<double>[
-    sr + s, sg,     sb,     0, 0,
-    sr,     sg + s, sb,     0, 0,
-    sr,     sg,     sb + s, 0, 0,
-    0,      0,      0,      1, 0,
+    sr + s,
+    sg,
+    sb,
+    0,
+    0,
+    sr,
+    sg + s,
+    sb,
+    0,
+    0,
+    sr,
+    sg,
+    sb + s,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
   ]);
 }
 
 /// A floating pane of glass.
+///
+/// Flat, not shaded. The first cut layered a black gradient over the blur and
+/// a white gradient over the selection lens, and gradients on glass read as a
+/// bulge — the pane looked inflated next to the native bar, which is a single
+/// flat tint over the refracted backdrop. So: one tint, one hairline, and the
+/// blur does the rest.
 class LiquidGlass extends StatelessWidget {
   const LiquidGlass({
     super.key,
@@ -54,17 +76,22 @@ class LiquidGlass extends StatelessWidget {
     this.tint = 0.34,
     this.saturation = 1.9,
     this.shadow = true,
+    this.rim = true,
   });
 
   final Widget child;
   final BorderRadius borderRadius;
   final double blur;
 
-  /// Kept low deliberately — see the class docs.
+  /// Black over the blur. Kept low deliberately — see the class docs.
   final double tint;
 
   final double saturation;
   final bool shadow;
+
+  /// A single thin light edge, the way the feed cards keep a hairline. No
+  /// chromatic fringe: it drew the eye to the border instead of the content.
+  final bool rim;
 
   @override
   Widget build(BuildContext context) {
@@ -91,77 +118,20 @@ class LiquidGlass extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               borderRadius: borderRadius,
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withValues(alpha: tint * 0.85),
-                  Colors.black.withValues(alpha: tint),
-                ],
-              ),
+              color: Colors.black.withValues(alpha: tint),
+              border: rim
+                  ? Border.all(
+                      color: Colors.white.withValues(alpha: 0.14),
+                      width: 0.6,
+                    )
+                  : null,
             ),
-            child: CustomPaint(
-              foregroundPainter: _RefractiveRimPainter(borderRadius: borderRadius),
-              child: child,
-            ),
+            child: child,
           ),
         ),
       ),
     );
   }
-}
-
-/// The lit, refracting edge: a bright specular hairline with chromatic
-/// fringing sweeping around it.
-class _RefractiveRimPainter extends CustomPainter {
-  const _RefractiveRimPainter({required this.borderRadius});
-
-  final BorderRadius borderRadius;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-
-    // 1. Chromatic fringe, drawn slightly wider and blurred so it reads as
-    //    light splitting through the bevel rather than a coloured outline.
-    final fringe = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.1
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.6)
-      ..shader = const SweepGradient(
-        startAngle: 0,
-        endAngle: math.pi * 2,
-        colors: [
-          Color(0x3300E5FF), // cyan
-          Color(0x2AFF00E5), // magenta
-          Color(0x33FFD400), // amber
-          Color(0x2A00FF95), // green
-          Color(0x3300E5FF),
-        ],
-        stops: [0.0, 0.28, 0.52, 0.78, 1.0],
-      ).createShader(rect);
-    canvas.drawRRect(borderRadius.toRRect(rect).deflate(0.6), fringe);
-
-    // 2. Specular highlight over the top, fading under.
-    final specular = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          Colors.white.withValues(alpha: 0.38),
-          Colors.white.withValues(alpha: 0.07),
-          Colors.white.withValues(alpha: 0.05),
-        ],
-        stops: const [0.0, 0.5, 1.0],
-      ).createShader(rect);
-    canvas.drawRRect(borderRadius.toRRect(rect).deflate(0.5), specular);
-  }
-
-  @override
-  bool shouldRepaint(_RefractiveRimPainter old) =>
-      old.borderRadius != borderRadius;
 }
 
 /// One destination in [LiquidGlassTabBar].
@@ -343,6 +313,44 @@ class _LiquidGlassTabBarState extends State<LiquidGlassTabBar>
 
 /// The travelling highlight — a brighter, more saturated pane so it reads as
 /// a denser lens sliding within the bar.
+///
+/// Public because it is the app's one "selected / primary" treatment: the
+/// segmented controls, chips and prominent buttons all use this same lens
+/// rather than a solid fill, mirroring the native tab bar's indicator
+/// (`.glassEffect(.regular.tint(.white.opacity(0.22)))`).
+class GlassLens extends StatelessWidget {
+  const GlassLens({super.key, this.height, this.radius, this.child});
+
+  /// Capsule height; ignored when [radius] is given.
+  final double? height;
+  final BorderRadius? radius;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = radius ?? BorderRadius.circular((height ?? 999) / 2);
+    // One flat white tint, matching `.white.opacity(0.22)` on the native
+    // indicator, and a hairline a shade brighter than the pane's own.
+    return ClipRRect(
+      borderRadius: r,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: r,
+            color: Colors.white.withValues(alpha: 0.20),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.24),
+              width: 0.6,
+            ),
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
 class _Blob extends StatelessWidget {
   const _Blob({required this.height});
 

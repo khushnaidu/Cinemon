@@ -118,18 +118,19 @@ class StickerRegistry {
 
   /// Generate a seeded random placement for consistent display
   /// Places stickers at top-right corner, slightly spilling off card edge
-  static StickerPlacement getSeededPlacement(String activityId, int index, {int totalStickers = 1}) {
+  static StickerPlacement getSeededPlacement(String activityId, int index,
+      {int totalStickers = 1}) {
     final seed = activityId.hashCode + index * 17;
     final random = Random(seed);
 
     // Top-right corner cluster - slight spill off the card edge
     // Positive right = on the card, negative = spilling off
-    const minRight = -20.0;  // Max spill: only 20px off the card edge
-    const maxRight = 40.0;   // Can go up to 40px into the card
+    const minRight = -20.0; // Max spill: only 20px off the card edge
+    const maxRight = 40.0; // Can go up to 40px into the card
 
     // Vertical spread in top area
-    const minTop = -15.0;    // Slight spill above card
-    const maxTop = 60.0;     // Spread down into top portion
+    const minTop = -15.0; // Slight spill above card
+    const maxTop = 60.0; // Spread down into top portion
 
     // Random position within the cluster zone
     final right = minRight + random.nextDouble() * (maxRight - minRight);

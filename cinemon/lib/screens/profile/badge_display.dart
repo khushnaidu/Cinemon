@@ -231,7 +231,8 @@ class _FilmReelBadgesState extends State<_FilmReelBadges> {
   @override
   Widget build(BuildContext context) {
     // Calculate content width based on number of badges
-    final contentWidth = widget.badges.length * _kFrameWidth + 32; // 32 for padding
+    final contentWidth =
+        widget.badges.length * _kFrameWidth + 32; // 32 for padding
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -443,11 +444,13 @@ class _FilmFrameBadge extends StatelessWidget {
                                     end: Alignment.bottomRight,
                                     colors: [
                                       _getBadgeColor(badge.type),
-                                      _getBadgeColor(badge.type).withOpacity(0.6),
+                                      _getBadgeColor(badge.type)
+                                          .withOpacity(0.6),
                                     ],
                                   )
                                 : null,
-                            color: isEarned ? null : Colors.white.withOpacity(0.1),
+                            color:
+                                isEarned ? null : Colors.white.withOpacity(0.1),
                           ),
                           child: Center(
                             child: Text(
@@ -571,10 +574,26 @@ class _BadgeDetailDialog extends StatelessWidget {
                             ? const ColorFilter.mode(
                                 Colors.transparent, BlendMode.multiply)
                             : const ColorFilter.matrix(<double>[
-                                0.2126, 0.7152, 0.0722, 0, 0,
-                                0.2126, 0.7152, 0.0722, 0, 0,
-                                0.2126, 0.7152, 0.0722, 0, 0,
-                                0, 0, 0, 0.3, 0,
+                                0.2126,
+                                0.7152,
+                                0.0722,
+                                0,
+                                0,
+                                0.2126,
+                                0.7152,
+                                0.0722,
+                                0,
+                                0,
+                                0.2126,
+                                0.7152,
+                                0.0722,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0.3,
+                                0,
                               ]),
                         child: Image.asset(
                           badge.imagePath!,
@@ -621,7 +640,8 @@ class _BadgeDetailDialog extends StatelessWidget {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.check_circle, color: Color(0xFF34D399), size: 18),
+                    Icon(Icons.check_circle,
+                        color: Color(0xFF34D399), size: 18),
                     SizedBox(width: 6),
                     Text(
                       'Earned',
@@ -755,10 +775,26 @@ class _BadgeCard extends StatelessWidget {
                             ? const ColorFilter.mode(
                                 Colors.transparent, BlendMode.multiply)
                             : const ColorFilter.matrix(<double>[
-                                0.2126, 0.7152, 0.0722, 0, 0,
-                                0.2126, 0.7152, 0.0722, 0, 0,
-                                0.2126, 0.7152, 0.0722, 0, 0,
-                                0, 0, 0, 0.3, 0,
+                                0.2126,
+                                0.7152,
+                                0.0722,
+                                0,
+                                0,
+                                0.2126,
+                                0.7152,
+                                0.0722,
+                                0,
+                                0,
+                                0.2126,
+                                0.7152,
+                                0.0722,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0.3,
+                                0,
                               ]),
                         child: Image.asset(
                           badge.imagePath!,
@@ -773,7 +809,8 @@ class _BadgeCard extends StatelessWidget {
                         badge.emoji,
                         style: TextStyle(
                           fontSize: isEarned ? 32 : 24,
-                          color: isEarned ? null : Colors.white.withOpacity(0.2),
+                          color:
+                              isEarned ? null : Colors.white.withOpacity(0.2),
                         ),
                       ),
                     ),

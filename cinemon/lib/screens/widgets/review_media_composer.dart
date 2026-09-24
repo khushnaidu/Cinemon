@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart' show Ticker;
@@ -10,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 import '../../core/theme/app_theme.dart';
+import 'glass_panel.dart';
 import 'waveform.dart';
 
 /// Longest spoken review we'll take.
@@ -37,6 +39,12 @@ const double _kSilenceFloorDb = -45;
 const int kMaxReviewPhotos = 4;
 
 /// What the composer hands back.
+///
+/// Media that was already posted and media just captured are separate fields
+/// rather than one merged list. They are different things to the caller — one
+/// is a URL that already exists in storage and the other is a file that has to
+/// be uploaded — and flattening them would only mean working out which was
+/// which again at save time.
 @immutable
 class ReviewMediaDraft {
   const ReviewMediaDraft({
@@ -44,21 +52,54 @@ class ReviewMediaDraft {
     this.voiceNoteDurationMs = 0,
     this.waveform = const [],
     this.photos = const [],
+    this.keptVoiceNoteUrl,
+    this.keptPhotoUrls = const [],
   });
 
+  /// A recording made just now, to be uploaded.
   final File? voiceNote;
   final int voiceNoteDurationMs;
   final List<double> waveform;
+
+  /// Photos taken just now, to be uploaded.
   final List<File> photos;
 
-  bool get isEmpty => voiceNote == null && photos.isEmpty;
+  /// The post's existing voice note, if it survived editing untouched. Null
+  /// means there wasn't one, it was deleted, or it was replaced by
+  /// [voiceNote].
+  final String? keptVoiceNoteUrl;
+
+  /// Existing photos that weren't removed, in display order.
+  final List<String> keptPhotoUrls;
+
+  bool get isEmpty =>
+      voiceNote == null &&
+      photos.isEmpty &&
+      keptVoiceNoteUrl == null &&
+      keptPhotoUrls.isEmpty;
 }
 
 /// Record a spoken review and take photos to go with it.
+///
+/// Used both to attach media to a new post and to edit what an existing one
+/// carries — the initial* parameters are what make it the same widget. There
+/// is exactly one recording implementation, and the editor gets it for free.
 class ReviewMediaComposer extends StatefulWidget {
-  const ReviewMediaComposer({super.key, required this.onChanged});
+  const ReviewMediaComposer({
+    super.key,
+    required this.onChanged,
+    this.initialVoiceNoteUrl,
+    this.initialVoiceNoteDurationMs = 0,
+    this.initialWaveform = const [],
+    this.initialPhotoUrls = const [],
+  });
 
   final ValueChanged<ReviewMediaDraft> onChanged;
+
+  final String? initialVoiceNoteUrl;
+  final int initialVoiceNoteDurationMs;
+  final List<double> initialWaveform;
+  final List<String> initialPhotoUrls;
 
   @override
   State<ReviewMediaComposer> createState() => _ReviewMediaComposerState();
@@ -84,6 +125,25 @@ class _ReviewMediaComposerState extends State<ReviewMediaComposer> {
   List<double> _waveform = const [];
   final List<File> _photos = [];
 
+  /// Media the post already had, minus anything removed here.
+  String? _keptVoiceUrl;
+  final List<String> _keptPhotos = [];
+
+  /// Total across both, which is what the four-photo cap counts.
+  int get _photoCount => _keptPhotos.length + _photos.length;
+
+  /// Whether there's a voice note at all, old or new.
+  bool get _hasVoice => _voiceNote != null || _keptVoiceUrl != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _keptVoiceUrl = widget.initialVoiceNoteUrl;
+    _durationMs = widget.initialVoiceNoteDurationMs;
+    _waveform = widget.initialWaveform;
+    _keptPhotos.addAll(widget.initialPhotoUrls);
+  }
+
   @override
   void dispose() {
     _levels?.cancel();
@@ -98,6 +158,8 @@ class _ReviewMediaComposerState extends State<ReviewMediaComposer> {
       voiceNoteDurationMs: _durationMs,
       waveform: _waveform,
       photos: List.unmodifiable(_photos),
+      keptVoiceNoteUrl: _keptVoiceUrl,
+      keptPhotoUrls: List.unmodifiable(_keptPhotos),
     ));
   }
 
@@ -203,6 +265,9 @@ class _ReviewMediaComposerState extends State<ReviewMediaComposer> {
     setState(() {
       _recording = false;
       _voiceNote = File(path!);
+      // A new take replaces whatever was there. The old URL is dropped here,
+      // not deleted — the file only goes when the edit is actually saved.
+      _keptVoiceUrl = null;
       // Clamped because the encoder can overrun the cap by a few frames, and
       // the row has a check constraint on this.
       _durationMs = math.min(
@@ -219,6 +284,7 @@ class _ReviewMediaComposerState extends State<ReviewMediaComposer> {
     final file = _voiceNote;
     setState(() {
       _voiceNote = null;
+      _keptVoiceUrl = null;
       _durationMs = 0;
       _waveform = const [];
     });
@@ -239,7 +305,7 @@ class _ReviewMediaComposerState extends State<ReviewMediaComposer> {
   // ── Photos ────────────────────────────────────────────────
 
   Future<void> _takePhoto() async {
-    if (_photos.length >= kMaxReviewPhotos) return;
+    if (_photoCount >= kMaxReviewPhotos) return;
 
     try {
       final shot = await _picker.pickImage(
@@ -259,8 +325,13 @@ class _ReviewMediaComposerState extends State<ReviewMediaComposer> {
     }
   }
 
-  void _removePhoto(int index) {
+  void _removeNewPhoto(int index) {
     setState(() => _photos.removeAt(index));
+    _publish();
+  }
+
+  void _removeKeptPhoto(int index) {
+    setState(() => _keptPhotos.removeAt(index));
     _publish();
   }
 
@@ -282,9 +353,9 @@ class _ReviewMediaComposerState extends State<ReviewMediaComposer> {
               ),
             ),
             const Spacer(),
-            if (_photos.isNotEmpty)
+            if (_photoCount > 0)
               Text(
-                '${_photos.length}/$kMaxReviewPhotos',
+                '$_photoCount/$kMaxReviewPhotos',
                 style: AppText.footnote.copyWith(color: AppColors.inkTertiary),
               ),
           ],
@@ -297,41 +368,53 @@ class _ReviewMediaComposerState extends State<ReviewMediaComposer> {
             startedAt: _startedAt ?? DateTime.now(),
             onStop: _stopRecording,
           )
-        else if (_voiceNote != null)
+        else if (_hasVoice)
+          // Both a fresh take and one already posted land here. The strip
+          // shows the same shape either way — from this side of the screen
+          // there's no difference between a recording that's been uploaded
+          // and one that hasn't.
           _RecordedStrip(
             samples: _waveform,
             durationMs: _durationMs,
             onDiscard: _discardRecording,
+            onRerecord: _startRecording,
           )
         else
           _IdleActions(
             onRecord: _startRecording,
-            onPhoto: _photos.length < kMaxReviewPhotos ? _takePhoto : null,
+            onPhoto: _photoCount < kMaxReviewPhotos ? _takePhoto : null,
             busy: _busy,
           ),
 
         // Once a recording exists the idle row is gone, so the camera needs its
         // own way back.
-        if (!_recording && _voiceNote != null) ...[
+        if (!_recording && _hasVoice) ...[
           const SizedBox(height: AppSpace.sm),
           _CameraButton(
-            onTap: _photos.length < kMaxReviewPhotos ? _takePhoto : null,
+            onTap: _photoCount < kMaxReviewPhotos ? _takePhoto : null,
             expanded: true,
           ),
         ],
 
-        if (_photos.isNotEmpty) ...[
+        if (_photoCount > 0) ...[
           const SizedBox(height: AppSpace.md),
           SizedBox(
             height: 72,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              itemCount: _photos.length,
+              // Already-posted photos first, then the ones just taken, which
+              // is the order they'll end up in on the card.
+              itemCount: _photoCount,
               separatorBuilder: (_, __) => const SizedBox(width: AppSpace.sm),
-              itemBuilder: (_, i) => _PhotoThumb(
-                file: _photos[i],
-                onRemove: () => _removePhoto(i),
-              ),
+              itemBuilder: (_, i) => i < _keptPhotos.length
+                  ? _PhotoThumb(
+                      url: _keptPhotos[i],
+                      onRemove: () => _removeKeptPhoto(i),
+                    )
+                  : _PhotoThumb(
+                      file: _photos[i - _keptPhotos.length],
+                      onRemove: () => _removeNewPhoto(i - _keptPhotos.length),
+                    ),
             ),
           ),
         ],
@@ -403,36 +486,11 @@ class _Action extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final enabled = onTap != null;
-    final colour = enabled ? AppColors.ink : AppColors.inkTertiary;
-
-    return GestureDetector(
+    return GlassPillButton(
+      label: label,
+      icon: icon,
+      expand: true,
       onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        height: 46,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: AppColors.surfaceElevated,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          border: Border.all(color: AppColors.separator, width: 0.5),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 17, color: colour),
-            const SizedBox(width: AppSpace.sm),
-            Flexible(
-              child: Text(
-                label,
-                style: AppText.label.copyWith(color: colour),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -566,11 +624,16 @@ class _RecordedStrip extends StatelessWidget {
     required this.samples,
     required this.durationMs,
     required this.onDiscard,
+    this.onRerecord,
   });
 
   final List<double> samples;
   final int durationMs;
   final VoidCallback onDiscard;
+
+  /// Start over. Offered rather than making the user delete first, because
+  /// "record again" is the common case and deleting is the destructive one.
+  final VoidCallback? onRerecord;
 
   @override
   Widget build(BuildContext context) {
@@ -581,11 +644,7 @@ class _RecordedStrip extends StatelessWidget {
         horizontal: AppSpace.md,
         vertical: AppSpace.sm,
       ),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.separator, width: 0.5),
-      ),
+      decoration: glassWellDecoration(radius: AppRadius.lg),
       child: Row(
         children: [
           const Icon(
@@ -609,6 +668,19 @@ class _RecordedStrip extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppSpace.xs),
+          if (onRerecord != null)
+            GestureDetector(
+              onTap: onRerecord,
+              behavior: HitTestBehavior.opaque,
+              child: const Padding(
+                padding: EdgeInsets.all(AppSpace.sm),
+                child: Icon(
+                  CupertinoIcons.arrow_counterclockwise,
+                  size: 16,
+                  color: AppColors.inkSecondary,
+                ),
+              ),
+            ),
           GestureDetector(
             onTap: onDiscard,
             behavior: HitTestBehavior.opaque,
@@ -628,9 +700,15 @@ class _RecordedStrip extends StatelessWidget {
 }
 
 class _PhotoThumb extends StatelessWidget {
-  const _PhotoThumb({required this.file, required this.onRemove});
+  const _PhotoThumb({this.file, this.url, required this.onRemove})
+      : assert(file != null || url != null);
 
-  final File file;
+  /// A photo taken in this session, still on disk.
+  final File? file;
+
+  /// A photo already uploaded with the post.
+  final String? url;
+
   final VoidCallback onRemove;
 
   @override
@@ -640,7 +718,22 @@ class _PhotoThumb extends StatelessWidget {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(AppRadius.sm),
-          child: Image.file(file, width: 72, height: 72, fit: BoxFit.cover),
+          child: file != null
+              ? Image.file(file!, width: 72, height: 72, fit: BoxFit.cover)
+              : CachedNetworkImage(
+                  imageUrl: url!,
+                  width: 72,
+                  height: 72,
+                  fit: BoxFit.cover,
+                  errorWidget: (_, __, ___) => const SizedBox(
+                    width: 72,
+                    height: 72,
+                    child: Icon(
+                      CupertinoIcons.photo,
+                      color: AppColors.inkTertiary,
+                    ),
+                  ),
+                ),
         ),
         Positioned(
           top: -6,

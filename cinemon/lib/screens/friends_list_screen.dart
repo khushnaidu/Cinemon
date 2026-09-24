@@ -201,7 +201,8 @@ class _FriendsListScreenState extends ConsumerState<FriendsListScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                        const Icon(Icons.error_outline,
+                            color: Colors.red, size: 48),
                         const SizedBox(height: 16),
                         Text(
                           'Error loading friends',
@@ -332,8 +333,10 @@ class _FriendTile extends ConsumerWidget {
 
         // Filter by search query
         if (searchQuery.isNotEmpty) {
-          final matchesUsername = user.username.toLowerCase().contains(searchQuery);
-          final matchesDisplayName = user.displayName?.toLowerCase().contains(searchQuery) ?? false;
+          final matchesUsername =
+              user.username.toLowerCase().contains(searchQuery);
+          final matchesDisplayName =
+              user.displayName?.toLowerCase().contains(searchQuery) ?? false;
           if (!matchesUsername && !matchesDisplayName) {
             return const SizedBox.shrink();
           }
@@ -538,10 +541,12 @@ class _PendingRequestsSheet extends ConsumerWidget {
                             radius: 24,
                             backgroundColor: Colors.grey[800],
                             backgroundImage: request.senderPhotoUrl != null
-                                ? CachedNetworkImageProvider(request.senderPhotoUrl!)
+                                ? CachedNetworkImageProvider(
+                                    request.senderPhotoUrl!)
                                 : null,
                             child: request.senderPhotoUrl == null
-                                ? const Icon(Icons.person, color: Colors.white54)
+                                ? const Icon(Icons.person,
+                                    color: Colors.white54)
                                 : null,
                           ),
                           const SizedBox(width: 12),
@@ -568,7 +573,8 @@ class _PendingRequestsSheet extends ConsumerWidget {
                                     receiverPhotoUrl: request.receiverPhotoUrl,
                                   );
                             },
-                            icon: const Icon(Icons.check_circle, color: Colors.green),
+                            icon: const Icon(Icons.check_circle,
+                                color: Colors.green),
                           ),
                           // Decline button
                           IconButton(

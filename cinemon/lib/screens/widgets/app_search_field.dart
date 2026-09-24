@@ -1,5 +1,5 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart' show Material;
+import 'package:flutter/material.dart' show Colors, Material;
 
 import '../../core/theme/app_theme.dart';
 
@@ -24,6 +24,7 @@ class AppSearchField extends StatelessWidget {
     this.placeholder = 'Search',
     this.autofocus = false,
     this.onSubmitted,
+    this.onGlass = false,
   });
 
   final TextEditingController controller;
@@ -32,19 +33,25 @@ class AppSearchField extends StatelessWidget {
   final String placeholder;
   final bool autofocus;
 
+  /// Inside a glass panel there is no canvas to sit on: the Material behind
+  /// the field goes transparent and the fill lightens so it reads as a well
+  /// in the pane rather than a dark slab pasted onto it.
+  final bool onGlass;
+
   @override
   Widget build(BuildContext context) {
     // CupertinoSearchTextField's clear button uses a Cupertino tap target that
     // expects a Material ancestor when hosted in a Material app route.
     return Material(
-      color: AppColors.canvas,
+      color: onGlass ? Colors.transparent : AppColors.canvas,
       child: CupertinoSearchTextField(
         controller: controller,
         onChanged: onChanged,
         onSubmitted: onSubmitted,
         autofocus: autofocus,
         placeholder: placeholder,
-        backgroundColor: AppColors.surface,
+        backgroundColor:
+            onGlass ? Colors.white.withValues(alpha: 0.10) : AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadius.sm + 2),
         itemColor: AppColors.inkSecondary,
         style: AppText.body.copyWith(color: AppColors.ink),

@@ -11,7 +11,8 @@ import '../providers/feed/feed_provider.dart';
 import '../providers/auth/auth_provider.dart';
 
 /// Provider for user search results
-final userSearchProvider = FutureProvider.family<List<UserModel>, String>((ref, query) async {
+final userSearchProvider =
+    FutureProvider.family<List<UserModel>, String>((ref, query) async {
   if (query.trim().isEmpty) return [];
 
   final userRepo = ref.read(userRepositoryProvider);
@@ -73,7 +74,8 @@ class _SearchUsersScreenState extends ConsumerState<SearchUsersScreen> {
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(CupertinoIcons.back, color: AppColors.ink),
+                      icon:
+                          const Icon(CupertinoIcons.back, color: AppColors.ink),
                       onPressed: () => context.pop(),
                     ),
                     const SizedBox(width: 8),
@@ -140,7 +142,8 @@ class _SearchUsersScreenState extends ConsumerState<SearchUsersScreen> {
     return searchResults.when(
       data: (users) {
         // Filter out current user from results
-        final filteredUsers = users.where((u) => u.uid != currentUserId).toList();
+        final filteredUsers =
+            users.where((u) => u.uid != currentUserId).toList();
 
         if (filteredUsers.isEmpty) {
           return Center(

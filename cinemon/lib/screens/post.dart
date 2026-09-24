@@ -8,6 +8,47 @@ import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import '../models/film_model.dart';
 import '../providers/movie/movie_provider.dart';
+import '../repositories/movie_repository.dart';
+import 'widgets/glass_panel.dart';
+
+/// Search scoped to films or shows. The tab's toggle picks which, and each
+/// scope keeps its own results so flipping back doesn't refetch.
+class _SearchScopeNotifier extends StateNotifier<AsyncValue<List<FilmModel>>> {
+  _SearchScopeNotifier(this._repository, this._type)
+      : super(const AsyncValue.data([]));
+
+  final MovieRepository _repository;
+  final MediaType _type;
+  String _lastQuery = '';
+
+  Future<void> search(String query) async {
+    if (query.trim().isEmpty) {
+      clear();
+      return;
+    }
+    if (query == _lastQuery) return;
+    _lastQuery = query;
+    state = const AsyncValue.loading();
+    try {
+      final results = _type == MediaType.tv
+          ? await _repository.searchTvShows(query)
+          : await _repository.searchMovies(query);
+      if (query == _lastQuery) state = AsyncValue.data(results);
+    } catch (e, st) {
+      if (query == _lastQuery) state = AsyncValue.error(e, st);
+    }
+  }
+
+  void clear() {
+    _lastQuery = '';
+    state = const AsyncValue.data([]);
+  }
+}
+
+final _searchScopeProvider = StateNotifierProvider.family<_SearchScopeNotifier,
+    AsyncValue<List<FilmModel>>, MediaType>(
+  (ref, type) => _SearchScopeNotifier(ref.watch(movieRepositoryProvider), type),
+);
 
 /// Movie search/lookup page - search for films and navigate to their detail page
 class MovieSearchPage extends ConsumerStatefulWidget {
@@ -21,6 +62,9 @@ class _MovieSearchPageState extends ConsumerState<MovieSearchPage> {
   final _searchController = TextEditingController();
   Timer? _debounce;
   bool _isSearching = false;
+  MediaType _scope = MediaType.movie;
+
+  bool get _isTv => _scope == MediaType.tv;
 
   @override
   void dispose() {
@@ -35,12 +79,23 @@ class _MovieSearchPageState extends ConsumerState<MovieSearchPage> {
       setState(() {
         _isSearching = query.isNotEmpty;
       });
-      if (query.isNotEmpty) {
-        ref.read(searchNotifierProvider.notifier).search(query);
-      } else {
-        ref.read(searchNotifierProvider.notifier).clear();
-      }
+      _runSearch(query);
     });
+  }
+
+  void _runSearch(String query) {
+    final notifier = ref.read(_searchScopeProvider(_scope).notifier);
+    if (query.isNotEmpty) {
+      notifier.search(query);
+    } else {
+      notifier.clear();
+    }
+  }
+
+  void _setScope(int index) {
+    setState(() => _scope = index == 1 ? MediaType.tv : MediaType.movie);
+    // Re-run the live query in the new scope so the list matches the toggle.
+    _runSearch(_searchController.text);
   }
 
   void _onFilmSelected(FilmModel film) {
@@ -50,8 +105,9 @@ class _MovieSearchPageState extends ConsumerState<MovieSearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    final searchResults = ref.watch(searchNotifierProvider);
-    final trendingMovies = ref.watch(trendingMoviesProvider);
+    final searchResults = ref.watch(_searchScopeProvider(_scope));
+    final trendingMovies =
+        ref.watch(_isTv ? trendingTvShowsProvider : trendingMoviesProvider);
 
     return Scaffold(
       body: Container(
@@ -69,16 +125,22 @@ class _MovieSearchPageState extends ConsumerState<MovieSearchPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text(
-                  'Search Films',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+              // Header with the films / shows toggle
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                child: Row(
+                  children: [
+                    const Text('Search', style: AppText.title),
+                    const Spacer(),
+                    SizedBox(
+                      width: 150,
+                      child: GlassSegmentedControl(
+                        labels: const ['Films', 'Shows'],
+                        index: _isTv ? 1 : 0,
+                        onChanged: _setScope,
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
@@ -88,7 +150,7 @@ class _MovieSearchPageState extends ConsumerState<MovieSearchPage> {
                 child: AppSearchField(
                   controller: _searchController,
                   onChanged: _onSearchChanged,
-                  placeholder: 'Movies & TV shows',
+                  placeholder: _isTv ? 'Search shows' : 'Search films',
                 ),
               ),
 
@@ -98,7 +160,9 @@ class _MovieSearchPageState extends ConsumerState<MovieSearchPage> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Text(
-                  _isSearching ? 'Search Results' : 'Trending This Week',
+                  _isSearching
+                      ? 'Results'
+                      : (_isTv ? 'Trending Shows' : 'Trending Films'),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -167,7 +231,8 @@ class _MovieSearchPageState extends ConsumerState<MovieSearchPage> {
             ),
             const SizedBox(height: 8),
             TextButton(
-              onPressed: () => ref.refresh(trendingMoviesProvider),
+              onPressed: () => ref.refresh(
+                  _isTv ? trendingTvShowsProvider : trendingMoviesProvider),
               child: const Text('Retry'),
             ),
           ],
@@ -288,4 +353,3 @@ class _FilmPosterCard extends StatelessWidget {
     );
   }
 }
-

@@ -1,11 +1,17 @@
+import 'dart:async';
 import 'dart:math' as math;
-import '../../core/theme/app_theme.dart';
-import 'package:flutter/material.dart';
-import '../widgets/app_search_field.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/cupertino.dart'
+    show CupertinoActivityIndicator, CupertinoIcons;
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/theme/app_theme.dart';
 import '../../models/person_model.dart';
 import '../../providers/user/favorites_provider.dart';
+import '../widgets/app_search_field.dart';
+import '../widgets/glass_panel.dart';
 
 // =============================================================================
 // PARALLAX STAR FIELD
@@ -69,7 +75,7 @@ class _StarFieldPainter extends CustomPainter {
       if (y > size.height) y -= size.height;
 
       final paint = Paint()
-        ..color = starColor.withOpacity(star.opacity)
+        ..color = starColor.withValues(alpha: star.opacity)
         ..style = PaintingStyle.fill;
 
       canvas.drawCircle(Offset(x, y), star.size, paint);
@@ -160,6 +166,10 @@ class _ParallaxStarFieldState extends State<ParallaxStarField> {
   }
 }
 
+// =============================================================================
+// PROFILE SECTION
+// =============================================================================
+
 /// Section displaying favorite actors or directors as horizontal scroll
 class FavoritePeopleSection extends ConsumerWidget {
   final List<int> personIds;
@@ -175,11 +185,6 @@ class FavoritePeopleSection extends ConsumerWidget {
     required this.isActors,
   });
 
-  // Get gradient colors based on type
-  List<Color> get _gradientColors => isActors
-      ? [const Color(0xFF22D3EE), const Color(0xFF3B82F6)]
-      : [const Color(0xFFF97316), const Color(0xFFEF4444)];
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Don't show section if empty and not own profile
@@ -191,6 +196,32 @@ class FavoritePeopleSection extends ConsumerWidget {
     final peopleAsync = personIds.isNotEmpty
         ? ref.watch(peopleByIdsProvider(personIds))
         : const AsyncValue<List<PersonModel>>.data([]);
+
+    final list = peopleAsync.when(
+      data: (people) => people.isEmpty
+          ? _buildEmptyState(context, ref)
+          : _buildPeopleList(people),
+      loading: () => _buildLoadingState(),
+      error: (_, __) => _buildEmptyState(context, ref),
+    );
+
+    final editButton = isOwnProfile
+        ? Padding(
+            padding:
+                const EdgeInsets.only(right: AppSpace.xl, top: AppSpace.sm),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: GlassPillButton(
+                label: personIds.isEmpty ? 'Add' : 'Edit',
+                icon: personIds.isEmpty
+                    ? CupertinoIcons.plus
+                    : CupertinoIcons.pencil,
+                compact: true,
+                onTap: () => _showPeoplePicker(context, ref),
+              ),
+            ),
+          )
+        : const SizedBox.shrink();
 
     // Different layouts for actors (with PNG title + overlap) vs directors
     if (isActors) {
@@ -222,44 +253,12 @@ class FavoritePeopleSection extends ConsumerWidget {
                     left: 0,
                     right: 0,
                     height: 190,
-                    child: peopleAsync.when(
-                      data: (people) => people.isEmpty
-                          ? _buildEmptyState()
-                          : _buildPeopleList(people),
-                      loading: () => _buildLoadingState(),
-                      error: (_, __) => _buildEmptyState(),
-                    ),
+                    child: list,
                   ),
                 ],
               ),
             ),
-            // Edit button below the stack
-            if (isOwnProfile)
-              Padding(
-                padding: const EdgeInsets.only(right: 24, top: 8),
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: GestureDetector(
-                    onTap: () => _showPeoplePicker(context, ref),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Text(
-                        personIds.isEmpty ? 'add' : 'edit',
-                        style: const TextStyle(
-                          color: Colors.white60,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+            editButton,
           ],
         ),
       );
@@ -295,45 +294,13 @@ class FavoritePeopleSection extends ConsumerWidget {
                   left: 0,
                   right: 0,
                   height: 190,
-                  child: peopleAsync.when(
-                    data: (people) => people.isEmpty
-                        ? _buildEmptyState()
-                        : _buildPeopleList(people),
-                    loading: () => _buildLoadingState(),
-                    error: (_, __) => _buildEmptyState(),
-                  ),
+                  child: list,
                 ),
               ],
             ),
           ),
-          // Edit button below the stack
-          if (isOwnProfile)
-            Padding(
-              padding: const EdgeInsets.only(right: 24, top: 8),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: GestureDetector(
-                  onTap: () => _showPeoplePicker(context, ref),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      personIds.isEmpty ? 'add' : 'edit',
-                      style: const TextStyle(
-                        color: Colors.white60,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          const SizedBox(height: 20),
+          editButton,
+          const SizedBox(height: AppSpace.xl),
         ],
       ),
     );
@@ -347,53 +314,45 @@ class FavoritePeopleSection extends ConsumerWidget {
       itemBuilder: (context, index) {
         return Padding(
           padding: const EdgeInsets.only(right: 16),
-          child: _PersonCard(
-            person: people[index],
-            accentColor: _gradientColors[0],
-          ),
+          child: _PersonCard(person: people[index]),
         );
       },
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context, WidgetRef ref) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Container(
-        width: double.infinity,
-        height: 120,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              _gradientColors[0].withOpacity(0.1),
-              _gradientColors[1].withOpacity(0.05),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.xl),
+      child: GestureDetector(
+        onTap: isOwnProfile ? () => _showPeoplePicker(context, ref) : null,
+        child: Container(
+          width: double.infinity,
+          height: 120,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.10),
+              width: 0.8,
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                CupertinoIcons.person_2,
+                color: AppColors.inkTertiary,
+                size: 28,
+              ),
+              const SizedBox(height: AppSpace.sm),
+              Text(
+                isOwnProfile
+                    ? 'Add your favorite ${isActors ? 'actors' : 'directors'}'
+                    : 'No favorites yet',
+                style: AppText.caption.copyWith(color: AppColors.inkSecondary),
+              ),
             ],
           ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.1),
-            width: 1,
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.person_outline,
-              color: Colors.white.withOpacity(0.3),
-              size: 32,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              isOwnProfile
-                  ? 'Add your favorite ${isActors ? 'actors' : 'directors'}'
-                  : 'No favorites yet',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.4),
-                fontSize: 13,
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -414,7 +373,7 @@ class FavoritePeopleSection extends ConsumerWidget {
                 height: 130,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(45),
-                  color: Colors.white.withOpacity(0.05),
+                  color: Colors.white.withValues(alpha: 0.05),
                 ),
               ),
               const SizedBox(height: 8),
@@ -422,7 +381,7 @@ class FavoritePeopleSection extends ConsumerWidget {
                 width: 70,
                 height: 12,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
+                  color: Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(6),
                 ),
               ),
@@ -434,11 +393,10 @@ class FavoritePeopleSection extends ConsumerWidget {
   }
 
   void _showPeoplePicker(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => FavoritePeoplePickerSheet(
+    showGlassPanel(
+      context,
+      tall: true,
+      builder: (_) => FavoritePeoplePickerSheet(
         currentPersonIds: personIds,
         title: title,
         isActors: isActors,
@@ -449,12 +407,8 @@ class FavoritePeopleSection extends ConsumerWidget {
 
 class _PersonCard extends StatelessWidget {
   final PersonModel person;
-  final Color accentColor;
 
-  const _PersonCard({
-    required this.person,
-    required this.accentColor,
-  });
+  const _PersonCard({required this.person});
 
   @override
   Widget build(BuildContext context) {
@@ -463,24 +417,21 @@ class _PersonCard extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Pill-shaped photo with colored glow
+          // Pill-shaped photo. Monochrome: the only colour is the face.
           Container(
             width: 90,
             height: 130,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(45),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.14),
+                width: 0.8,
+              ),
               boxShadow: [
-                // Subtle colored glow
                 BoxShadow(
-                  color: accentColor.withOpacity(0.15),
-                  blurRadius: 8,
-                  spreadRadius: 0,
-                ),
-                // Subtle dark shadow for depth
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 6,
-                  offset: const Offset(0, 3),
+                  color: Colors.black.withValues(alpha: 0.45),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
                 ),
               ],
             ),
@@ -498,13 +449,12 @@ class _PersonCard extends StatelessWidget {
                   : _buildPlaceholder(),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpace.sm),
           // Name
           Text(
             person.name,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11,
+            style: AppText.caption.copyWith(
+              color: AppColors.ink,
               fontWeight: FontWeight.w500,
             ),
             maxLines: 2,
@@ -520,13 +470,22 @@ class _PersonCard extends StatelessWidget {
     return Container(
       color: AppColors.surface,
       child: const Center(
-        child: Icon(Icons.person, color: Colors.white24, size: 32),
+        child: Icon(CupertinoIcons.person_fill,
+            color: AppColors.inkTertiary, size: 32),
       ),
     );
   }
 }
 
-/// Bottom sheet for picking favorite people
+// =============================================================================
+// PICKER PANEL
+// =============================================================================
+
+/// Floating glass picker for favorite actors or directors.
+///
+/// Presented with [showGlassPanel]. Selections are ranked in the order they
+/// were picked and shown as numbered pills across the top; the search list
+/// below fills the rest of the pane.
 class FavoritePeoplePickerSheet extends ConsumerStatefulWidget {
   final List<int> currentPersonIds;
   final String title;
@@ -539,6 +498,8 @@ class FavoritePeoplePickerSheet extends ConsumerStatefulWidget {
     required this.isActors,
   });
 
+  static const maxSelections = 4;
+
   @override
   ConsumerState<FavoritePeoplePickerSheet> createState() =>
       _FavoritePeoplePickerSheetState();
@@ -548,10 +509,8 @@ class _FavoritePeoplePickerSheetState
     extends ConsumerState<FavoritePeoplePickerSheet> {
   final _searchController = TextEditingController();
   late List<int> _selectedPersonIds;
-
-  List<Color> get _gradientColors => widget.isActors
-      ? [const Color(0xFF22D3EE), const Color(0xFF3B82F6)]
-      : [const Color(0xFFF97316), const Color(0xFFEF4444)];
+  Timer? _debounce;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -565,186 +524,148 @@ class _FavoritePeoplePickerSheetState
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      ref.read(personSearchNotifierProvider.notifier).search(value);
+      setState(() {});
+    });
+  }
+
+  bool get _dirty {
+    if (_selectedPersonIds.length != widget.currentPersonIds.length) {
+      return true;
+    }
+    for (var i = 0; i < _selectedPersonIds.length; i++) {
+      if (_selectedPersonIds[i] != widget.currentPersonIds[i]) return true;
+    }
+    return false;
   }
 
   @override
   Widget build(BuildContext context) {
     final searchResults = ref.watch(personSearchNotifierProvider);
+    final noun = widget.isActors ? 'actors' : 'directors';
+    final canSelect =
+        _selectedPersonIds.length < FavoritePeoplePickerSheet.maxSelections;
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
-      decoration: const BoxDecoration(
-        color: AppColors.canvas,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        children: [
-          // Handle bar
-          const SizedBox(height: 12),
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white24,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 20),
-          // Title
-          ShaderMask(
-            shaderCallback: (bounds) => LinearGradient(
-              colors: _gradientColors,
-            ).createShader(bounds),
-            child: Text(
-              widget.isActors ? 'favorite actors' : 'favorite directors',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${_selectedPersonIds.length}/4 selected',
-            style: const TextStyle(
-              color: Colors.white38,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 20),
-          // Current selections (if any)
-          if (_selectedPersonIds.isNotEmpty) ...[
-            SizedBox(
-              height: 90,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: _selectedPersonIds.length,
-                itemBuilder: (context, index) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: _SelectedPersonChip(
+    return Column(
+      children: [
+        GlassPanelHeader(
+          title: widget.isActors ? 'Favorite Actors' : 'Favorite Directors',
+          subtitle:
+              '${_selectedPersonIds.length} of ${FavoritePeoplePickerSheet.maxSelections}  ·  in order',
+          leadingLabel: 'Cancel',
+          onLeading: () => Navigator.of(context).pop(),
+          trailingLabel: _saving ? 'Saving…' : 'Done',
+          trailingEnabled: _dirty && !_saving,
+          onTrailing: _save,
+        ),
+
+        // Current selections, ranked.
+        AnimatedSize(
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: _selectedPersonIds.isEmpty
+              ? const SizedBox(width: double.infinity, height: AppSpace.sm)
+              : SizedBox(
+                  height: 108,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.fromLTRB(
+                        AppSpace.lg, AppSpace.sm, AppSpace.lg, AppSpace.sm),
+                    itemCount: _selectedPersonIds.length,
+                    separatorBuilder: (_, __) =>
+                        const SizedBox(width: AppSpace.lg),
+                    itemBuilder: (context, index) => _SelectedPersonPill(
+                      key: ValueKey(_selectedPersonIds[index]),
                       personId: _selectedPersonIds[index],
-                      accentColor: _gradientColors[0],
+                      rank: index + 1,
                       onRemove: () => _removePerson(_selectedPersonIds[index]),
                     ),
+                  ),
+                ),
+        ),
+
+        // Search
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+              AppSpace.lg, AppSpace.xs, AppSpace.lg, AppSpace.sm),
+          child: AppSearchField(
+            controller: _searchController,
+            placeholder: 'Search $noun',
+            autofocus: true,
+            onGlass: true,
+            onChanged: _onSearchChanged,
+          ),
+        ),
+
+        // Results
+        Expanded(
+          child: searchResults.when(
+            data: (people) {
+              // Filter by department - be lenient, exclude opposite department
+              final filtered = _searchController.text.isNotEmpty
+                  ? people.where((p) {
+                      if (widget.isActors) {
+                        return p.knownForDepartment != 'Directing';
+                      } else {
+                        return p.knownForDepartment != 'Acting';
+                      }
+                    }).toList()
+                  : people;
+
+              if (filtered.isEmpty) {
+                return _Hint(
+                  icon: _searchController.text.isNotEmpty
+                      ? CupertinoIcons.search
+                      : CupertinoIcons.person_2,
+                  text: _searchController.text.isNotEmpty
+                      ? 'No $noun found'
+                      : 'Search for ${widget.isActors ? 'an actor' : 'a director'}',
+                );
+              }
+
+              return ListView.separated(
+                padding: const EdgeInsets.fromLTRB(
+                    AppSpace.sm, 0, AppSpace.sm, AppSpace.lg),
+                itemCount: filtered.length,
+                separatorBuilder: (_, __) => const Padding(
+                  padding: EdgeInsets.only(left: 72),
+                  child: Divider(),
+                ),
+                itemBuilder: (context, index) {
+                  final person = filtered[index];
+                  final isSelected = _selectedPersonIds.contains(person.id);
+                  return _PersonSearchResult(
+                    person: person,
+                    isSelected: isSelected,
+                    canSelect: canSelect,
+                    rank: isSelected
+                        ? _selectedPersonIds.indexOf(person.id) + 1
+                        : null,
+                    onTap: () => _togglePerson(person),
                   );
                 },
-              ),
+              );
+            },
+            loading: () => const Center(
+              child: CupertinoActivityIndicator(color: AppColors.ink),
             ),
-            const SizedBox(height: 16),
-          ],
-          // Search bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: AppSearchField(
-              controller: _searchController,
-              placeholder: widget.isActors
-                  ? 'Search actors'
-                  : 'Search directors',
-              onChanged: (value) {
-                ref.read(personSearchNotifierProvider.notifier).search(value);
-              },
+            error: (_, __) => const _Hint(
+              icon: CupertinoIcons.wifi_exclamationmark,
+              text: 'Couldn\'t reach the movie database',
             ),
           ),
-          const SizedBox(height: 16),
-          // Search results
-          Expanded(
-            child: searchResults.when(
-              data: (people) {
-                // Filter by department - be lenient, exclude opposite department
-                final filtered = _searchController.text.isNotEmpty
-                    ? people.where((p) {
-                        if (widget.isActors) {
-                          // For actors: show everyone except directors
-                          return p.knownForDepartment != 'Directing';
-                        } else {
-                          // For directors: show everyone except actors
-                          return p.knownForDepartment != 'Acting';
-                        }
-                      }).toList()
-                    : people;
-
-                if (filtered.isEmpty && _searchController.text.isNotEmpty) {
-                  return Center(
-                    child: Text(
-                      widget.isActors
-                          ? 'No actors found'
-                          : 'No directors found',
-                      style: const TextStyle(color: Colors.white38),
-                    ),
-                  );
-                }
-                if (filtered.isEmpty) {
-                  return Center(
-                    child: Text(
-                      widget.isActors
-                          ? 'Search for an actor'
-                          : 'Search for a director',
-                      style: const TextStyle(color: Colors.white38),
-                    ),
-                  );
-                }
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, index) {
-                    final person = filtered[index];
-                    final isSelected = _selectedPersonIds.contains(person.id);
-                    return _PersonSearchResult(
-                      person: person,
-                      isSelected: isSelected,
-                      canSelect: _selectedPersonIds.length < 4,
-                      accentColor: _gradientColors[0],
-                      onTap: () => _togglePerson(person),
-                    );
-                  },
-                );
-              },
-              loading: () => Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(_gradientColors[0]),
-                ),
-              ),
-              error: (_, __) => const Center(
-                child: Text(
-                  'Error searching',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ),
-          ),
-          // Save button
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _save,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _gradientColors[0],
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    'Save',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -752,7 +673,8 @@ class _FavoritePeoplePickerSheetState
     setState(() {
       if (_selectedPersonIds.contains(person.id)) {
         _selectedPersonIds.remove(person.id);
-      } else if (_selectedPersonIds.length < 4) {
+      } else if (_selectedPersonIds.length <
+          FavoritePeoplePickerSheet.maxSelections) {
         _selectedPersonIds.add(person.id);
       }
     });
@@ -765,6 +687,7 @@ class _FavoritePeoplePickerSheetState
   }
 
   Future<void> _save() async {
+    setState(() => _saving = true);
     final controller = ref.read(favoritesControllerProvider.notifier);
     if (widget.isActors) {
       await controller.setFavoriteActors(_selectedPersonIds);
@@ -772,98 +695,86 @@ class _FavoritePeoplePickerSheetState
       await controller.setFavoriteDirectors(_selectedPersonIds);
     }
     if (mounted) {
-      Navigator.pop(context);
+      Navigator.of(context).pop();
     }
   }
 }
 
-class _SelectedPersonChip extends ConsumerWidget {
+class _Hint extends StatelessWidget {
+  const _Hint({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: AppColors.inkTertiary, size: 30),
+          const SizedBox(height: AppSpace.md),
+          Text(
+            text,
+            style: AppText.body.copyWith(color: AppColors.inkSecondary),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SelectedPersonPill extends ConsumerWidget {
   final int personId;
-  final Color accentColor;
+  final int rank;
   final VoidCallback onRemove;
 
-  const _SelectedPersonChip({
+  const _SelectedPersonPill({
+    super.key,
     required this.personId,
-    required this.accentColor,
+    required this.rank,
     required this.onRemove,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final personAsync = ref.watch(personByIdProvider(personId));
+    final person = personAsync.valueOrNull;
 
-    return personAsync.when(
-      data: (person) {
-        if (person == null) return const SizedBox.shrink();
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              width: 70,
-              height: 70,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: accentColor, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: accentColor.withOpacity(0.3),
-                    blurRadius: 8,
-                  ),
-                ],
-              ),
-              child: ClipOval(
-                child: person.profilePath != null
-                    ? CachedNetworkImage(
-                        imageUrl: person.profileUrl!,
-                        fit: BoxFit.cover,
-                      )
-                    : Container(
-                        color: AppColors.surface,
-                        child: const Icon(Icons.person,
-                            color: Colors.white24, size: 30),
-                      ),
-              ),
+    return SizedBox(
+      width: 64,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: 4,
+            top: 4,
+            child: PillPortrait(
+              imageUrl: person?.profileUrl,
+              width: 56,
+              height: 80,
             ),
-            Positioned(
-              top: -4,
-              right: -4,
-              child: GestureDetector(
-                onTap: onRemove,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade400,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 4,
-                      ),
-                    ],
-                  ),
-                  child: const Icon(Icons.close, color: Colors.white, size: 10),
-                ),
-              ),
+          ),
+          Positioned(left: -2, top: -2, child: RankBadge(rank: rank)),
+          Positioned(
+            right: -2,
+            top: -2,
+            child: RemoveBadge(onTap: onRemove),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 88,
+            child: Text(
+              person?.name.split(' ').last ?? '',
+              style: AppText.footnote.copyWith(color: AppColors.inkSecondary),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
             ),
-          ],
-        );
-      },
-      loading: () => Container(
-        width: 70,
-        height: 70,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white.withOpacity(0.05),
-        ),
-      ),
-      error: (_, __) => Container(
-        width: 70,
-        height: 70,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white.withOpacity(0.05),
-        ),
-        child: const Icon(Icons.error, color: Colors.red, size: 16),
+          ),
+        ],
       ),
     );
   }
@@ -873,87 +784,76 @@ class _PersonSearchResult extends StatelessWidget {
   final PersonModel person;
   final bool isSelected;
   final bool canSelect;
-  final Color accentColor;
+  final int? rank;
   final VoidCallback onTap;
 
   const _PersonSearchResult({
     required this.person,
     required this.isSelected,
     required this.canSelect,
-    required this.accentColor,
+    required this.rank,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: (canSelect || isSelected) ? onTap : null,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? accentColor.withOpacity(0.15)
-              : Colors.white.withOpacity(0.03),
-          borderRadius: BorderRadius.circular(12),
-          border: isSelected
-              ? Border.all(color: accentColor.withOpacity(0.5), width: 1)
-              : null,
-        ),
+    final enabled = canSelect || isSelected;
+    final dim = !enabled;
+
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      highlightColor: Colors.white.withValues(alpha: 0.06),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpace.sm, vertical: AppSpace.sm),
         child: Row(
           children: [
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: isSelected
-                    ? Border.all(color: accentColor, width: 2)
-                    : null,
-              ),
-              child: ClipOval(
-                child: person.profilePath != null
-                    ? CachedNetworkImage(
-                        imageUrl: person.profileUrl!,
-                        fit: BoxFit.cover,
-                      )
-                    : Container(
-                        color: AppColors.surface,
-                        child: const Icon(Icons.person, color: Colors.white24),
-                      ),
-              ),
+            PillPortrait(
+              imageUrl: person.profileUrl,
+              width: 44,
+              height: 62,
+              dim: dim,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpace.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     person.name,
-                    style: TextStyle(
-                      color: isSelected
-                          ? Colors.white
-                          : (canSelect ? Colors.white : Colors.white38),
+                    style: AppText.body.copyWith(
+                      fontSize: 16,
                       fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.normal,
-                      fontSize: 14,
+                          isSelected ? FontWeight.w600 : FontWeight.w400,
+                      color: dim ? AppColors.inkTertiary : AppColors.ink,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    person.knownForDepartment ?? '',
-                    style: const TextStyle(color: Colors.white38, fontSize: 12),
-                  ),
+                  if (person.knownForDepartment != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      person.knownForDepartment!,
+                      style: AppText.caption.copyWith(
+                        color: dim
+                            ? AppColors.inkQuaternary
+                            : AppColors.inkSecondary,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
+            const SizedBox(width: AppSpace.sm),
             if (isSelected)
-              Icon(Icons.check_circle, color: accentColor, size: 22)
-            else if (canSelect)
-              Icon(Icons.add_circle_outline,
-                  color: Colors.white.withOpacity(0.3), size: 22),
+              RankBadge(rank: rank ?? 0)
+            else
+              Icon(
+                CupertinoIcons.plus_circle,
+                color: dim ? AppColors.inkQuaternary : AppColors.inkSecondary,
+                size: 22,
+              ),
           ],
         ),
       ),

@@ -57,6 +57,9 @@ mixin _$UserModel {
   /// Favorite film IDs (TMDB IDs, max 4)
   List<int> get favoriteFilmIds => throw _privateConstructorUsedError;
 
+  /// Favorite show IDs (TMDB TV IDs, max 3)
+  List<int> get favoriteShowIds => throw _privateConstructorUsedError;
+
   /// Favorite actor IDs (TMDB person IDs, max 4)
   List<int> get favoriteActorIds => throw _privateConstructorUsedError;
 
@@ -90,6 +93,7 @@ abstract class $UserModelCopyWith<$Res> {
       int followingCount,
       List<String> favoriteGenres,
       List<int> favoriteFilmIds,
+      List<int> favoriteShowIds,
       List<int> favoriteActorIds,
       List<int> favoriteDirectorIds,
       DateTime createdAt});
@@ -120,6 +124,7 @@ class _$UserModelCopyWithImpl<$Res, $Val extends UserModel>
     Object? followingCount = null,
     Object? favoriteGenres = null,
     Object? favoriteFilmIds = null,
+    Object? favoriteShowIds = null,
     Object? favoriteActorIds = null,
     Object? favoriteDirectorIds = null,
     Object? createdAt = null,
@@ -173,6 +178,10 @@ class _$UserModelCopyWithImpl<$Res, $Val extends UserModel>
           ? _value.favoriteFilmIds
           : favoriteFilmIds // ignore: cast_nullable_to_non_nullable
               as List<int>,
+      favoriteShowIds: null == favoriteShowIds
+          ? _value.favoriteShowIds
+          : favoriteShowIds // ignore: cast_nullable_to_non_nullable
+              as List<int>,
       favoriteActorIds: null == favoriteActorIds
           ? _value.favoriteActorIds
           : favoriteActorIds // ignore: cast_nullable_to_non_nullable
@@ -210,6 +219,7 @@ abstract class _$$UserModelImplCopyWith<$Res>
       int followingCount,
       List<String> favoriteGenres,
       List<int> favoriteFilmIds,
+      List<int> favoriteShowIds,
       List<int> favoriteActorIds,
       List<int> favoriteDirectorIds,
       DateTime createdAt});
@@ -238,6 +248,7 @@ class __$$UserModelImplCopyWithImpl<$Res>
     Object? followingCount = null,
     Object? favoriteGenres = null,
     Object? favoriteFilmIds = null,
+    Object? favoriteShowIds = null,
     Object? favoriteActorIds = null,
     Object? favoriteDirectorIds = null,
     Object? createdAt = null,
@@ -291,6 +302,10 @@ class __$$UserModelImplCopyWithImpl<$Res>
           ? _value._favoriteFilmIds
           : favoriteFilmIds // ignore: cast_nullable_to_non_nullable
               as List<int>,
+      favoriteShowIds: null == favoriteShowIds
+          ? _value._favoriteShowIds
+          : favoriteShowIds // ignore: cast_nullable_to_non_nullable
+              as List<int>,
       favoriteActorIds: null == favoriteActorIds
           ? _value._favoriteActorIds
           : favoriteActorIds // ignore: cast_nullable_to_non_nullable
@@ -324,12 +339,14 @@ class _$UserModelImpl implements _UserModel {
       this.followingCount = 0,
       final List<String> favoriteGenres = const [],
       final List<int> favoriteFilmIds = const [],
+      final List<int> favoriteShowIds = const [],
       final List<int> favoriteActorIds = const [],
       final List<int> favoriteDirectorIds = const [],
       required this.createdAt})
       : _badgeIds = badgeIds,
         _favoriteGenres = favoriteGenres,
         _favoriteFilmIds = favoriteFilmIds,
+        _favoriteShowIds = favoriteShowIds,
         _favoriteActorIds = favoriteActorIds,
         _favoriteDirectorIds = favoriteDirectorIds;
 
@@ -412,6 +429,18 @@ class _$UserModelImpl implements _UserModel {
     return EqualUnmodifiableListView(_favoriteFilmIds);
   }
 
+  /// Favorite show IDs (TMDB TV IDs, max 3)
+  final List<int> _favoriteShowIds;
+
+  /// Favorite show IDs (TMDB TV IDs, max 3)
+  @override
+  @JsonKey()
+  List<int> get favoriteShowIds {
+    if (_favoriteShowIds is EqualUnmodifiableListView) return _favoriteShowIds;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_favoriteShowIds);
+  }
+
   /// Favorite actor IDs (TMDB person IDs, max 4)
   final List<int> _favoriteActorIds;
 
@@ -444,7 +473,7 @@ class _$UserModelImpl implements _UserModel {
 
   @override
   String toString() {
-    return 'UserModel(uid: $uid, email: $email, username: $username, displayName: $displayName, photoUrl: $photoUrl, bio: $bio, badgeIds: $badgeIds, reviewCount: $reviewCount, followerCount: $followerCount, followingCount: $followingCount, favoriteGenres: $favoriteGenres, favoriteFilmIds: $favoriteFilmIds, favoriteActorIds: $favoriteActorIds, favoriteDirectorIds: $favoriteDirectorIds, createdAt: $createdAt)';
+    return 'UserModel(uid: $uid, email: $email, username: $username, displayName: $displayName, photoUrl: $photoUrl, bio: $bio, badgeIds: $badgeIds, reviewCount: $reviewCount, followerCount: $followerCount, followingCount: $followingCount, favoriteGenres: $favoriteGenres, favoriteFilmIds: $favoriteFilmIds, favoriteShowIds: $favoriteShowIds, favoriteActorIds: $favoriteActorIds, favoriteDirectorIds: $favoriteDirectorIds, createdAt: $createdAt)';
   }
 
   @override
@@ -473,6 +502,8 @@ class _$UserModelImpl implements _UserModel {
             const DeepCollectionEquality()
                 .equals(other._favoriteFilmIds, _favoriteFilmIds) &&
             const DeepCollectionEquality()
+                .equals(other._favoriteShowIds, _favoriteShowIds) &&
+            const DeepCollectionEquality()
                 .equals(other._favoriteActorIds, _favoriteActorIds) &&
             const DeepCollectionEquality()
                 .equals(other._favoriteDirectorIds, _favoriteDirectorIds) &&
@@ -496,6 +527,7 @@ class _$UserModelImpl implements _UserModel {
       followingCount,
       const DeepCollectionEquality().hash(_favoriteGenres),
       const DeepCollectionEquality().hash(_favoriteFilmIds),
+      const DeepCollectionEquality().hash(_favoriteShowIds),
       const DeepCollectionEquality().hash(_favoriteActorIds),
       const DeepCollectionEquality().hash(_favoriteDirectorIds),
       createdAt);
@@ -528,6 +560,7 @@ abstract class _UserModel implements UserModel {
       final int followingCount,
       final List<String> favoriteGenres,
       final List<int> favoriteFilmIds,
+      final List<int> favoriteShowIds,
       final List<int> favoriteActorIds,
       final List<int> favoriteDirectorIds,
       required final DateTime createdAt}) = _$UserModelImpl;
@@ -584,6 +617,10 @@ abstract class _UserModel implements UserModel {
 
   /// Favorite film IDs (TMDB IDs, max 4)
   List<int> get favoriteFilmIds;
+  @override
+
+  /// Favorite show IDs (TMDB TV IDs, max 3)
+  List<int> get favoriteShowIds;
   @override
 
   /// Favorite actor IDs (TMDB person IDs, max 4)

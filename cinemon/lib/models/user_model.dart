@@ -16,39 +16,42 @@ class UserModel with _$UserModel {
   const factory UserModel({
     /// Supabase Auth user id — primary key of `profiles`
     @JsonKey(name: 'id') required String uid,
-    
+
     /// User's email address
     required String email,
-    
+
     /// Unique username for search/display (e.g., @filmfan42)
     required String username,
-    
+
     /// Optional display name (can be different from username)
     String? displayName,
-    
+
     /// Profile photo URL (Supabase Storage, `avatars` bucket)
     String? photoUrl,
-    
+
     /// User bio/description
     String? bio,
-    
+
     /// IDs of badges the user has earned
     @Default([]) List<String> badgeIds,
-    
+
     /// Total number of reviews posted
     @Default(0) int reviewCount,
-    
+
     /// Number of followers
     @Default(0) int followerCount,
-    
+
     /// Number of users this user follows
     @Default(0) int followingCount,
-    
+
     /// User's favorite movie genres
     @Default([]) List<String> favoriteGenres,
 
     /// Favorite film IDs (TMDB IDs, max 4)
     @Default([]) List<int> favoriteFilmIds,
+
+    /// Favorite show IDs (TMDB TV IDs, max 3)
+    @Default([]) List<int> favoriteShowIds,
 
     /// Favorite actor IDs (TMDB person IDs, max 4)
     @Default([]) List<int> favoriteActorIds,
@@ -61,7 +64,7 @@ class UserModel with _$UserModel {
   }) = _UserModel;
 
   /// Creates a UserModel from a `profiles` row
-  factory UserModel.fromJson(Map<String, dynamic> json) => 
+  factory UserModel.fromJson(Map<String, dynamic> json) =>
       _$UserModelFromJson(json);
 }
 
@@ -97,4 +100,3 @@ extension UserModelDb on UserModel {
     );
   }
 }
-

@@ -78,7 +78,8 @@ class NotificationModel with _$NotificationModel {
     final actor = row['actor'] as Map<String, dynamic>?;
     return NotificationModel.fromJson({
       ...row,
-      'actor_username': row['actor_username'] ?? actor?['username'] ?? 'unknown',
+      'actor_username':
+          row['actor_username'] ?? actor?['username'] ?? 'unknown',
       'actor_photo_url': row['actor_photo_url'] ?? actor?['photo_url'],
     }..remove('actor'));
   }

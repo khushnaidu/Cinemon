@@ -21,7 +21,8 @@ final searchPeopleProvider =
 });
 
 /// State notifier for person search with debouncing
-class PersonSearchNotifier extends StateNotifier<AsyncValue<List<PersonModel>>> {
+class PersonSearchNotifier
+    extends StateNotifier<AsyncValue<List<PersonModel>>> {
   final MovieRepository _repository;
   String _lastQuery = '';
 
@@ -94,8 +95,32 @@ final favoriteFilmsDataProvider =
 /// Converts list to stable string key for the provider
 String favoriteFilmsKey(List<int> filmIds) => _filmIdsKey(filmIds);
 
+/// Ranked top-3 shows with full data. Fetched as TV directly — no
+/// movie-then-TV guessing, since the column only ever holds TV ids.
+final favoriteShowsDataProvider =
+    FutureProvider.family<List<FilmModel>, String>((ref, showIdsKey) async {
+  final ids = _parseFilmIdsKey(showIdsKey);
+  if (ids.isEmpty) return [];
+  final repository = ref.watch(movieRepositoryProvider);
+  final shows = await repository.getShowsByIds(ids);
+  // Keep the user's ranking; Future.wait preserves order but skips misses.
+  shows.sort((a, b) => ids.indexOf(a.id).compareTo(ids.indexOf(b.id)));
+  return shows;
+});
+
+/// Provider for current user's favorite shows
+final currentUserFavoriteShowsProvider =
+    FutureProvider<List<FilmModel>>((ref) async {
+  final userProfile = await ref.watch(currentUserProfileProvider.future);
+  if (userProfile == null) return [];
+  final ids = userProfile.favoriteShowIds;
+  if (ids.isEmpty) return [];
+  return ref.watch(favoriteShowsDataProvider(favoriteFilmsKey(ids)).future);
+});
+
 /// Provider for current user's favorite films
-final currentUserFavoriteFilmsProvider = FutureProvider<List<FilmModel>>((ref) async {
+final currentUserFavoriteFilmsProvider =
+    FutureProvider<List<FilmModel>>((ref) async {
   final userProfile = await ref.watch(currentUserProfileProvider.future);
   if (userProfile == null) return [];
 
@@ -149,7 +174,8 @@ final personByIdProvider =
 });
 
 /// Provider for current user's favorite actors
-final currentUserFavoriteActorsProvider = FutureProvider<List<PersonModel>>((ref) async {
+final currentUserFavoriteActorsProvider =
+    FutureProvider<List<PersonModel>>((ref) async {
   final userProfile = await ref.watch(currentUserProfileProvider.future);
   if (userProfile == null) return [];
 
@@ -160,7 +186,8 @@ final currentUserFavoriteActorsProvider = FutureProvider<List<PersonModel>>((ref
 });
 
 /// Provider for current user's favorite directors
-final currentUserFavoriteDirectorsProvider = FutureProvider<List<PersonModel>>((ref) async {
+final currentUserFavoriteDirectorsProvider =
+    FutureProvider<List<PersonModel>>((ref) async {
   final userProfile = await ref.watch(currentUserProfileProvider.future);
   if (userProfile == null) return [];
 
@@ -179,7 +206,8 @@ final currentUserFavoriteDirectorsProvider = FutureProvider<List<PersonModel>>((
 final recentlyWatchedProvider =
     FutureProvider.family<List<ActivityModel>, String>((ref, userId) async {
   final feedRepo = ref.watch(feedRepositoryProvider);
-  final activities = await feedRepo.getUserActivities(userId: userId, limit: 20);
+  final activities =
+      await feedRepo.getUserActivities(userId: userId, limit: 20);
 
   // Get unique films (most recent appearance of each film)
   final seenFilmIds = <int>{};
@@ -197,7 +225,8 @@ final recentlyWatchedProvider =
 });
 
 /// Provider for current user's recently watched films
-final currentUserRecentlyWatchedProvider = FutureProvider<List<ActivityModel>>((ref) async {
+final currentUserRecentlyWatchedProvider =
+    FutureProvider<List<ActivityModel>>((ref) async {
   final currentUser = ref.watch(currentUserProvider);
   if (currentUser == null) return [];
 
@@ -238,7 +267,8 @@ class FavoritesController extends StateNotifier<FavoritesState> {
   final UserRepository _userRepo;
   final Ref _ref;
 
-  FavoritesController(this._userRepo, this._ref) : super(const FavoritesState());
+  FavoritesController(this._userRepo, this._ref)
+      : super(const FavoritesState());
 
   // ========== FILMS ==========
 
@@ -295,6 +325,21 @@ class FavoritesController extends StateNotifier<FavoritesState> {
     }
   }
 
+  // ========== SHOWS ==========
+
+  /// Set the ranked top-3 shows.
+  Future<void> setFavoriteShows(List<int> showIds) async {
+    final currentUser = _ref.read(currentUserProvider);
+    if (currentUser == null) return;
+
+    try {
+      await _userRepo.setFavoriteShows(currentUser.uid, showIds);
+      _invalidateFavorites();
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+    }
+  }
+
   // ========== ACTORS ==========
 
   /// Add a favorite actor
@@ -308,7 +353,8 @@ class FavoritesController extends StateNotifier<FavoritesState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
-      final success = await _userRepo.addFavoriteActor(currentUser.uid, personId);
+      final success =
+          await _userRepo.addFavoriteActor(currentUser.uid, personId);
       state = state.copyWith(isLoading: false, success: success);
 
       if (success) {
@@ -363,7 +409,8 @@ class FavoritesController extends StateNotifier<FavoritesState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
-      final success = await _userRepo.addFavoriteDirector(currentUser.uid, personId);
+      final success =
+          await _userRepo.addFavoriteDirector(currentUser.uid, personId);
       state = state.copyWith(isLoading: false, success: success);
 
       if (success) {
@@ -409,6 +456,7 @@ class FavoritesController extends StateNotifier<FavoritesState> {
   void _invalidateFavorites() {
     _ref.invalidate(currentUserProfileProvider);
     _ref.invalidate(currentUserFavoriteFilmsProvider);
+    _ref.invalidate(currentUserFavoriteShowsProvider);
     _ref.invalidate(currentUserFavoriteActorsProvider);
     _ref.invalidate(currentUserFavoriteDirectorsProvider);
   }

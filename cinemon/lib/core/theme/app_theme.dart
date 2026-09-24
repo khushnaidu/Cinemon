@@ -101,11 +101,21 @@ abstract final class AppRadius {
 /// subtle but it's a real part of why type can look "off" on iOS — Display
 /// has tighter spacing and smaller apertures suited to headlines.
 abstract final class AppText {
-  static const _display = '.SF Pro Display';
-  static const _text = '.SF Pro Text';
+  // These two names are special-cased by Flutter's engine on iOS and macOS
+  // and resolve to the real system UI font (San Francisco) at the right
+  // optical size. '.SF Pro Text' / '.SF Pro Display' are *not* resolvable
+  // family names — with them, CoreText fails the lookup and Flutter walks the
+  // fallback list, which is how the whole app ended up set in Helvetica Neue.
+  static const _display = 'CupertinoSystemDisplay';
+  static const _text = 'CupertinoSystemText';
 
   /// Non-Apple platforms fall back gracefully rather than rendering blank.
-  static const _fallback = <String>['.SF UI Display', 'Helvetica Neue', 'Roboto'];
+  static const _fallback = <String>[
+    '.SF Pro Text',
+    '.SF UI Text',
+    'Helvetica Neue',
+    'Roboto'
+  ];
 
   /// Navigation bar large titles.
   static const largeTitle = TextStyle(

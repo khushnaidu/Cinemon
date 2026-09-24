@@ -109,7 +109,8 @@ class BadgeService {
     final today = DateTime.now();
     final startOfDay = DateTime(today.year, today.month, today.day);
 
-    final activities = await _feedRepo.getUserActivities(userId: userId, limit: 10);
+    final activities =
+        await _feedRepo.getUserActivities(userId: userId, limit: 10);
 
     // Count reviews posted today
     final todayReviews = activities.where((a) {
