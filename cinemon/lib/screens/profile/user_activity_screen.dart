@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../models/activity_model.dart';
 import '../../providers/auth/auth_provider.dart';
 import '../../providers/feed/feed_provider.dart';
+import '../widgets/report_sheet.dart';
 import '../widgets/review_editor.dart';
 
 /// Screen showing all user activity/posts in a grid format
@@ -155,7 +156,7 @@ class UserActivityScreen extends ConsumerWidget {
 }
 
 /// Individual activity item in the grid
-class _ActivityGridItem extends StatelessWidget {
+class _ActivityGridItem extends ConsumerWidget {
   final ActivityModel activity;
   final bool isOwnActivity;
 
@@ -165,8 +166,21 @@ class _ActivityGridItem extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return GestureDetector(
+      // Someone else's review: hold to report it or block them.
+      onLongPress: isOwnActivity
+          ? null
+          : () => showContentMenu(
+                context,
+                ref,
+                kind: ReportKind.activity,
+                targetId: activity.id,
+                authorId: activity.userId,
+                authorUsername: activity.username,
+                onReported: () =>
+                    ref.invalidate(userActivitiesProvider(activity.userId)),
+              ),
       onTap: () {
         if (isOwnActivity) {
           // Your own post opens the editor; everyone else's opens the film.

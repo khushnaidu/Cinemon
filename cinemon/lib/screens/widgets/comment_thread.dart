@@ -44,18 +44,18 @@ class SliverCommentThreads extends StatelessWidget {
     required this.expanded,
     required this.onToggle,
     required this.onReply,
-    required this.canDelete,
     required this.isAuthor,
-    required this.onDelete,
+    required this.onMenu,
   });
 
   final CommentThreads threads;
   final Set<String> expanded;
   final ValueChanged<String> onToggle;
   final ValueChanged<CommentModel> onReply;
-  final bool Function(CommentModel) canDelete;
   final bool Function(CommentModel) isAuthor;
-  final ValueChanged<CommentModel> onDelete;
+
+  /// The comment's ••• and long-press: delete, or report and block.
+  final ValueChanged<CommentModel> onMenu;
 
   @override
   Widget build(BuildContext context) {
@@ -112,10 +112,9 @@ class SliverCommentThreads extends StatelessWidget {
 
   Widget _row(CommentModel c, {bool compact = false}) => CommentRow(
         comment: c,
-        isOwn: canDelete(c),
         isAuthor: isAuthor(c),
         compact: compact,
-        onDelete: () => onDelete(c),
+        onMenu: () => onMenu(c),
         onReply: () => onReply(c),
       );
 }

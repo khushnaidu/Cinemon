@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,12 +6,14 @@ import 'package:go_router/go_router.dart';
 import '../models/activity_model.dart';
 import '../models/film_model.dart';
 import '../providers/movie/movie_provider.dart';
+import '../providers/auth/auth_provider.dart';
 import '../providers/feed/feed_provider.dart';
 import '../core/constants/api_constants.dart';
 import 'film/film_extras_sections.dart';
 import 'lists/watchlist_button.dart';
 import 'widgets/episodes_section.dart';
 import 'widgets/post_review_sheet.dart';
+import 'widgets/report_sheet.dart';
 import 'widgets/review_editor.dart';
 
 /// Film detail screen showing full film info and friends' reviews
@@ -546,13 +549,14 @@ class _FilmDetailContent extends ConsumerWidget {
 }
 
 /// Card showing a friend's review
-class _FriendReviewCard extends StatelessWidget {
+class _FriendReviewCard extends ConsumerWidget {
   final ActivityModel activity;
 
   const _FriendReviewCard({required this.activity});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final me = ref.watch(currentUserProvider)?.uid;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -619,6 +623,25 @@ class _FriendReviewCard extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+              if (me != null && me != activity.userId)
+                GestureDetector(
+                  onTap: () => showContentMenu(
+                    context,
+                    ref,
+                    kind: ReportKind.activity,
+                    targetId: activity.id,
+                    authorId: activity.userId,
+                    authorUsername: activity.username,
+                    onReported: () => ref.invalidate(
+                        friendsFilmActivitiesProvider(activity.filmId)),
+                  ),
+                  behavior: HitTestBehavior.opaque,
+                  child: const Padding(
+                    padding: EdgeInsets.only(left: 10),
+                    child: Icon(CupertinoIcons.ellipsis,
+                        size: 18, color: Colors.white54),
+                  ),
                 ),
             ],
           ),

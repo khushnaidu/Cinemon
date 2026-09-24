@@ -10,6 +10,7 @@ import '../../providers/auth/auth_provider.dart';
 import '../../providers/feed/feed_provider.dart';
 import 'comment_thread.dart';
 import 'glass_panel.dart';
+import 'report_sheet.dart';
 import 'liquid_glass.dart' show GlassLens;
 
 /// Open the comments for a post as a tall glass panel.
@@ -202,9 +203,17 @@ class _CommentsSheetState extends ConsumerState<CommentsSheet> {
                         if (!_expanded.remove(id)) _expanded.add(id);
                       }),
                       onReply: _startReply,
-                      canDelete: (c) => currentUser?.uid == c.userId,
                       isAuthor: (c) => widget.activityOwnerId == c.userId,
-                      onDelete: _delete,
+                      onMenu: (c) => showCommentMenu(
+                        context,
+                        ref,
+                        comment: c,
+                        kind: ReportKind.activityComment,
+                        canDelete: currentUser?.uid == c.userId,
+                        onDelete: () => _delete(c),
+                        onReported: () => ref.invalidate(
+                            activityCommentsProvider(widget.activityId)),
+                      ),
                     ),
                   ),
                 ],
@@ -319,15 +328,13 @@ class CommentRow extends StatelessWidget {
   const CommentRow({
     super.key,
     required this.comment,
-    required this.isOwn,
     required this.isAuthor,
-    required this.onDelete,
+    required this.onMenu,
     this.onReply,
     this.compact = false,
   });
 
   final CommentModel comment;
-  final bool isOwn;
 
   /// Shows a "Reply" action under the text.
   final VoidCallback? onReply;
@@ -338,17 +345,17 @@ class CommentRow extends StatelessWidget {
   /// Wrote the post being commented on. Gets a small mark, the way threads
   /// flag the original poster.
   final bool isAuthor;
-  final VoidCallback onDelete;
+
+  /// Delete for your own; report and block for everyone else's.
+  final VoidCallback onMenu;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onLongPress: isOwn
-          ? () {
-              HapticFeedback.mediumImpact();
-              onDelete();
-            }
-          : null,
+      onLongPress: () {
+        HapticFeedback.mediumImpact();
+        onMenu();
+      },
       behavior: HitTestBehavior.opaque,
       child: Padding(
         padding:
@@ -434,10 +441,10 @@ class CommentRow extends StatelessWidget {
                 ],
               ),
             ),
-            if (isOwn) ...[
+            ...[
               const SizedBox(width: AppSpace.sm),
               GestureDetector(
-                onTap: onDelete,
+                onTap: onMenu,
                 behavior: HitTestBehavior.opaque,
                 child: const Padding(
                   padding: EdgeInsets.all(AppSpace.xs),

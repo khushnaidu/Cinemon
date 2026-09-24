@@ -8,6 +8,8 @@ import '../../models/activity_model.dart';
 import '../../models/sticker_model.dart';
 import '../../share/share_sheet.dart';
 import '../../share/share_subject.dart';
+import '../../providers/feed/feed_provider.dart' show homeFeedProvider;
+import 'report_sheet.dart';
 import 'review_photo_stack.dart';
 import 'voice_note_player.dart';
 
@@ -153,6 +155,20 @@ class ReviewCardBack extends ConsumerWidget {
                     onComment: onComment,
                     onLike: onLike,
                     onEdit: onEdit,
+                    // Someone else's review: report it, or block them.
+                    onMore: currentUserId == null ||
+                            currentUserId == activity.userId
+                        ? null
+                        : () => showContentMenu(
+                              context,
+                              ref,
+                              kind: ReportKind.activity,
+                              targetId: activity.id,
+                              authorId: activity.userId,
+                              authorUsername: activity.username,
+                              onReported: () =>
+                                  ref.invalidate(homeFeedProvider),
+                            ),
                   ),
                 ],
               ),
@@ -450,6 +466,7 @@ class _Tallies extends StatelessWidget {
     required this.onComment,
     required this.onLike,
     required this.onEdit,
+    required this.onMore,
   });
 
   final ActivityModel activity;
@@ -459,6 +476,7 @@ class _Tallies extends StatelessWidget {
   final VoidCallback onComment;
   final VoidCallback onLike;
   final VoidCallback? onEdit;
+  final VoidCallback? onMore;
 
   @override
   Widget build(BuildContext context) {
@@ -516,6 +534,12 @@ class _Tallies extends StatelessWidget {
               icon: CupertinoIcons.pencil,
               count: 0,
               onTap: onEdit!,
+            ),
+          if (onMore != null)
+            _Tally(
+              icon: CupertinoIcons.ellipsis,
+              count: 0,
+              onTap: onMore!,
             ),
         ],
       ),

@@ -20,6 +20,7 @@ import '../../providers/lists/list_provider.dart';
 import '../explore/explore_composer.dart'
     show confirmListRepost, showExploreComposer;
 import '../widgets/glass_panel.dart';
+import '../widgets/report_sheet.dart';
 import '../../share/share_sheet.dart';
 import '../../share/share_subject.dart';
 import 'add_films_panel.dart';
@@ -281,6 +282,22 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
               icon: CupertinoIcons.globe,
               compact: true,
               onTap: () => _postToExplore(items),
+            ),
+          // Someone else's playlist: report it, or block its owner.
+          if (!isOwner && me != null)
+            GlassPillButton(
+              label: 'More',
+              icon: CupertinoIcons.ellipsis,
+              compact: true,
+              onTap: () => showContentMenu(
+                context,
+                ref,
+                kind: ReportKind.list,
+                targetId: list.id,
+                authorId: list.userId,
+                authorUsername: owner?.username ?? 'this person',
+                onReported: () => leaveList(context),
+              ),
             ),
           if (items.length > 1 && !_reordering)
             GlassPillButton(
