@@ -389,11 +389,29 @@ class MovieRepository {
 
       final results = response.data['results'] as List<dynamic>;
       return results
-          .map((json) => PersonModel.fromJson(json as Map<String, dynamic>))
+          .cast<Map<String, dynamic>>()
+          .where(_hasRealCredits)
+          .map(PersonModel.fromJson)
           .toList();
     } on DioException catch (e) {
       throw _handleDioError(e);
     }
+  }
+
+  /// Whether a search result is someone people would log a film by.
+  ///
+  /// `include_adult=false` misses adult performers that TMDB doesn't flag.
+  /// With their adult titles filtered out, what's left of their known-for is
+  /// nothing, or a title almost nobody has rated. So a result needs something
+  /// in known-for with at least a few votes. The cost is hiding people whose
+  /// only credits are very obscure.
+  static bool _hasRealCredits(Map<String, dynamic> json) {
+    if (json['adult'] == true) return false;
+    final knownFor = (json['known_for'] as List?) ?? const [];
+    return knownFor.any((k) =>
+        k is Map &&
+        k['adult'] != true &&
+        ((k['vote_count'] as num?) ?? 0) >= 10);
   }
 
   /// Get detailed information about a person by ID
@@ -403,22 +421,6 @@ class MovieRepository {
           await _dio.get('${ApiConstants.personDetails}/$personId');
 
       return PersonModel.fromJson(response.data as Map<String, dynamic>);
-    } on DioException catch (e) {
-      throw _handleDioError(e);
-    }
-  }
-
-  /// People trending this week, for the People search tab before typing.
-  /// Anyone without a photo is left out: a grid of blank portraits reads as
-  /// broken.
-  Future<List<PersonModel>> getTrendingPeople() async {
-    try {
-      final response = await _dio.get('/trending/person/week');
-      final results = response.data['results'] as List<dynamic>;
-      return results
-          .map((json) => PersonModel.fromJson(json as Map<String, dynamic>))
-          .where((p) => p.profilePath != null)
-          .toList();
     } on DioException catch (e) {
       throw _handleDioError(e);
     }

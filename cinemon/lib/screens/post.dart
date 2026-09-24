@@ -301,6 +301,8 @@ class _MovieSearchPageState extends ConsumerState<MovieSearchPage> {
 
   Widget _buildFilmGrid(List<FilmModel> films) {
     return GridView.builder(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
@@ -338,6 +340,8 @@ class _MovieSearchPageState extends ConsumerState<MovieSearchPage> {
           );
         }
         return GridView.builder(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 16),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 3,
@@ -354,6 +358,8 @@ class _MovieSearchPageState extends ConsumerState<MovieSearchPage> {
 
   Widget _buildLoadingGrid() {
     return GridView.builder(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,

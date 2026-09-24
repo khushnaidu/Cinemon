@@ -107,6 +107,24 @@ Phase 7  Trailers tab         ── reuses the player from Phase 1
     - Alerts in Activity. Tapping one opens the title, and tapping the portrait opens the person.
     - **Surface decision:** the "New from people you follow" rail sits at the top of Explore rather than waiting for the Trailers tab.
     - A "Following" rail in the profile's Favorites tab.
+- **Phase 7** built 2026-09-24, with migrations `012_trailer_feed.sql` and `013_trailers_from_tmdb.sql`:
+  - **Change from D11: TMDB, not KinoCheck.** 012 used KinoCheck, but its videos are its own re-uploads with a KinoCheck intro in front of each one. 013 drops it. TMDB links the studios' own uploads (the same ones the film page plays) and has no daily limit.
+  - **Feed job, in Postgres like Phase 6:**
+    - Every 6 hours, `trailer_feed_dispatch()` fetches 7 TMDB lists: trending/all/week (3 pages), upcoming (2), now playing, and TV on the air.
+    - Every 2 minutes, `trailer_feed_collect()` looks up each title (`append_to_response=videos,credits`, 60 at a time) and rechecks each daily, since new trailers are the point. The trailer is picked by the film page's rule: an official Trailer, newest first, then any Trailer, then a Teaser.
+    - Skipped: adult titles, and talk, news and reality TV.
+  - **Feeds:**
+    - **Trending** is TMDB's trending films and shows this week, in its order.
+    - **New** is trailers published in the last 30 days, newest first, from everything on the lists.
+  - **Trending people** (the People search tab before typing) come from the `trending_people` view: the four leads and the director or creators of this week's trending titles, taken in turns. TMDB's `trending/person` was mostly adult performers that aren't flagged as adult.
+  - **Unseen first:** the device remembers which trailers you've watched (`TrailerSeenStore`, in `shared_preferences`). Each load or pull-to-refresh orders the feed with unwatched trailers first, then watched ones, the longest ago first. After 7 days a watched trailer counts as unwatched again.
+  - **Tapping the current tab again** scrolls Home or Trailers back to the top (`shellTabReselects`). Search results close the keyboard when you drag them or press the Search key.
+  - **People search** hides results whose known-for has nothing with 10+ votes, which is how unflagged adult performers look once `include_adult=false` strips their titles.
+  - **App:**
+    - A fifth tab, Trailers, between Explore and Profile. Its layout is a vertical pager, with a video 16:9 at full width, lit by its poster (`PosterAmbience`).
+    - Each page shows the category, year, title, where to watch (`CompactWhereToWatch`, on the current page only), watchlist, Add to…, sound and Open.
+    - **One web view:** only the settled page has a player. Leaving the tab (`shellBranchIndex`), a covering route or sheet (`shellChromeVisible`), or backgrounding the app closes it, and coming back resumes from the same second.
+    - Autoplay is muted, and turning the sound on carries across pages. Vertical drags that start on the video still turn the page. A trailer that won't embed, or that ends, advances to the next one.
 
 ### Why this order
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
@@ -26,6 +28,16 @@ final RouteObserver<ModalRoute<void>> shellRouteObserver =
 /// Two independent things can cover the shell, and they're detected
 /// differently — see [shellRouteObserver] and the branch observers below.
 final ValueNotifier<bool> shellChromeVisible = ValueNotifier<bool>(true);
+
+/// Which tab is showing. The Trailers tab watches it to stop its player as
+/// soon as you leave, since the indexed stack keeps it alive offstage.
+final ValueNotifier<int> shellBranchIndex = ValueNotifier<int>(0);
+
+final StreamController<int> _reselects = StreamController<int>.broadcast();
+
+/// The index of a tab tapped while it was already showing. Screens scroll
+/// back to the top on it, the way iOS tab bars do.
+Stream<int> get shellTabReselects => _reselects.stream;
 
 bool _rootCovered = false;
 int _branchDepth = 0;
@@ -90,7 +102,7 @@ class _BranchDepthObserver extends NavigatorObserver {
 /// though the counter behind it is.
 NavigatorObserver branchDepthObserver() => _BranchDepthObserver();
 
-/// The persistent chrome that the four tabs live inside.
+/// The persistent chrome that the five tabs live inside.
 ///
 /// The tab bar is deliberately *outside* the branch navigators rather than in
 /// each screen's Scaffold:
@@ -98,7 +110,7 @@ NavigatorObserver branchDepthObserver() => _BranchDepthObserver();
 ///   * It survives tab changes, so the travelling selection is visible at
 ///     all. A bar rebuilt per screen restarts its animation every time.
 ///   * Each tab keeps its own navigation stack and scroll position, because
-///     `StatefulShellRoute.indexedStack` holds all four branches alive.
+///     `StatefulShellRoute.indexedStack` holds all five branches alive.
 ///   * Content scrolls *under* it, which is what the glass refracts. Chrome
 ///     in a reserved strip has nothing behind it to bend.
 class GlassShell extends StatefulWidget {
@@ -159,6 +171,7 @@ class _GlassShellState extends State<GlassShell> with RouteAware {
   }
 
   void _onTap(int index) {
+    if (index == widget.navigationShell.currentIndex) _reselects.add(index);
     widget.navigationShell.goBranch(
       index,
       // Tapping the active tab pops that branch to its root, the way every
@@ -169,6 +182,12 @@ class _GlassShellState extends State<GlassShell> with RouteAware {
 
   @override
   Widget build(BuildContext context) {
+    final index = widget.navigationShell.currentIndex;
+    if (shellBranchIndex.value != index) {
+      // Not during build: listeners would rebuild mid-frame.
+      SchedulerBinding.instance
+          .addPostFrameCallback((_) => shellBranchIndex.value = index);
+    }
     return Scaffold(
       // No bottomNavigationBar: that reserves a strip and stops content from
       // passing beneath the glass. The bar is a floating overlay.
@@ -215,6 +234,13 @@ class _GlassShellState extends State<GlassShell> with RouteAware {
                         label: 'Explore',
                         fallbackIcon: CupertinoIcons.globe,
                         fallbackActiveIcon: CupertinoIcons.globe,
+                      ),
+                      GlassTabItem(
+                        symbol: 'play.rectangle.on.rectangle',
+                        activeSymbol: 'play.rectangle.on.rectangle.fill',
+                        label: 'Trailers',
+                        fallbackIcon: CupertinoIcons.play_rectangle,
+                        fallbackActiveIcon: CupertinoIcons.play_rectangle_fill,
                       ),
                       GlassTabItem(
                         symbol: 'person',

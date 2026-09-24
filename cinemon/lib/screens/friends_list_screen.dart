@@ -301,6 +301,8 @@ class _FriendsList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ListView.builder(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: friendIds.length,
       itemBuilder: (context, index) {
@@ -524,6 +526,8 @@ class _PendingRequestsSheet extends ConsumerWidget {
                   );
                 }
                 return ListView.builder(
+                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: requests.length,
                   itemBuilder: (context, index) {

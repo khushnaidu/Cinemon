@@ -189,6 +189,8 @@ class _FavoriteFilmsPickerSheetState
                 );
               }
               return ListView.separated(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(
                     AppSpace.sm, 0, AppSpace.sm, AppSpace.lg),
                 itemCount: films.length,

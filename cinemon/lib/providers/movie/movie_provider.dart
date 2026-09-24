@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../models/episode_model.dart';
 import '../../models/film_extras.dart';
 import '../../models/film_model.dart';
 import '../../models/person_model.dart';
 import '../../models/person_page.dart';
 import '../../repositories/movie_repository.dart';
+import '../trailer/trailer_provider.dart';
 
 /// Provider for MovieRepository singleton instance
 final movieRepositoryProvider = Provider<MovieRepository>((ref) {
@@ -42,9 +44,10 @@ final trendingMoviesProvider = FutureProvider<List<FilmModel>>((ref) async {
   return repository.getTrendingMovies();
 });
 
-/// People trending this week.
+/// People in this week's trending films and shows (migration 013). TMDB's
+/// own trending people list is mostly adult performers it doesn't flag.
 final trendingPeopleProvider = FutureProvider<List<PersonModel>>((ref) async {
-  return ref.watch(movieRepositoryProvider).getTrendingPeople();
+  return ref.watch(trailerRepositoryProvider).getTrendingPeople();
 });
 
 /// Provider for trending TV shows this week
@@ -144,8 +147,9 @@ final personPageProvider =
 
 /// Episodes of one season of a show.
 /// Usage: ref.watch(seasonProvider((tvId: 1396, seasonNumber: 2)))
-final seasonProvider = FutureProvider.family<List<EpisodeModel>,
-    ({int tvId, int seasonNumber})>((ref, params) async {
+final seasonProvider =
+    FutureProvider.family<List<EpisodeModel>, ({int tvId, int seasonNumber})>(
+        (ref, params) async {
   final repository = ref.watch(movieRepositoryProvider);
   return repository.getSeason(params.tvId, params.seasonNumber);
 });

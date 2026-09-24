@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 import 'package:cached_network_image/cached_network_image.dart';
@@ -9,7 +10,11 @@ import 'package:shimmer/shimmer.dart';
 import '../core/constants/api_constants.dart';
 import '../core/theme/app_theme.dart';
 import 'shell/glass_shell.dart'
-    show kFloatingTabBarInset, kFloatingHeaderInset, shellChromeVisible;
+    show
+        kFloatingTabBarInset,
+        kFloatingHeaderInset,
+        shellChromeVisible,
+        shellTabReselects;
 import 'widgets/native_glass_button.dart';
 import 'widgets/poster_ambience.dart';
 import 'widgets/review_card_back.dart';
@@ -39,18 +44,36 @@ class HomeFeedPage extends ConsumerStatefulWidget {
 class _HomeFeedPageState extends ConsumerState<HomeFeedPage> {
   late PageController _pageController;
   int _currentIndex = 0;
+  StreamSubscription<int>? _reselectSub;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
     _pageController.addListener(_onScroll);
+    // Tapping Home while on Home goes back to the top of the feed.
+    _reselectSub = shellTabReselects.listen((tab) {
+      if (tab == 0) _toTop();
+    });
   }
 
   @override
   void dispose() {
+    _reselectSub?.cancel();
     _pageController.dispose();
     super.dispose();
+  }
+
+  /// A long way jumps most of it first, so every card in between isn't
+  /// built on the way up.
+  void _toTop() {
+    if (!_pageController.hasClients) return;
+    final page = _pageController.page?.round() ?? 0;
+    if (page == 0) return;
+    if (page > 3) _pageController.jumpToPage(3);
+    _pageController.animateToPage(0,
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeOutCubic);
   }
 
   void _onScroll() {

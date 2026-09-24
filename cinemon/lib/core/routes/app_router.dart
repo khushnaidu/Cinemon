@@ -20,6 +20,7 @@ import '../../screens/notifications_screen.dart';
 import '../../models/activity_model.dart';
 import '../../screens/lists/playlist_screen.dart';
 import '../../screens/person/person_screen.dart';
+import '../../screens/trailers/trailers_screen.dart';
 
 /// GoRouter configuration with auth guard
 final goRouterProvider = Provider<GoRouter>((ref) {
@@ -94,7 +95,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         name: 'profile-setup',
         builder: (context, state) => const ProfileSetupScreen(),
       ),
-      // The four tabs live in a shell so the glass bar persists across
+      // The five tabs live in a shell so the glass bar persists across
       // switches and each branch keeps its own stack and scroll position.
       //
       // Every branch carries branchDepthObserver: modal sheets open on the
@@ -129,6 +130,15 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               path: '/explore',
               name: 'explore',
               builder: (context, state) => const ExploreScreen(),
+            ),
+          ]),
+          StatefulShellBranch(observers: [
+            branchDepthObserver()
+          ], routes: [
+            GoRoute(
+              path: '/trailers',
+              name: 'trailers',
+              builder: (context, state) => const TrailersScreen(),
             ),
           ]),
           StatefulShellBranch(observers: [

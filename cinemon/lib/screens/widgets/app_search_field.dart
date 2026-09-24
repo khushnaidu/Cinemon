@@ -47,7 +47,12 @@ class AppSearchField extends StatelessWidget {
       child: CupertinoSearchTextField(
         controller: controller,
         onChanged: onChanged,
-        onSubmitted: onSubmitted,
+        // The keyboard's Search key puts the keyboard away, so the results
+        // under it can be seen. Result lists also dismiss it on drag.
+        onSubmitted: (value) {
+          FocusManager.instance.primaryFocus?.unfocus();
+          onSubmitted?.call(value);
+        },
         autofocus: autofocus,
         placeholder: placeholder,
         backgroundColor:

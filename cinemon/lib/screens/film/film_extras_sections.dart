@@ -110,6 +110,45 @@ class WhereToWatchRow extends ConsumerWidget {
   }
 }
 
+/// Where to watch in one line, for tight spots like a trailer page: the
+/// theatrical tag and up to four services, with no label or panel.
+class CompactWhereToWatch extends ConsumerWidget {
+  const CompactWhereToWatch({super.key, required this.filmKey});
+
+  final FilmKey filmKey;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final extras = _extras(ref, filmKey);
+    if (extras == null) return const SizedBox.shrink();
+
+    final theatrical = extras.theatrical;
+    final watch = extras.watch;
+    final included = watch?.included ?? const <WatchProvider>[];
+    final logos = (included.isNotEmpty
+            ? included
+            : watch?.paid ?? const <WatchProvider>[])
+        .take(4);
+
+    final children = <Widget>[
+      if (theatrical.phase == TheatricalPhase.inTheaters)
+        const GlassTag('IN THEATERS'),
+      if (theatrical.phase == TheatricalPhase.comingSoon &&
+          theatrical.date != null)
+        GlassTag('IN THEATERS ${_shortDate(theatrical.date!)}'),
+      for (final p in logos) _ProviderLogo(provider: p, size: 26),
+    ];
+    if (children.isEmpty) return const SizedBox.shrink();
+
+    return Wrap(
+      spacing: AppSpace.sm,
+      runSpacing: AppSpace.sm,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: children,
+    );
+  }
+}
+
 class _ProviderLogo extends StatelessWidget {
   const _ProviderLogo({required this.provider, this.size = 30});
 

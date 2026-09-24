@@ -184,6 +184,7 @@ class _SearchUsersScreenState extends ConsumerState<SearchUsersScreen> {
           color: Colors.white,
           backgroundColor: AppColors.surface,
           child: ListView.builder(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: filteredUsers.length,
