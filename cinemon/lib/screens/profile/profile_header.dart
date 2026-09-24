@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/theme/app_theme.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth/auth_provider.dart';
 import '../../providers/feed/feed_provider.dart'
@@ -38,7 +39,23 @@ class ProfileHeader extends StatelessWidget {
             height: 160,
             glowColor: const Color(0xFFFFD54F),
           ),
-          const SizedBox(height: 8),
+
+          // The brush-lettered name above is for looks; this is the one to
+          // read, search and tag.
+          // Tucked up under the brush name, into the space its line box
+          // leaves below the letters.
+          Transform.translate(
+            offset: const Offset(0, -10),
+            child: Text(
+              '@${profile.username}',
+              style: AppText.footnote.copyWith(
+                fontSize: 15,
+                color: AppColors.inkTertiary,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
 
           // Display name if different
           if (profile.displayName != null &&
@@ -209,7 +226,7 @@ class _FollowButton extends ConsumerWidget {
                   label: 'Accept',
                   isLoading: isLoading,
                   isPrimary: true,
-                  width: 100,
+                  width: 130,
                   onPressed: () async {
                     await ref
                         .read(friendshipNotifierProvider.notifier)
@@ -231,7 +248,7 @@ class _FollowButton extends ConsumerWidget {
                   label: 'Decline',
                   isLoading: isLoading,
                   isPrimary: false,
-                  width: 100,
+                  width: 130,
                   onPressed: () async {
                     await ref
                         .read(friendshipNotifierProvider.notifier)
@@ -278,7 +295,7 @@ class _FollowButton extends ConsumerWidget {
         );
       },
       loading: () => _buildButton(
-        label: 'Loading...',
+        label: 'Follow',
         isLoading: true,
         isPrimary: false,
         onPressed: null,
@@ -301,6 +318,8 @@ class _FollowButton extends ConsumerWidget {
     );
   }
 
+  /// Glass, like every other control (ADR 0004 D8): Follow and Accept are
+  /// the bright lens, everything else the darker pill. Never solid white.
   Widget _buildButton({
     required String label,
     required bool isLoading,
@@ -308,59 +327,24 @@ class _FollowButton extends ConsumerWidget {
     VoidCallback? onPressed,
     double width = 200,
   }) {
+    final icon = switch (label) {
+      'Follow' => CupertinoIcons.person_add,
+      'Following' => CupertinoIcons.person_crop_circle_badge_checkmark,
+      'Requested' => CupertinoIcons.clock,
+      'Accept' => CupertinoIcons.checkmark_alt,
+      'Decline' => CupertinoIcons.xmark,
+      _ => null,
+    };
     return SizedBox(
       width: width,
-      child: isPrimary
-          ? ElevatedButton(
-              onPressed: isLoading ? null : onPressed,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              child: isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
-                      ),
-                    )
-                  : Text(
-                      label,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-            )
-          : OutlinedButton(
-              onPressed: isLoading ? null : onPressed,
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.white54),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              child: isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : Text(
-                      label,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-            ),
+      child: GlassPillButton(
+        label: label,
+        icon: icon,
+        prominent: isPrimary,
+        expand: true,
+        busy: isLoading,
+        onTap: onPressed,
+      ),
     );
   }
 

@@ -137,19 +137,14 @@ flutter:
     - family: ReenieBeanie
       fonts:
         - asset: assets/fonts/share/ReenieBeanie.ttf
-    - family: Siberian
+    # Usernames (AppText.usernameFamily). Brafesuit by Dhabee Studio, 1001fonts
+    # Free For Commercial Use licence, which allows embedding in an app.
+    - family: Brafesuit
       fonts:
-        - asset: assets/siberian-font/SiberianPersonalUseRegular-d9Log.ttf
+        - asset: assets/fonts/username/Brafesuit.ttf
     - family: Isometric3D
       fonts:
         - asset: assets/3DIsometricBold-Yqy68.ttf
-    - family: HollywoodHills
-      fonts:
-        - asset: assets/hollywood_hills/SF Hollywood Hills.ttf
-        - asset: assets/hollywood_hills/SF Hollywood Hills Bold.ttf
-          weight: 700
-        - asset: assets/hollywood_hills/SF Hollywood Hills Italic.ttf
-          style: italic
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware

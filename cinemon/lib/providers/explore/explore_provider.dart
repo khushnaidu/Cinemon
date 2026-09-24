@@ -403,18 +403,11 @@ class ExploreActions {
     }
   }
 
-  Future<bool> report(String postId, String reason) async {
-    final uid = _uid;
-    if (uid == null) return false;
-    try {
-      await _repo.reportPost(postId: postId, reporterId: uid, reason: reason);
-      // Out of every feed straight away; the report is reviewed separately.
-      _ref.read(exploreFeedProvider.notifier).remove(postId);
-      _refreshElsewhere();
-      return true;
-    } catch (_) {
-      return false;
-    }
+  /// After a report (sent by `showReportSheet`): out of every loaded feed
+  /// now. The server hides it from this reader on every later read.
+  void forgetReported(String postId) {
+    _ref.read(exploreFeedProvider.notifier).remove(postId);
+    _refreshElsewhere();
   }
 }
 

@@ -109,6 +109,12 @@ abstract final class AppText {
   static const _display = 'CupertinoSystemDisplay';
   static const _text = 'CupertinoSystemText';
 
+  /// Usernames on the profile, feed cards and the profile share card:
+  /// Brafesuit, a brush hand, bundled in assets/fonts/username/ (free for
+  /// commercial use, licence alongside). Change it here to change it
+  /// everywhere.
+  static const usernameFamily = 'Brafesuit';
+
   /// Non-Apple platforms fall back gracefully rather than rendering blank.
   static const _fallback = <String>[
     '.SF Pro Text',

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,12 +6,15 @@ import 'package:go_router/go_router.dart';
 import '../models/activity_model.dart';
 import '../models/film_model.dart';
 import '../providers/movie/movie_provider.dart';
+import '../providers/auth/auth_provider.dart';
 import '../providers/feed/feed_provider.dart';
 import '../core/constants/api_constants.dart';
 import 'film/film_extras_sections.dart';
 import 'lists/watchlist_button.dart';
 import 'widgets/episodes_section.dart';
 import 'widgets/post_review_sheet.dart';
+import 'widgets/glass_panel.dart' show GlassPillButton;
+import 'widgets/report_sheet.dart';
 import 'widgets/review_editor.dart';
 
 /// Film detail screen showing full film info and friends' reviews
@@ -475,24 +479,11 @@ class _FilmDetailContent extends ConsumerWidget {
           // Edit button
           SizedBox(
             width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () {
-                showReviewEditor(context, activity);
-              },
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.white54),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(25),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-              child: const Text(
-                'Edit Your Post',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+            child: GlassPillButton(
+              label: 'Edit Your Post',
+              icon: CupertinoIcons.pencil,
+              expand: true,
+              onTap: () => showReviewEditor(context, activity),
             ),
           ),
         ] else ...[
@@ -507,27 +498,12 @@ class _FilmDetailContent extends ConsumerWidget {
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                // Show post review sheet
-                showPostReviewSheet(context, film);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(25),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                elevation: 0,
-              ),
-              child: const Text(
-                'Post a Review',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+            child: GlassPillButton(
+              label: 'Post a Review',
+              icon: CupertinoIcons.square_pencil,
+              prominent: true,
+              expand: true,
+              onTap: () => showPostReviewSheet(context, film),
             ),
           ),
         ],
@@ -546,13 +522,14 @@ class _FilmDetailContent extends ConsumerWidget {
 }
 
 /// Card showing a friend's review
-class _FriendReviewCard extends StatelessWidget {
+class _FriendReviewCard extends ConsumerWidget {
   final ActivityModel activity;
 
   const _FriendReviewCard({required this.activity});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final me = ref.watch(currentUserProvider)?.uid;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -619,6 +596,25 @@ class _FriendReviewCard extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+              if (me != null && me != activity.userId)
+                GestureDetector(
+                  onTap: () => showContentMenu(
+                    context,
+                    ref,
+                    kind: ReportKind.activity,
+                    targetId: activity.id,
+                    authorId: activity.userId,
+                    authorUsername: activity.username,
+                    onReported: () => ref.invalidate(
+                        friendsFilmActivitiesProvider(activity.filmId)),
+                  ),
+                  behavior: HitTestBehavior.opaque,
+                  child: const Padding(
+                    padding: EdgeInsets.only(left: 10),
+                    child: Icon(CupertinoIcons.ellipsis,
+                        size: 18, color: Colors.white54),
+                  ),
                 ),
             ],
           ),

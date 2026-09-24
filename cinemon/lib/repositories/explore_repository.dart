@@ -226,21 +226,6 @@ class ExploreRepository {
     await _client.from('explore_comments').delete().eq('id', commentId);
   }
 
-  // ── Reports ─────────────────────────────────────────────────
-
-  Future<void> reportPost({
-    required String postId,
-    required String reporterId,
-    required String reason,
-  }) async {
-    await _client.from('content_reports').upsert(
-      {'post_id': postId, 'reporter_id': reporterId, 'reason': reason},
-      onConflict: 'reporter_id,post_id',
-      // Reporting twice is not an error from the reporter's side.
-      ignoreDuplicates: true,
-    );
-  }
-
   CommentModel _commentFromRow(Map<String, dynamic> row) {
     final profile = row['profiles'] as Map<String, dynamic>?;
     return CommentModel.fromJson({

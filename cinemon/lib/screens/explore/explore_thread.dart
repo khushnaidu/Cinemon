@@ -15,6 +15,7 @@ import '../../share/share_subject.dart';
 import '../widgets/comment_thread.dart';
 import '../widgets/comments_sheet.dart' show CommentSendButton, GlassHint;
 import '../widgets/block_user.dart';
+import '../widgets/report_sheet.dart';
 import '../widgets/glass_panel.dart';
 import 'explore_composer.dart' show showExploreEditor;
 import 'explore_post_card.dart';
@@ -257,11 +258,18 @@ class _ExploreThreadState extends ConsumerState<ExploreThread> {
                                 if (!_expanded.remove(id)) _expanded.add(id);
                               }),
                               onReply: _startReply,
-                              // Your own reply, or anything on your post.
-                              canDelete: (c) =>
-                                  c.userId == me || post.userId == me,
                               isAuthor: (c) => c.userId == post.userId,
-                              onDelete: (c) => _deleteComment(post, c),
+                              onMenu: (c) => showCommentMenu(
+                                context,
+                                ref,
+                                comment: c,
+                                kind: ReportKind.postComment,
+                                // Your own reply, or anything on your post.
+                                canDelete: c.userId == me || post.userId == me,
+                                onDelete: () => _deleteComment(post, c),
+                                onReported: () => ref.invalidate(
+                                    exploreCommentsProvider(post.id)),
+                              ),
                             ),
                           ),
                         ],
@@ -483,53 +491,20 @@ Future<void> showExplorePostMenu(
   );
 }
 
-const _reportReasons = [
-  (CupertinoIcons.eye_slash, 'Unmarked spoilers'),
-  (CupertinoIcons.exclamationmark_bubble, 'Harassment or hate'),
-  (CupertinoIcons.nosign, 'Sexual or violent content'),
-  (CupertinoIcons.tray_arrow_down, 'Spam'),
-  (CupertinoIcons.ellipsis_circle, 'Something else'),
-];
-
 Future<void> _report(
   BuildContext context,
   WidgetRef ref,
   ExplorePost post, {
   required bool fromThread,
 }) async {
-  final reason = await showGlassPanel<String>(
+  final ok = await showReportSheet(
     context,
-    builder: (panelContext) => Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const GlassPanelHeader(
-          title: 'Report post',
-          subtitle: 'What\'s wrong with it?',
-        ),
-        for (var i = 0; i < _reportReasons.length; i++) ...[
-          if (i > 0) const GlassMenuDivider(),
-          GlassMenuRow(
-            icon: _reportReasons[i].$1,
-            title: _reportReasons[i].$2,
-            onTap: () => Navigator.of(panelContext).pop(_reportReasons[i].$2),
-          ),
-        ],
-        const SizedBox(height: AppSpace.sm),
-      ],
-    ),
+    ref,
+    kind: ReportKind.post,
+    targetId: post.id,
+    onReported: () => ref.read(exploreActionsProvider).forgetReported(post.id),
   );
-  if (reason == null || !context.mounted) return;
-
-  final ok = await ref.read(exploreActionsProvider).report(post.id, reason);
-  if (!context.mounted) return;
-  if (ok) {
-    showGlassToast(context, 'Thanks. We\'ll take a look.',
-        icon: CupertinoIcons.flag_fill);
-    if (fromThread) Navigator.of(context).pop();
-  } else {
-    showGlassToast(context, "Couldn't send that report. Try again.",
-        destructive: true);
-  }
+  if (ok && fromThread && context.mounted) Navigator.of(context).pop();
 }
 
 /// In place of a thread on takes, reviews and critiques.

@@ -15,6 +15,7 @@ import 'package:cinemon/providers/movie/movie_provider.dart';
 import 'package:cinemon/share/share_sheet.dart';
 import 'package:cinemon/share/share_subject.dart';
 import 'package:cinemon/share/story_canvas.dart';
+import 'package:cinemon/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -62,9 +63,12 @@ void main() {
       '$f/BigShouldersDisplay-Black.ttf'
     ]);
     await _font('ReenieBeanie', ['$f/ReenieBeanie.ttf']);
-    await _font('Siberian',
-        ['assets/siberian-font/SiberianPersonalUseRegular-d9Log.ttf']);
     await _font('Isometric3D', ['assets/3DIsometricBold-Yqy68.ttf']);
+    // USERNAME_FONT_FILE renders another candidate in the username slot.
+    await _font(AppText.usernameFamily, [
+      Platform.environment['USERNAME_FONT_FILE'] ??
+          'assets/fonts/username/Brafesuit.ttf',
+    ]);
     StoryImage.debugProvider = (url) {
       final name = url.split('/').last;
       return FileImage(File('$_art/$name'));

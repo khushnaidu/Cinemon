@@ -15,6 +15,7 @@ import 'shell/glass_shell.dart'
         kFloatingHeaderInset,
         shellChromeVisible,
         shellTabReselects;
+import 'widgets/glass_panel.dart' show GlassPillButton;
 import 'widgets/native_glass_button.dart';
 import 'widgets/poster_ambience.dart';
 import 'widgets/review_card_back.dart';
@@ -265,16 +266,8 @@ class _PostAuthor extends StatelessWidget {
             ),
             const SizedBox(width: AppSpace.md),
 
-            // Siberian, the same display face the profile page sets usernames
-            // in — so a name reads as the same object in both places. The "@"
-            // is separate: it's punctuation, not part of the name, and a
-            // decorative face has no reason to carry a glyph for it.
-            //
-            // scaleDown inside a box the avatar's height is what actually
-            // holds the two to a common height: Siberian's line box doesn't
-            // track fontSize the way a text face does, so picking a size by
-            // eye would only match on the names I happened to test. A long
-            // name shrinks to fit the width instead of ellipsing — losing
+            // The username in the username face, as on the profile. A long name
+            // shrinks to fit the width rather than being cut off: losing
             // letters off a username is worse than losing a few points.
             Flexible(
               child: FittedBox(
@@ -283,17 +276,20 @@ class _PostAuthor extends StatelessWidget {
                 child: Text.rich(
                   TextSpan(
                     children: [
-                      TextSpan(
+                      const TextSpan(
                         text: '@',
-                        style: AppText.title.copyWith(
+                        style: TextStyle(
+                          fontFamily: 'Helvetica Neue',
+                          fontSize: 19,
+                          fontWeight: FontWeight.w500,
                           color: AppColors.inkSecondary,
                         ),
                       ),
                       TextSpan(
                         text: activity.username,
                         style: const TextStyle(
-                          fontFamily: 'Siberian',
-                          fontSize: 46,
+                          fontFamily: AppText.usernameFamily,
+                          fontSize: 30,
                           color: AppColors.ink,
                         ),
                       ),
@@ -1093,23 +1089,11 @@ class _EmptyFeedView extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: () {
-                context.push('/search');
-              },
-              icon: const Icon(Icons.search),
-              label: const Text('Search Films'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-              ),
+            GlassPillButton(
+              label: 'Search Films',
+              icon: CupertinoIcons.search,
+              prominent: true,
+              onTap: () => context.push('/search'),
             ),
           ],
         ),
@@ -1158,21 +1142,10 @@ class _ErrorView extends StatelessWidget {
             ),
             if (onRetry != null) ...[
               const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Try Again'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                ),
+              GlassPillButton(
+                label: 'Try Again',
+                icon: CupertinoIcons.arrow_clockwise,
+                onTap: onRetry,
               ),
             ],
           ],

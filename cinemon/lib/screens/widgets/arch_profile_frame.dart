@@ -3,6 +3,8 @@ import 'dart:math' show pi;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_theme.dart';
+
 /// Custom clipper for arch/cathedral window shape with semicircular top
 class ArchClipper extends CustomClipper<Path> {
   @override
@@ -96,7 +98,7 @@ class ArchProfileFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: width,
-      height: height + (showUsername ? 60 : 0),
+      height: height + (showUsername ? 30 : 0),
       child: Stack(
         clipBehavior: Clip.none,
         alignment: Alignment.center,
@@ -156,9 +158,10 @@ class ArchProfileFrame extends StatelessWidget {
           ),
 
           // Username overlay - positioned to spill onto photo
+          // The username, written across the foot of the photo.
           if (showUsername)
             Positioned(
-              bottom: -20,
+              bottom: 0,
               child: WavyUsername(username: username),
             ),
         ],
@@ -167,7 +170,9 @@ class ArchProfileFrame extends StatelessWidget {
   }
 }
 
-/// Stylized username text with Siberian font
+/// The username written across the foot of the profile photo, in the
+/// username face. A long name shrinks to fit the screen rather than running
+/// off it.
 class WavyUsername extends StatelessWidget {
   final String username;
   final double fontSize;
@@ -182,12 +187,22 @@ class WavyUsername extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      username,
-      style: TextStyle(
-        fontFamily: 'Siberian',
-        fontSize: fontSize,
-        color: color,
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.sizeOf(context).width - 48,
+      ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          username,
+          maxLines: 1,
+          style: TextStyle(
+            fontFamily: AppText.usernameFamily,
+            fontSize: fontSize,
+            height: 1.1,
+            color: color,
+          ),
+        ),
       ),
     );
   }

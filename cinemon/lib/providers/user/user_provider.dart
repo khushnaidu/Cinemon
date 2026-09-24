@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show User;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/utils/auth_rules.dart' show usernameProblem;
 import '../../models/user_model.dart';
 import '../../repositories/user_repository.dart';
 import '../auth/auth_provider.dart';
@@ -263,23 +264,13 @@ class EditProfileController extends StateNotifier<EditProfileState> {
 
   /// Check if a username is available
   Future<void> checkUsernameAvailability(String username) async {
-    if (username.isEmpty || username.length < 3) {
+    final problem =
+        username.isEmpty ? null : usernameProblem(username.toLowerCase());
+    if (username.isEmpty || problem != null) {
       state = state.copyWith(
         isCheckingUsername: false,
         isUsernameAvailable: false,
-        usernameError:
-            username.isEmpty ? null : 'Username must be at least 3 characters',
-      );
-      return;
-    }
-
-    // Validate username format
-    final usernameRegex = RegExp(r'^[a-zA-Z0-9_]+$');
-    if (!usernameRegex.hasMatch(username)) {
-      state = state.copyWith(
-        isCheckingUsername: false,
-        isUsernameAvailable: false,
-        usernameError: 'Only letters, numbers, and underscores allowed',
+        usernameError: problem,
       );
       return;
     }

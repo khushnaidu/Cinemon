@@ -25,6 +25,7 @@ import '../../providers/lists/list_provider.dart'
 import '../../providers/user/favorites_provider.dart';
 import '../shell/glass_shell.dart' show kFloatingTabBarInset;
 import '../widgets/block_user.dart';
+import '../widgets/report_sheet.dart';
 import '../widgets/glass_panel.dart';
 import '../../share/month_stats.dart' show monthInFilmProvider;
 import '../../share/share_entry.dart';
@@ -349,6 +350,22 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: AppSpace.sm),
+          GlassMenuRow(
+            icon: CupertinoIcons.flag,
+            title: 'Report @${profile.username}',
+            destructive: true,
+            onTap: () {
+              Navigator.of(panelContext).pop();
+              showReportSheet(
+                context,
+                ref,
+                kind: ReportKind.profile,
+                targetId: profile.uid,
+                username: profile.username,
+              );
+            },
+          ),
+          const GlassMenuDivider(),
           GlassMenuRow(
             icon: CupertinoIcons.hand_raised,
             title: 'Block @${profile.username}',
