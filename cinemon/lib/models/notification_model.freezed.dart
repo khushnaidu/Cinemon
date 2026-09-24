@@ -26,8 +26,9 @@ mixin _$NotificationModel {
   /// User ID who receives this notification (activity owner)
   String get recipientId => throw _privateConstructorUsedError;
 
-  /// User ID who triggered the notification (who liked/commented/etc)
-  String get actorId => throw _privateConstructorUsedError;
+  /// User ID who triggered the notification (who liked/commented/etc).
+  /// Null for [NotificationType.personNewCredit].
+  String? get actorId => throw _privateConstructorUsedError;
 
   /// Actor's username (denormalized)
   String get actorUsername => throw _privateConstructorUsedError;
@@ -53,6 +54,14 @@ mixin _$NotificationModel {
   /// Sticker ID (for reaction notifications)
   String? get stickerId => throw _privateConstructorUsedError;
 
+  /// For [NotificationType.personNewCredit]: who, and on what. The role
+  /// ("as Dani", "Director") travels in [commentPreview].
+  int? get personId => throw _privateConstructorUsedError;
+  String? get personName => throw _privateConstructorUsedError;
+  String? get personProfilePath => throw _privateConstructorUsedError;
+  int? get filmId => throw _privateConstructorUsedError;
+  String? get mediaType => throw _privateConstructorUsedError;
+
   /// Whether the notification has been read
   bool get isRead => throw _privateConstructorUsedError;
 
@@ -74,7 +83,7 @@ abstract class $NotificationModelCopyWith<$Res> {
   $Res call(
       {String id,
       String recipientId,
-      String actorId,
+      String? actorId,
       String actorUsername,
       String? actorPhotoUrl,
       NotificationType type,
@@ -83,6 +92,11 @@ abstract class $NotificationModelCopyWith<$Res> {
       String? filmPosterPath,
       String? commentPreview,
       String? stickerId,
+      int? personId,
+      String? personName,
+      String? personProfilePath,
+      int? filmId,
+      String? mediaType,
       bool isRead,
       DateTime createdAt});
 }
@@ -102,7 +116,7 @@ class _$NotificationModelCopyWithImpl<$Res, $Val extends NotificationModel>
   $Res call({
     Object? id = null,
     Object? recipientId = null,
-    Object? actorId = null,
+    Object? actorId = freezed,
     Object? actorUsername = null,
     Object? actorPhotoUrl = freezed,
     Object? type = null,
@@ -111,6 +125,11 @@ class _$NotificationModelCopyWithImpl<$Res, $Val extends NotificationModel>
     Object? filmPosterPath = freezed,
     Object? commentPreview = freezed,
     Object? stickerId = freezed,
+    Object? personId = freezed,
+    Object? personName = freezed,
+    Object? personProfilePath = freezed,
+    Object? filmId = freezed,
+    Object? mediaType = freezed,
     Object? isRead = null,
     Object? createdAt = null,
   }) {
@@ -123,10 +142,10 @@ class _$NotificationModelCopyWithImpl<$Res, $Val extends NotificationModel>
           ? _value.recipientId
           : recipientId // ignore: cast_nullable_to_non_nullable
               as String,
-      actorId: null == actorId
+      actorId: freezed == actorId
           ? _value.actorId
           : actorId // ignore: cast_nullable_to_non_nullable
-              as String,
+              as String?,
       actorUsername: null == actorUsername
           ? _value.actorUsername
           : actorUsername // ignore: cast_nullable_to_non_nullable
@@ -158,6 +177,26 @@ class _$NotificationModelCopyWithImpl<$Res, $Val extends NotificationModel>
       stickerId: freezed == stickerId
           ? _value.stickerId
           : stickerId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      personId: freezed == personId
+          ? _value.personId
+          : personId // ignore: cast_nullable_to_non_nullable
+              as int?,
+      personName: freezed == personName
+          ? _value.personName
+          : personName // ignore: cast_nullable_to_non_nullable
+              as String?,
+      personProfilePath: freezed == personProfilePath
+          ? _value.personProfilePath
+          : personProfilePath // ignore: cast_nullable_to_non_nullable
+              as String?,
+      filmId: freezed == filmId
+          ? _value.filmId
+          : filmId // ignore: cast_nullable_to_non_nullable
+              as int?,
+      mediaType: freezed == mediaType
+          ? _value.mediaType
+          : mediaType // ignore: cast_nullable_to_non_nullable
               as String?,
       isRead: null == isRead
           ? _value.isRead
@@ -182,7 +221,7 @@ abstract class _$$NotificationModelImplCopyWith<$Res>
   $Res call(
       {String id,
       String recipientId,
-      String actorId,
+      String? actorId,
       String actorUsername,
       String? actorPhotoUrl,
       NotificationType type,
@@ -191,6 +230,11 @@ abstract class _$$NotificationModelImplCopyWith<$Res>
       String? filmPosterPath,
       String? commentPreview,
       String? stickerId,
+      int? personId,
+      String? personName,
+      String? personProfilePath,
+      int? filmId,
+      String? mediaType,
       bool isRead,
       DateTime createdAt});
 }
@@ -208,7 +252,7 @@ class __$$NotificationModelImplCopyWithImpl<$Res>
   $Res call({
     Object? id = null,
     Object? recipientId = null,
-    Object? actorId = null,
+    Object? actorId = freezed,
     Object? actorUsername = null,
     Object? actorPhotoUrl = freezed,
     Object? type = null,
@@ -217,6 +261,11 @@ class __$$NotificationModelImplCopyWithImpl<$Res>
     Object? filmPosterPath = freezed,
     Object? commentPreview = freezed,
     Object? stickerId = freezed,
+    Object? personId = freezed,
+    Object? personName = freezed,
+    Object? personProfilePath = freezed,
+    Object? filmId = freezed,
+    Object? mediaType = freezed,
     Object? isRead = null,
     Object? createdAt = null,
   }) {
@@ -229,10 +278,10 @@ class __$$NotificationModelImplCopyWithImpl<$Res>
           ? _value.recipientId
           : recipientId // ignore: cast_nullable_to_non_nullable
               as String,
-      actorId: null == actorId
+      actorId: freezed == actorId
           ? _value.actorId
           : actorId // ignore: cast_nullable_to_non_nullable
-              as String,
+              as String?,
       actorUsername: null == actorUsername
           ? _value.actorUsername
           : actorUsername // ignore: cast_nullable_to_non_nullable
@@ -265,6 +314,26 @@ class __$$NotificationModelImplCopyWithImpl<$Res>
           ? _value.stickerId
           : stickerId // ignore: cast_nullable_to_non_nullable
               as String?,
+      personId: freezed == personId
+          ? _value.personId
+          : personId // ignore: cast_nullable_to_non_nullable
+              as int?,
+      personName: freezed == personName
+          ? _value.personName
+          : personName // ignore: cast_nullable_to_non_nullable
+              as String?,
+      personProfilePath: freezed == personProfilePath
+          ? _value.personProfilePath
+          : personProfilePath // ignore: cast_nullable_to_non_nullable
+              as String?,
+      filmId: freezed == filmId
+          ? _value.filmId
+          : filmId // ignore: cast_nullable_to_non_nullable
+              as int?,
+      mediaType: freezed == mediaType
+          ? _value.mediaType
+          : mediaType // ignore: cast_nullable_to_non_nullable
+              as String?,
       isRead: null == isRead
           ? _value.isRead
           : isRead // ignore: cast_nullable_to_non_nullable
@@ -284,8 +353,8 @@ class _$NotificationModelImpl extends _NotificationModel {
   const _$NotificationModelImpl(
       {required this.id,
       required this.recipientId,
-      required this.actorId,
-      required this.actorUsername,
+      this.actorId,
+      this.actorUsername = '',
       this.actorPhotoUrl,
       required this.type,
       this.activityId,
@@ -293,6 +362,11 @@ class _$NotificationModelImpl extends _NotificationModel {
       this.filmPosterPath,
       this.commentPreview,
       this.stickerId,
+      this.personId,
+      this.personName,
+      this.personProfilePath,
+      this.filmId,
+      this.mediaType,
       this.isRead = false,
       required this.createdAt})
       : super._();
@@ -308,12 +382,14 @@ class _$NotificationModelImpl extends _NotificationModel {
   @override
   final String recipientId;
 
-  /// User ID who triggered the notification (who liked/commented/etc)
+  /// User ID who triggered the notification (who liked/commented/etc).
+  /// Null for [NotificationType.personNewCredit].
   @override
-  final String actorId;
+  final String? actorId;
 
   /// Actor's username (denormalized)
   @override
+  @JsonKey()
   final String actorUsername;
 
   /// Actor's profile photo URL (denormalized)
@@ -344,6 +420,19 @@ class _$NotificationModelImpl extends _NotificationModel {
   @override
   final String? stickerId;
 
+  /// For [NotificationType.personNewCredit]: who, and on what. The role
+  /// ("as Dani", "Director") travels in [commentPreview].
+  @override
+  final int? personId;
+  @override
+  final String? personName;
+  @override
+  final String? personProfilePath;
+  @override
+  final int? filmId;
+  @override
+  final String? mediaType;
+
   /// Whether the notification has been read
   @override
   @JsonKey()
@@ -355,7 +444,7 @@ class _$NotificationModelImpl extends _NotificationModel {
 
   @override
   String toString() {
-    return 'NotificationModel(id: $id, recipientId: $recipientId, actorId: $actorId, actorUsername: $actorUsername, actorPhotoUrl: $actorPhotoUrl, type: $type, activityId: $activityId, filmTitle: $filmTitle, filmPosterPath: $filmPosterPath, commentPreview: $commentPreview, stickerId: $stickerId, isRead: $isRead, createdAt: $createdAt)';
+    return 'NotificationModel(id: $id, recipientId: $recipientId, actorId: $actorId, actorUsername: $actorUsername, actorPhotoUrl: $actorPhotoUrl, type: $type, activityId: $activityId, filmTitle: $filmTitle, filmPosterPath: $filmPosterPath, commentPreview: $commentPreview, stickerId: $stickerId, personId: $personId, personName: $personName, personProfilePath: $personProfilePath, filmId: $filmId, mediaType: $mediaType, isRead: $isRead, createdAt: $createdAt)';
   }
 
   @override
@@ -382,6 +471,15 @@ class _$NotificationModelImpl extends _NotificationModel {
                 other.commentPreview == commentPreview) &&
             (identical(other.stickerId, stickerId) ||
                 other.stickerId == stickerId) &&
+            (identical(other.personId, personId) ||
+                other.personId == personId) &&
+            (identical(other.personName, personName) ||
+                other.personName == personName) &&
+            (identical(other.personProfilePath, personProfilePath) ||
+                other.personProfilePath == personProfilePath) &&
+            (identical(other.filmId, filmId) || other.filmId == filmId) &&
+            (identical(other.mediaType, mediaType) ||
+                other.mediaType == mediaType) &&
             (identical(other.isRead, isRead) || other.isRead == isRead) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt));
@@ -402,6 +500,11 @@ class _$NotificationModelImpl extends _NotificationModel {
       filmPosterPath,
       commentPreview,
       stickerId,
+      personId,
+      personName,
+      personProfilePath,
+      filmId,
+      mediaType,
       isRead,
       createdAt);
 
@@ -424,8 +527,8 @@ abstract class _NotificationModel extends NotificationModel {
   const factory _NotificationModel(
       {required final String id,
       required final String recipientId,
-      required final String actorId,
-      required final String actorUsername,
+      final String? actorId,
+      final String actorUsername,
       final String? actorPhotoUrl,
       required final NotificationType type,
       final String? activityId,
@@ -433,6 +536,11 @@ abstract class _NotificationModel extends NotificationModel {
       final String? filmPosterPath,
       final String? commentPreview,
       final String? stickerId,
+      final int? personId,
+      final String? personName,
+      final String? personProfilePath,
+      final int? filmId,
+      final String? mediaType,
       final bool isRead,
       required final DateTime createdAt}) = _$NotificationModelImpl;
   const _NotificationModel._() : super._();
@@ -450,8 +558,9 @@ abstract class _NotificationModel extends NotificationModel {
   String get recipientId;
   @override
 
-  /// User ID who triggered the notification (who liked/commented/etc)
-  String get actorId;
+  /// User ID who triggered the notification (who liked/commented/etc).
+  /// Null for [NotificationType.personNewCredit].
+  String? get actorId;
   @override
 
   /// Actor's username (denormalized)
@@ -484,6 +593,19 @@ abstract class _NotificationModel extends NotificationModel {
 
   /// Sticker ID (for reaction notifications)
   String? get stickerId;
+  @override
+
+  /// For [NotificationType.personNewCredit]: who, and on what. The role
+  /// ("as Dani", "Director") travels in [commentPreview].
+  int? get personId;
+  @override
+  String? get personName;
+  @override
+  String? get personProfilePath;
+  @override
+  int? get filmId;
+  @override
+  String? get mediaType;
   @override
 
   /// Whether the notification has been read

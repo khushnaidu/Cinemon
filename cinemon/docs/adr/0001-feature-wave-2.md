@@ -89,6 +89,24 @@ Phase 7  Trailers tab         ── reuses the player from Phase 1
   - **Home (4.6):** the `home_feed` view merges activities and Explore posts by you and your friends. It is keyset-paged on `(created_at, id)` and hydrated with two `in` queries (`zipHomeFeed`). Explore posts appear as their own pages under a "Posted on Explore" kicker, and Home now pages past the first 20.
   - **Shared post state:** votes, replies and edits go through `explorePostPatchesProvider`, so a post matches wherever it's drawn.
   - Deferred: reporting a playlist directly (`content_reports.list_id`). Reporting its Explore post covers what's public today.
+- **Phase 6** built 2026-09-24, with migrations `011a_person_follow_enum.sql` and `011_person_follows.sql`:
+  - **Change from D7: the job runs in Postgres, not an Edge Function.**
+    - `pg_cron` runs `person_watch_dispatch()` every 15 minutes. It sends up to 40 TMDB `combined_credits` calls through `pg_net`, most overdue first, and checks each person about once a day.
+    - Every 5 minutes, `person_watch_collect()` reads the responses and diffs them with `person_watch_ingest()`.
+    - The TMDB key lives in Supabase Vault (`tmdb_api_key`).
+    - Why: nothing to deploy or install (no CLI or Deno), the whole job ships as a pasted migration like everything else, and the diff can be tested on a plain Postgres. Phase 7's KinoCheck cache can follow the same pattern.
+  - **Alert rules:**
+    - A person's first check only takes a snapshot.
+    - Alerts only cover titles that are new, recent (the last 180 days) or undated.
+    - Skipped: talk, news and reality TV, "Self" appearances, and Thanks / Executive Producer / Characters credits.
+    - One alert per title per follower, with the roles joined ("as Ryland · Director"), at most 3 titles per person per check, and never a duplicate.
+    - Follows are capped at 500 per account.
+  - `notifications.actor_id` is now nullable, and alerts carry `person_*`, `film_id` and `media_type`.
+  - **App:**
+    - A Follow button, a follower count and a "More" menu (favorite actor or director) on person pages.
+    - Alerts in Activity. Tapping one opens the title, and tapping the portrait opens the person.
+    - **Surface decision:** the "New from people you follow" rail sits at the top of Explore rather than waiting for the Trailers tab.
+    - A "Following" rail in the profile's Favorites tab.
 
 ### Why this order
 

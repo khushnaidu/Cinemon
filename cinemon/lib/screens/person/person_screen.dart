@@ -1,14 +1,19 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/api_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/person_page.dart';
-import '../../providers/feed/feed_provider.dart' show personHistoryProvider;
+import '../../providers/feed/feed_provider.dart'
+    show currentUserProfileProvider, personHistoryProvider;
 import '../../providers/movie/movie_provider.dart';
+import '../../providers/person/person_follow_provider.dart';
+import '../../providers/user/favorites_provider.dart'
+    show favoritesControllerProvider;
 import '../widgets/glass_panel.dart';
 
 /// `/person/:personId`: who someone is, what they're known for, everything
@@ -113,6 +118,8 @@ class _PersonContentState extends ConsumerState<_PersonContent> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _Header(person: person),
+              const SizedBox(height: AppSpace.lg),
+              _FollowRow(person: person),
               _HistoryCard(personId: person.id),
               if (person.biography != null) ...[
                 const SizedBox(height: AppSpace.xl),
@@ -224,6 +231,146 @@ class _Header extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// Follow, how many others do, and the favorites menu (ADR 0001, 4.3).
+///
+/// Following is a subscription: new work shows up in your notifications.
+/// A favorite is the ranked showcase on your profile. Both live here, the
+/// favorite one step back behind "…".
+class _FollowRow extends ConsumerWidget {
+  const _FollowRow({required this.person});
+
+  final PersonPage person;
+
+  Future<void> _toggle(
+      BuildContext context, WidgetRef ref, bool following) async {
+    HapticFeedback.lightImpact();
+    final now = await ref
+        .read(personFollowActionsProvider)
+        .toggle(person, following: following);
+    if (!context.mounted) return;
+    showGlassToast(
+      context,
+      now == null
+          ? "Couldn't update that."
+          : now
+              ? "Following ${person.name}. You'll hear about new work."
+              : 'Unfollowed ${person.name}',
+      destructive: now == null,
+      icon: now == true ? CupertinoIcons.bell_fill : null,
+    );
+  }
+
+  void _menu(BuildContext context, WidgetRef ref) {
+    final profile = ref.read(currentUserProfileProvider).valueOrNull;
+    if (profile == null) return;
+    final isActor = profile.favoriteActorIds.contains(person.id);
+    final isDirector = profile.favoriteDirectorIds.contains(person.id);
+    final favorites = ref.read(favoritesControllerProvider.notifier);
+
+    Future<void> run(Future<Object?> Function() action, String done) async {
+      final result = await action();
+      if (!context.mounted) return;
+      final failed = result == false;
+      showGlassToast(
+        context,
+        failed ? 'Your favorites are full. Remove one first.' : done,
+        destructive: failed,
+      );
+    }
+
+    showGlassPanel<void>(
+      context,
+      builder: (panelContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: AppSpace.sm),
+          GlassMenuRow(
+            icon: isActor ? CupertinoIcons.star_slash : CupertinoIcons.star,
+            title: isActor
+                ? 'Remove from favorite actors'
+                : 'Add to favorite actors',
+            onTap: () {
+              Navigator.of(panelContext).pop();
+              run(
+                () => isActor
+                    ? favorites.removeFavoriteActor(person.id).then((_) => true)
+                    : favorites.addFavoriteActor(person.id),
+                isActor
+                    ? 'Removed from favorite actors'
+                    : 'Added to favorite actors',
+              );
+            },
+          ),
+          const GlassMenuDivider(),
+          GlassMenuRow(
+            icon: isDirector ? CupertinoIcons.star_slash : CupertinoIcons.star,
+            title: isDirector
+                ? 'Remove from favorite directors'
+                : 'Add to favorite directors',
+            onTap: () {
+              Navigator.of(panelContext).pop();
+              run(
+                () => isDirector
+                    ? favorites
+                        .removeFavoriteDirector(person.id)
+                        .then((_) => true)
+                    : favorites.addFavoriteDirector(person.id),
+                isDirector
+                    ? 'Removed from favorite directors'
+                    : 'Added to favorite directors',
+              );
+            },
+          ),
+          const SizedBox(height: AppSpace.sm),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final followed = ref.watch(myFollowedPersonIdsProvider);
+    final following = followed.valueOrNull?.contains(person.id) ?? false;
+    final others =
+        ref.watch(personFollowerCountProvider(person.id)).valueOrNull;
+
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            GlassPillButton(
+              label: following ? 'Following' : 'Follow',
+              icon: following ? CupertinoIcons.bell_fill : CupertinoIcons.bell,
+              prominent: !following,
+              compact: true,
+              onTap: followed.hasValue
+                  ? () => _toggle(context, ref, following)
+                  : null,
+            ),
+            const SizedBox(width: AppSpace.sm),
+            GlassPillButton(
+              label: 'More',
+              icon: CupertinoIcons.ellipsis,
+              compact: true,
+              onTap: () => _menu(context, ref),
+            ),
+          ],
+        ),
+        if (others != null && others > 0) ...[
+          const SizedBox(height: AppSpace.sm),
+          Text(
+            others == 1
+                ? '1 person on 35mm follows them'
+                : '$others people on 35mm follow them',
+            style: AppText.footnote.copyWith(color: AppColors.inkTertiary),
+          ),
+        ],
+      ],
     );
   }
 }

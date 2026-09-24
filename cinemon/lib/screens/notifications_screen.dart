@@ -163,6 +163,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }
 
   void _handleNotificationTap(NotificationModel notification) {
+    // New work from someone you follow opens the title itself.
+    if (notification.type == NotificationType.personNewCredit) {
+      if (notification.filmId != null) {
+        context.push(
+            '/film/${notification.filmId}/${notification.mediaType ?? 'movie'}');
+      }
+      return;
+    }
     // Navigate based on notification type
     if (notification.type == NotificationType.followRequest ||
         notification.type == NotificationType.followAccepted) {
@@ -231,14 +239,16 @@ class _NotificationTile extends StatelessWidget {
             children: [
               // Actor avatar
               GestureDetector(
-                onTap: () => context.push('/profile/${notification.actorId}'),
+                onTap: () => context.push(_isCredit
+                    ? '/person/${notification.personId}'
+                    : '/profile/${notification.actorId}'),
                 child: CircleAvatar(
                   radius: 24,
                   backgroundColor: Colors.grey[800],
-                  backgroundImage: notification.actorPhotoUrl != null
-                      ? CachedNetworkImageProvider(notification.actorPhotoUrl!)
+                  backgroundImage: _avatarUrl != null
+                      ? CachedNetworkImageProvider(_avatarUrl!)
                       : null,
-                  child: notification.actorPhotoUrl == null
+                  child: _avatarUrl == null
                       ? const Icon(Icons.person, color: Colors.white54)
                       : null,
                 ),
@@ -259,7 +269,10 @@ class _NotificationTile extends StatelessWidget {
                         ),
                         children: [
                           TextSpan(
-                            text: notification.actorUsername,
+                            text: _isCredit
+                                ? (notification.personName ??
+                                    'Someone you follow')
+                                : notification.actorUsername,
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           TextSpan(
@@ -270,11 +283,13 @@ class _NotificationTile extends StatelessWidget {
                       ),
                     ),
 
-                    // Comment preview
+                    // Comment preview, or for new work the role in it.
                     if (notification.commentPreview != null) ...[
                       const SizedBox(height: 4),
                       Text(
-                        '"${notification.commentPreview}"',
+                        _isCredit
+                            ? notification.commentPreview!
+                            : '"${notification.commentPreview}"',
                         style: TextStyle(
                           color: Colors.grey[500],
                           fontSize: 13,
@@ -306,6 +321,15 @@ class _NotificationTile extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  bool get _isCredit => notification.type == NotificationType.personNewCredit;
+
+  /// The actor's photo, or for new work the person's portrait.
+  String? get _avatarUrl {
+    if (!_isCredit) return notification.actorPhotoUrl;
+    final url = ApiConstants.getProfileUrl(notification.personProfilePath);
+    return url.isEmpty ? null : url;
   }
 
   Widget _buildTrailing() {
@@ -380,6 +404,10 @@ class _NotificationTile extends StatelessWidget {
       case NotificationType.followAccepted:
         icon = Icons.how_to_reg;
         color = AppColors.success;
+        break;
+      case NotificationType.personNewCredit:
+        icon = Icons.movie_filter;
+        color = AppColors.info;
         break;
     }
 

@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../models/user_model.dart';
+import '../../person/follow_rails.dart';
 import '../favorite_people_picker.dart';
 import '../top3_films_section.dart';
 
-/// A profile's Favorites tab: Top 3 and favorite actors and directors, as
-/// they were on the profile before it had tabs.
+/// A profile's Favorites tab: Top 3, favorite actors and directors, and
+/// the people they follow for new work.
 class FavoritesTab extends StatelessWidget {
   const FavoritesTab({
     super.key,
@@ -40,6 +41,7 @@ class FavoritesTab extends StatelessWidget {
           title: 'Favorite Directors',
           isActors: false,
         ),
+        FollowingPeopleRail(userId: profile.uid, isOwnProfile: isOwnProfile),
       ],
     );
   }

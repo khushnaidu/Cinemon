@@ -19,6 +19,10 @@ enum NotificationType {
 
   /// Someone accepted your follow request
   followAccepted,
+
+  /// Someone you follow (an actor, a director) has new work. There's no
+  /// acting user; the person and title are on the row (migration 011).
+  personNewCredit,
 }
 
 /// Represents a notification for user activity.
@@ -36,11 +40,12 @@ class NotificationModel with _$NotificationModel {
     /// User ID who receives this notification (activity owner)
     required String recipientId,
 
-    /// User ID who triggered the notification (who liked/commented/etc)
-    required String actorId,
+    /// User ID who triggered the notification (who liked/commented/etc).
+    /// Null for [NotificationType.personNewCredit].
+    String? actorId,
 
     /// Actor's username (denormalized)
-    required String actorUsername,
+    @Default('') String actorUsername,
 
     /// Actor's profile photo URL (denormalized)
     String? actorPhotoUrl,
@@ -63,6 +68,14 @@ class NotificationModel with _$NotificationModel {
     /// Sticker ID (for reaction notifications)
     String? stickerId,
 
+    /// For [NotificationType.personNewCredit]: who, and on what. The role
+    /// ("as Dani", "Director") travels in [commentPreview].
+    int? personId,
+    String? personName,
+    String? personProfilePath,
+    int? filmId,
+    String? mediaType,
+
     /// Whether the notification has been read
     @Default(false) bool isRead,
 
@@ -78,8 +91,9 @@ class NotificationModel with _$NotificationModel {
     final actor = row['actor'] as Map<String, dynamic>?;
     return NotificationModel.fromJson({
       ...row,
-      'actor_username':
-          row['actor_username'] ?? actor?['username'] ?? 'unknown',
+      'actor_username': row['actor_username'] ??
+          actor?['username'] ??
+          (row['actor_id'] == null ? '' : 'unknown'),
       'actor_photo_url': row['actor_photo_url'] ?? actor?['photo_url'],
     }..remove('actor'));
   }
@@ -97,6 +111,8 @@ class NotificationModel with _$NotificationModel {
         return 'requested to follow you';
       case NotificationType.followAccepted:
         return 'accepted your follow request';
+      case NotificationType.personNewCredit:
+        return 'is in ${filmTitle ?? 'something new'}';
     }
   }
 

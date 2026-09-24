@@ -22,6 +22,9 @@ import '../shell/glass_shell.dart'
 import '../widgets/app_search_field.dart';
 import '../widgets/comments_sheet.dart' show GlassHint;
 import '../widgets/glass_panel.dart';
+import '../../providers/person/person_follow_provider.dart'
+    show newFromFollowedProvider;
+import '../person/follow_rails.dart' show NewFromFollowedRail;
 import '../widgets/native_glass_button.dart';
 import 'explore_composer.dart';
 import 'explore_post_card.dart';
@@ -144,8 +147,10 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                 SliverToBoxAdapter(child: SizedBox(height: pad.top + 4)),
                 if (!_searching)
                   CupertinoSliverRefreshControl(
-                    onRefresh: () =>
-                        ref.read(exploreFeedProvider.notifier).refresh(),
+                    onRefresh: () {
+                      ref.invalidate(newFromFollowedProvider);
+                      return ref.read(exploreFeedProvider.notifier).refresh();
+                    },
                   ),
 
                 // Title. The compose button floats beside it (see below).
@@ -206,6 +211,11 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                 if (_searching)
                   ..._searchSlivers()
                 else ...[
+                  // New work from people you follow, above everything else
+                  // on the unfiltered feed.
+                  if (filter.subject == null && filter.kind == null)
+                    const SliverToBoxAdapter(child: NewFromFollowedRail()),
+
                   // Kinds.
                   SliverToBoxAdapter(
                     child: SizedBox(
