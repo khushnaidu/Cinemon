@@ -6,12 +6,14 @@ import 'package:uuid/uuid.dart';
 import '../../models/activity_model.dart';
 import '../../models/episode_model.dart';
 import '../../models/film_model.dart';
+import '../../models/person_page.dart';
 import '../../models/user_model.dart';
 import '../../repositories/feed_repository.dart';
 import '../../repositories/user_repository.dart';
 import '../../services/badge_service.dart';
 import '../auth/auth_provider.dart';
 import '../friendship/friendship_provider.dart';
+import '../movie/movie_provider.dart' show personPageProvider;
 
 /// Provider for FeedRepository singleton
 final feedRepositoryProvider = Provider<FeedRepository>((ref) {
@@ -110,6 +112,18 @@ final userFilmActivityProvider =
     userId: currentUser.uid,
     filmId: filmId,
   );
+});
+
+/// How many of a person's titles you've logged, and your average rating.
+final personHistoryProvider =
+    FutureProvider.autoDispose.family<PersonHistory, int>((ref, personId) async {
+  final currentUser = ref.watch(currentUserProvider);
+  if (currentUser == null) return PersonHistory.none;
+  final page = await ref.watch(personPageProvider(personId).future);
+  return ref.watch(feedRepositoryProvider).getPersonHistory(
+        userId: currentUser.uid,
+        titles: page.titles,
+      );
 });
 
 /// The current user's episode posts for one show, keyed "S{n}E{m}" so the

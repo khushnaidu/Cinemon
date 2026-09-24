@@ -6,6 +6,7 @@ import 'package:flutter/cupertino.dart'
     show CupertinoActivityIndicator, CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../models/person_model.dart';
@@ -412,56 +413,59 @@ class _PersonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 100,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Pill-shaped photo. Monochrome: the only colour is the face.
-          Container(
-            width: 90,
-            height: 130,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(45),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.14),
-                width: 0.8,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.45),
-                  blurRadius: 14,
-                  offset: const Offset(0, 6),
+    return GlassPressable(
+      onTap: () => context.push('/person/${person.id}'),
+      child: SizedBox(
+        width: 100,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Pill-shaped photo. Monochrome: the only colour is the face.
+            Container(
+              width: 90,
+              height: 130,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(45),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.14),
+                  width: 0.8,
                 ),
-              ],
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(45),
+                child: person.profilePath != null
+                    ? CachedNetworkImage(
+                        imageUrl: person.profileUrl!,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => Container(
+                          color: AppColors.surface,
+                        ),
+                        errorWidget: (_, __, ___) => _buildPlaceholder(),
+                      )
+                    : _buildPlaceholder(),
+              ),
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(45),
-              child: person.profilePath != null
-                  ? CachedNetworkImage(
-                      imageUrl: person.profileUrl!,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(
-                        color: AppColors.surface,
-                      ),
-                      errorWidget: (_, __, ___) => _buildPlaceholder(),
-                    )
-                  : _buildPlaceholder(),
+            const SizedBox(height: AppSpace.sm),
+            // Name
+            Text(
+              person.name,
+              style: AppText.caption.copyWith(
+                color: AppColors.ink,
+                fontWeight: FontWeight.w500,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
             ),
-          ),
-          const SizedBox(height: AppSpace.sm),
-          // Name
-          Text(
-            person.name,
-            style: AppText.caption.copyWith(
-              color: AppColors.ink,
-              fontWeight: FontWeight.w500,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

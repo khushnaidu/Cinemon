@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/config/supabase_config.dart';
 import '../models/activity_model.dart';
+import '../models/person_page.dart';
 
 /// Repository for feed/activity operations.
 ///
@@ -306,6 +307,38 @@ class FeedRepository {
   }
 
   /// The user's existing post about a film, if any.
+  /// How much of a person's work a user has logged: distinct titles among
+  /// [titles], and the mean of their whole-title ratings. Episode logs count
+  /// the show once and don't enter the average.
+  Future<PersonHistory> getPersonHistory({
+    required String userId,
+    required Set<({int id, String mediaType})> titles,
+  }) async {
+    if (titles.isEmpty) return PersonHistory.none;
+    final rows = await _client
+        .from(_table)
+        .select('film_id, media_type, rating, episode_number')
+        .eq('user_id', userId)
+        .inFilter('film_id', titles.map((t) => t.id).toSet().toList());
+
+    final logged = <String>{};
+    final ratings = <double>[];
+    for (final r in rows) {
+      final title = (id: r['film_id'] as int, mediaType: r['media_type'] as String);
+      // Ids are only unique within a media type.
+      if (!titles.contains(title)) continue;
+      logged.add('${title.mediaType}:${title.id}');
+      final rating = (r['rating'] as num?)?.toDouble();
+      if (rating != null && r['episode_number'] == null) ratings.add(rating);
+    }
+    return PersonHistory(
+      logged: logged.length,
+      averageRating: ratings.isEmpty
+          ? null
+          : ratings.reduce((a, b) => a + b) / ratings.length,
+    );
+  }
+
   Future<ActivityModel?> getUserFilmActivity({
     required String userId,
     required int filmId,

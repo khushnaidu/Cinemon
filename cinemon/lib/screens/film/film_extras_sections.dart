@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
@@ -139,9 +140,13 @@ class _ProviderLogo extends StatelessWidget {
                 height: size,
                 fit: BoxFit.cover,
                 placeholder: (_, __) => Container(
-                    width: size, height: size, color: AppColors.surfaceElevated),
+                    width: size,
+                    height: size,
+                    color: AppColors.surfaceElevated),
                 errorWidget: (_, __, ___) => Container(
-                    width: size, height: size, color: AppColors.surfaceElevated),
+                    width: size,
+                    height: size,
+                    color: AppColors.surfaceElevated),
               ),
       ),
     );
@@ -431,7 +436,8 @@ class _TrailerRoomState extends State<_TrailerRoom> {
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onVerticalDragEnd: (d) {
-                  if ((d.primaryVelocity ?? 0) > 300) Navigator.of(context).pop();
+                  if ((d.primaryVelocity ?? 0) > 300)
+                    Navigator.of(context).pop();
                 },
               ),
             ),
@@ -476,7 +482,8 @@ class _TrailerRoomState extends State<_TrailerRoom> {
 // Cast
 // ─────────────────────────────────────────────────────────────
 
-/// Directed by / created by, then a rail of faces.
+/// Directors or creators, then the cast, as a rail of faces that each open
+/// a person page.
 class CastSection extends ConsumerWidget {
   const CastSection({super.key, required this.filmKey});
 
@@ -488,39 +495,36 @@ class CastSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final extras = _extras(ref, filmKey);
     if (extras == null) return const SizedBox.shrink();
-    final cast = extras.cast.take(_maxCast).toList();
     final directors = extras.directors;
-    if (cast.isEmpty && directors.isEmpty) return const SizedBox.shrink();
-
-    final byline = directors.isEmpty
-        ? null
-        : '${directors.first.job == 'Creator' ? 'Created' : 'Directed'} by '
-            '${directors.map((d) => d.name).join(', ')}';
+    // Directors (or creators) lead the rail, then the cast in billing order.
+    final people = [
+      for (final d in directors)
+        CastMember(
+            id: d.id,
+            name: d.name,
+            character: d.job,
+            profilePath: d.profilePath),
+      ...extras.cast.take(_maxCast),
+    ];
+    if (people.isEmpty) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.only(top: AppSpace.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionTitle('Cast'),
-          if (byline != null) ...[
-            const SizedBox(height: AppSpace.xs),
-            Text(byline,
-                style: AppText.footnote.copyWith(color: AppColors.inkSecondary)),
-          ],
-          if (cast.isNotEmpty) ...[
-            const SizedBox(height: AppSpace.md),
-            SizedBox(
-              height: 64 + AppSpace.sm + 34,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                clipBehavior: Clip.none,
-                itemCount: cast.length,
-                separatorBuilder: (_, __) => const SizedBox(width: AppSpace.md),
-                itemBuilder: (_, i) => _CastTile(member: cast[i]),
-              ),
+          const _SectionTitle('Cast & crew'),
+          const SizedBox(height: AppSpace.md),
+          SizedBox(
+            height: 64 + AppSpace.sm + 34,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.none,
+              itemCount: people.length,
+              separatorBuilder: (_, __) => const SizedBox(width: AppSpace.md),
+              itemBuilder: (_, i) => _CastTile(member: people[i]),
             ),
-          ],
+          ),
         ],
       ),
     );
@@ -535,48 +539,51 @@ class _CastTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final url = ApiConstants.getProfileUrl(member.profilePath);
-    return SizedBox(
-      width: 72,
-      child: Column(
-        children: [
-          ClipOval(
-            child: SizedBox(
-              width: 64,
-              height: 64,
-              child: url.isEmpty
-                  ? const ColoredBox(
-                      color: AppColors.surfaceElevated,
-                      child: Icon(CupertinoIcons.person_fill,
-                          color: AppColors.inkTertiary),
-                    )
-                  : CachedNetworkImage(
-                      imageUrl: url,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) =>
-                          const ColoredBox(color: AppColors.surfaceElevated),
-                      errorWidget: (_, __, ___) =>
-                          const ColoredBox(color: AppColors.surfaceElevated),
-                    ),
+    return GlassPressable(
+      onTap: () => context.push('/person/${member.id}'),
+      child: SizedBox(
+        width: 72,
+        child: Column(
+          children: [
+            ClipOval(
+              child: SizedBox(
+                width: 64,
+                height: 64,
+                child: url.isEmpty
+                    ? const ColoredBox(
+                        color: AppColors.surfaceElevated,
+                        child: Icon(CupertinoIcons.person_fill,
+                            color: AppColors.inkTertiary),
+                      )
+                    : CachedNetworkImage(
+                        imageUrl: url,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) =>
+                            const ColoredBox(color: AppColors.surfaceElevated),
+                        errorWidget: (_, __, ___) =>
+                            const ColoredBox(color: AppColors.surfaceElevated),
+                      ),
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpace.sm),
-          Text(
-            member.name,
-            style: AppText.footnote.copyWith(color: AppColors.ink),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-          ),
-          if (member.character != null)
+            const SizedBox(height: AppSpace.sm),
             Text(
-              member.character!,
-              style: AppText.footnote
-                  .copyWith(color: AppColors.inkTertiary, fontSize: 11),
+              member.name,
+              style: AppText.footnote.copyWith(color: AppColors.ink),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
             ),
-        ],
+            if (member.character != null)
+              Text(
+                member.character!,
+                style: AppText.footnote
+                    .copyWith(color: AppColors.inkTertiary, fontSize: 11),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -605,8 +612,18 @@ class _SectionTitle extends StatelessWidget {
 
 String _shortDate(DateTime d) {
   const months = [
-    'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
-    'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
+    'JAN',
+    'FEB',
+    'MAR',
+    'APR',
+    'MAY',
+    'JUN',
+    'JUL',
+    'AUG',
+    'SEP',
+    'OCT',
+    'NOV',
+    'DEC',
   ];
   return '${months[d.month - 1]} ${d.day}';
 }

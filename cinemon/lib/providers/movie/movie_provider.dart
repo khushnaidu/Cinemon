@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/episode_model.dart';
 import '../../models/film_extras.dart';
 import '../../models/film_model.dart';
+import '../../models/person_page.dart';
 import '../../repositories/movie_repository.dart';
 
 /// Provider for MovieRepository singleton instance
@@ -123,6 +124,16 @@ final filmDetailsProvider = FutureProvider.autoDispose
 final filmExtrasProvider = FutureProvider.autoDispose
     .family<FilmExtras, ({int id, MediaType mediaType})>((ref, params) async {
   return (await ref.watch(filmPageProvider(params).future)).extras;
+});
+
+/// A person page. Kept 30 minutes after it closes, like film pages.
+final personPageProvider =
+    FutureProvider.autoDispose.family<PersonPage, int>((ref, personId) async {
+  final page = await ref.watch(movieRepositoryProvider).getPersonPage(personId);
+  final link = ref.keepAlive();
+  final timer = Timer(const Duration(minutes: 30), link.close);
+  ref.onDispose(timer.cancel);
+  return page;
 });
 
 /// Episodes of one season of a show.

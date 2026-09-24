@@ -18,6 +18,7 @@ import '../../screens/film_detail_screen.dart';
 import '../../screens/profile/user_activity_screen.dart';
 import '../../screens/notifications_screen.dart';
 import '../../models/activity_model.dart';
+import '../../screens/person/person_screen.dart';
 
 /// GoRouter configuration with auth guard
 final goRouterProvider = Provider<GoRouter>((ref) {
@@ -179,6 +180,23 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/notifications',
         name: 'notifications',
         builder: (context, state) => const NotificationsScreen(),
+      ),
+      GoRoute(
+        path: '/person/:personId',
+        name: 'person',
+        builder: (context, state) {
+          final personId = int.tryParse(state.pathParameters['personId'] ?? '');
+          if (personId == null) {
+            return const Scaffold(
+              backgroundColor: Colors.black,
+              body: Center(
+                child: Text('Person not found',
+                    style: TextStyle(color: Colors.white)),
+              ),
+            );
+          }
+          return PersonScreen(personId: personId);
+        },
       ),
       GoRoute(
         path: '/film/:filmId/:mediaType',

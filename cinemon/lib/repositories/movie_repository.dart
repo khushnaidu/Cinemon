@@ -4,6 +4,7 @@ import '../models/episode_model.dart';
 import '../models/film_extras.dart';
 import '../models/film_model.dart';
 import '../models/person_model.dart';
+import '../models/person_page.dart';
 
 /// Repository for TMDB API operations.
 ///
@@ -402,6 +403,19 @@ class MovieRepository {
           await _dio.get('${ApiConstants.personDetails}/$personId');
 
       return PersonModel.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  /// A person and every credit they have, for the person page.
+  Future<PersonPage> getPersonPage(int personId) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.personDetails}/$personId',
+        queryParameters: {'append_to_response': 'combined_credits'},
+      );
+      return PersonPage.fromTmdb(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
       throw _handleDioError(e);
     }
