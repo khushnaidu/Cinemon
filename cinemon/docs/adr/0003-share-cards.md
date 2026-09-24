@@ -1,6 +1,6 @@
 # ADR 0003 — Share cards: posts as Instagram stories
 
-- **Status:** Accepted (design settled 2026-09-24, build starting)
+- **Status:** Accepted. Phases 1–4 built 2026-09-24. Later items (animated stories, Wrapped, J1) are still open.
 - **Date:** 2026-09-24
 - **Scope:** Turning 35mm posts, Top 3s, profiles, months and playlists into story images people post to Instagram (first), Facebook, and anywhere the iOS share sheet reaches
 - **Related:** ADR 0001 D10 (universal links on `35mm.contact`). ADR 0002 (no analytics, permissions only on use).
@@ -70,8 +70,11 @@ Only Instagram's partner apps get an automatic link on the story. Everyone else 
 
 - The item we put on the pasteboard for Instagram also carries the post's universal link as `public.url` and `public.utf8-plain-text`. If Instagram leaves those in place, the link sticker's paste field picks it up. **This is an experiment to verify on the device.** If it doesn't work, S0 shows "Link copied, add it with the link sticker" after the story opens, and copies the link a moment later, once Instagram has read its items.
 - **Links (ADR 0001 D10):**
-  - `/l/<id>` exists today.
-  - `/p/<id>` (post), `/u/<username>` (profile) and `/a/<id>` (logged review) are added in this ADR's Phase 4, together with the website's fallback pages and their Open Graph images.
+  - `/l/<id>` for playlists, which existed already.
+  - `/p/<id>` for Explore posts: takes, critiques and Explore reviews.
+  - `/u/<username>` for profiles, Top 3s, months, and **logged reviews**.
+  - The planned `/a/<id>` was dropped (revised 2026-09-24). A logged review is friends-only, so a stranger opening it from a story would hit a wall; the author's profile is the page that works for everyone.
+  - Open Graph images per post were also dropped for now. Rendering one needs to read the post without signing in, and `explore_posts` is readable by signed-in users only. Link previews use the brand image until that changes.
 
 ### D4 — One share entry point, fed by a `ShareSubject`
 
@@ -92,7 +95,7 @@ Each subject lists its templates in order, and the first is the default. `showSh
 
 - **Explore post:** a Share row at the top of the ••• menu, for takes, reviews and critiques.
 - **Feed card:** a share glyph on the back of review cards, next to the react and comment counts.
-- **Own profile:** Share in the header (P1, P2) and on the Top 3 shelf (T1, T2).
+- **Own profile:** Share in the header: P1, P2, then T1 and T2 for your Top 3 films and for your Top 3 shows.
 - **Playlist:** the existing share button opens S0 (L1). "Copy link" stays in More.
 
 ### D5 — Fonts are bundled, and only the ones the settled cards use
@@ -124,7 +127,7 @@ ADR 0002 promises no analytics. The only measure of sharing we allow ourselves i
 | **1. Engine and the first cards** | Canvas and units, capture, the iOS channel, S0, Save and More, then Instagram and Facebook once the App ID is in. Cards: **H1, H3, R2, E1**. Entry points on Explore posts and feed review cards. | Meta App ID for the story buttons; everything else works without it |
 | **2. Themed cards** | **H2, R3, E2, C1, C2, T2, T1**. Bundled fonts. R3 and T2 fetch stills from TMDB `/{movie,tv}/{id}/images` at share time. C2's sentence picker. | — |
 | **3. Profile, month, playlist** | **P1, P2, L1**. A month-stats query: count, runtime and genres from `activities`, with runtime and genres filled in from TMDB details and cached. **Month in film inside the app** as a profile card (§6). | — |
-| **4. Links** | `/p/`, `/u/` and `/a/` routes in the app, fallback pages and OG images on the website (`khushnaidu/35mm`), and the `?s=` counters | Website repo |
+| **4. Links** | `/p/` and `/u/` routes in the app, and fallback pages on the website (`khushnaidu/35mm`) | Website repo |
 | **Later** | Animated stories (grain, flicker, strip roll) as MP4 through `backgroundVideo`. Wrapped as its own ADR, aimed at December. The J1 Polaroid. | — |
 
 **Progress:**
@@ -132,9 +135,19 @@ ADR 0002 promises no analytics. The only measure of sharing we allow ourselves i
 - **Phase 1:** built 2026-09-24. Share appears on Explore takes and reviews (••• → Share to story) and on your own feed reviews. The Instagram and Facebook buttons are waiting on `META_APP_ID`.
 - **Phase 2:** built 2026-09-24.
   - Critiques join the ••• menu.
-  - Your own Top 3 gets a Share pill next to Edit.
+  - Top 3 cards (T1, T2) for films and shows are in the profile's share carousel after P1 and P2 (moved 2026-09-24; there's no separate Share pill on the shelf).
   - The C2 sentence is chosen with the arrows under the swatches.
   - Stills come from `filmStillsProvider`.
+- **Phase 3:** built 2026-09-24.
+  - P1 and P2 are behind a Share button in your own profile's top bar.
+  - A **Month in film** tile sits under your profile header (own profile, months with logs only). It opens the full P2 card with a Share button.
+  - A playlist's Share now opens L1, falling back to the plain link when the playlist is empty.
+  - Month stats come from `monthInFilmProvider` (`lib/share/month_stats.dart`): your logs for the month, TMDB runtime, genres and directors (6 lookups at a time, cached), and the month's most-voted take. `buildMonthInFilm` is pure and unit-tested.
+- **Phase 4:** built 2026-09-24.
+  - The app routes `/p/<id>` to the post and `/u/<username>` to the profile (`lib/share/shared_link_screens.dart`).
+  - The website adds both paths to `apple-app-site-association` and rewrites them to the `/open` fallback page.
+  - The privacy page describes share cards and the add-only Photos permission.
+  - Nothing was built for the `?s=` counts: Vercel's request logs already record them, and D7 allows nothing more.
 - **Checking the cards:** `test/share_cards_preview_test.dart` renders every card to PNG from local art (it's skipped unless `SHARE_PREVIEW_ART` and `SHARE_PREVIEW_OUT` are set).
 
 ## 5. Risks

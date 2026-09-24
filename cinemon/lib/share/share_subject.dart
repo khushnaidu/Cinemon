@@ -6,12 +6,17 @@ import '../core/utils/poster_palette.dart';
 import '../models/activity_model.dart';
 import '../models/explore_post_model.dart';
 import '../models/film_model.dart';
+import '../models/list_model.dart';
+import '../models/user_model.dart';
 import '../providers/movie/movie_provider.dart';
 import 'cards/critique_cards.dart';
 import 'cards/episode_cards.dart';
 import 'cards/hot_take_cards.dart';
+import 'cards/playlist_cards.dart';
+import 'cards/profile_cards.dart';
 import 'cards/review_cards.dart';
 import 'cards/top3_cards.dart';
+import 'month_stats.dart';
 
 /// What the share sheet is sharing (ADR 0003, D4). Each subject knows its
 /// card styles, the images those styles draw, and the poster the colours
@@ -38,6 +43,14 @@ sealed class ShareSubject {
   /// Where the link sticker should point.
   Uri get link => Uri.parse('https://35mm.contact');
 }
+
+/// A public Explore post's share link.
+Uri postLink(String id) => Uri.parse('https://35mm.contact/p/$id');
+
+/// Someone's profile link. Logged reviews point here rather than at the
+/// review itself: those are friends-only, so a stranger couldn't open it.
+Uri profileLink(String username) =>
+    Uri.parse('https://35mm.contact/u/$username');
 
 /// A share card style.
 ///
@@ -106,6 +119,9 @@ class TakeShare extends ShareSubject {
   final ExplorePost post;
 
   @override
+  Uri get link => postLink(post.id);
+
+  @override
   String get sheetTitle => 'Share hot take';
 
   @override
@@ -146,6 +162,7 @@ class TakeShare extends ShareSubject {
 /// Explore review. Episodes go to [EpisodeShare].
 class ReviewShare extends ShareSubject {
   const ReviewShare({
+    this.postId,
     required this.username,
     required this.userPhotoUrl,
     required this.filmId,
@@ -172,6 +189,7 @@ class ReviewShare extends ShareSubject {
   factory ReviewShare.fromPost(ExplorePost p) {
     final s = p.subject!;
     return ReviewShare(
+      postId: p.id,
       username: p.username,
       userPhotoUrl: p.userPhotoUrl,
       filmId: s.filmId,
@@ -183,6 +201,12 @@ class ReviewShare extends ShareSubject {
       text: p.body,
     );
   }
+
+  /// Set when shared from Explore; a logged review has no public page.
+  final String? postId;
+
+  @override
+  Uri get link => postId == null ? profileLink(username) : postLink(postId!);
 
   final String username;
   final String? userPhotoUrl;
@@ -244,6 +268,7 @@ class ReviewShare extends ShareSubject {
 
 class EpisodeShare extends ShareSubject {
   const EpisodeShare({
+    this.postId,
     required this.username,
     required this.userPhotoUrl,
     required this.showTitle,
@@ -272,6 +297,7 @@ class EpisodeShare extends ShareSubject {
   factory EpisodeShare.fromPost(ExplorePost p) {
     final s = p.subject!;
     return EpisodeShare(
+      postId: p.id,
       username: p.username,
       userPhotoUrl: p.userPhotoUrl,
       showTitle: s.title,
@@ -284,6 +310,12 @@ class EpisodeShare extends ShareSubject {
       text: p.body,
     );
   }
+
+  /// Set when shared from Explore; a logged review has no public page.
+  final String? postId;
+
+  @override
+  Uri get link => postId == null ? profileLink(username) : postLink(postId!);
 
   final String username;
   final String? userPhotoUrl;
@@ -344,6 +376,9 @@ class CritiqueShare extends ShareSubject {
   CritiqueShare(this.post) : quotes = pullQuoteCandidates(post.body);
 
   final ExplorePost post;
+
+  @override
+  Uri get link => postLink(post.id);
 
   /// Sentences that could stand alone as C2's pull quote, best first.
   final List<String> quotes;
@@ -430,6 +465,9 @@ class Top3Share extends ShareSubject {
   String backdropOf(FilmModel f) => ApiConstants.getBackdropUrl(f.backdropPath);
 
   @override
+  Uri get link => profileLink(username);
+
+  @override
   String get sheetTitle => isTv ? 'Share top 3 shows' : 'Share top 3';
 
   @override
@@ -452,6 +490,151 @@ class Top3Share extends ShareSubject {
           code: 'T2',
           name: 'Contact sheet',
           build: (look) => ContactSheetTop3Card(top3: this),
+        ),
+      ];
+}
+
+// ─────────────────────────────────────────────────────────────
+// Profile and month
+// ─────────────────────────────────────────────────────────────
+
+/// Your profile (P1) and your month in film (P2).
+class ProfileShare extends ShareSubject {
+  const ProfileShare({
+    required this.user,
+    required this.top3,
+    this.top3Shows = const [],
+    required this.logged,
+    required this.month,
+  });
+
+  final UserModel user;
+
+  /// Your Top 3 films, in rank order; may be empty.
+  final List<FilmModel> top3;
+
+  /// Your Top 3 shows, in rank order; may be empty.
+  final List<FilmModel> top3Shows;
+
+  /// The Top 3 cards ride along in the profile's carousel, films then
+  /// shows, each only if you've picked some.
+  List<Top3Share> get _top3s => [
+        if (top3.isNotEmpty)
+          Top3Share(
+            username: user.username,
+            userPhotoUrl: user.photoUrl,
+            films: top3,
+            isTv: false,
+          ),
+        if (top3Shows.isNotEmpty)
+          Top3Share(
+            username: user.username,
+            userPhotoUrl: user.photoUrl,
+            films: top3Shows,
+            isTv: true,
+          ),
+      ];
+
+  /// Films and episodes logged, ever.
+  final int logged;
+
+  /// The month P2 describes.
+  final DateTime month;
+
+  ({String userId, int year, int month}) get monthKey =>
+      (userId: user.uid, year: month.year, month: month.month);
+
+  String posterOf(FilmModel f) => _poster(f.posterPath);
+
+  @override
+  String get sheetTitle => 'Share profile';
+
+  @override
+  String get paletteUrl => top3.isEmpty ? '' : posterOf(top3.first);
+
+  @override
+  Uri get link => profileLink(user.username);
+
+  @override
+  List<String> get imageUrls => {
+        if ((user.photoUrl ?? '').isNotEmpty) user.photoUrl!,
+        for (final f in top3) posterOf(f),
+        for (final t in _top3s) ...t.imageUrls,
+      }.where((u) => u.isNotEmpty).toList();
+
+  @override
+  Future<List<String>> loadImages(WidgetRef ref) async {
+    try {
+      final m = await ref.read(monthInFilmProvider(monthKey).future);
+      return [...imageUrls, ...m.posterPaths.map(monthPosterUrl)];
+    } catch (_) {
+      return imageUrls;
+    }
+  }
+
+  @override
+  List<ShareTemplate> get templates => [
+        ShareTemplate(
+          code: 'P1',
+          name: 'Profile',
+          build: (look) => ProfileCard(profile: this),
+        ),
+        ShareTemplate(
+          code: 'P2',
+          name: 'Month in film',
+          build: (look) => MonthInFilmStory(profile: this, look: look),
+        ),
+        for (final t in _top3s)
+          for (final template in t.templates)
+            ShareTemplate(
+              code: t.isTv ? '${template.code}S' : template.code,
+              name:
+                  '${t.isTv ? 'Top 3 shows' : 'Top 3 films'} · ${template.name}',
+              build: template.build,
+            ),
+      ];
+}
+
+// ─────────────────────────────────────────────────────────────
+// Playlist
+// ─────────────────────────────────────────────────────────────
+
+class PlaylistShare extends ShareSubject {
+  const PlaylistShare({
+    required this.list,
+    required this.items,
+    required this.ownerName,
+    required this.ownerPhotoUrl,
+  });
+
+  final FilmList list;
+  final List<ListItem> items;
+  final String ownerName;
+  final String? ownerPhotoUrl;
+
+  String posterOf(ListItem i) => _poster(i.posterPath);
+
+  @override
+  String get sheetTitle => 'Share playlist';
+
+  @override
+  String get paletteUrl => items.isEmpty ? '' : posterOf(items.first);
+
+  @override
+  Uri get link => Uri.parse('https://35mm.contact/l/${list.id}');
+
+  @override
+  List<String> get imageUrls => [
+        for (final i in items.take(4)) posterOf(i),
+        if ((ownerPhotoUrl ?? '').isNotEmpty) ownerPhotoUrl!,
+      ].where((u) => u.isNotEmpty).toList();
+
+  @override
+  List<ShareTemplate> get templates => [
+        ShareTemplate(
+          code: 'L1',
+          name: 'Playlist',
+          build: (look) => PlaylistCard(playlist: this),
         ),
       ];
 }

@@ -21,18 +21,25 @@ import 'story_share.dart';
 /// S0: the share sheet (ADR 0003). Swipe through the subject's styles, pick
 /// a colour from the poster, then send the card to a story, Photos, or the
 /// system share sheet.
-Future<void> showShareSheet(BuildContext context, ShareSubject subject) {
+///
+/// [initialCode] opens on that style, like "P2" from the month card.
+Future<void> showShareSheet(
+  BuildContext context,
+  ShareSubject subject, {
+  String? initialCode,
+}) {
   return showGlassPanel<void>(
     context,
     tall: true,
-    builder: (_) => ShareSheet(subject: subject),
+    builder: (_) => ShareSheet(subject: subject, initialCode: initialCode),
   );
 }
 
 class ShareSheet extends ConsumerStatefulWidget {
-  const ShareSheet({super.key, required this.subject});
+  const ShareSheet({super.key, required this.subject, this.initialCode});
 
   final ShareSubject subject;
+  final String? initialCode;
 
   @override
   ConsumerState<ShareSheet> createState() => _ShareSheetState();
@@ -44,9 +51,11 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
       List.generate(_templates.length, (_) => GlobalKey());
   late final List<GlobalKey> _stickerKeys =
       List.generate(_templates.length, (_) => GlobalKey());
-  final _pages = PageController(viewportFraction: 0.64);
+  late int _page =
+      _templates.indexWhere((t) => t.code == widget.initialCode).clamp(0, 99);
+  late final _pages =
+      PageController(viewportFraction: 0.64, initialPage: _page);
 
-  int _page = 0;
   int _swatch = 0;
   bool _ready = false;
   bool _busy = false;

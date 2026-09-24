@@ -6,11 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../models/film_model.dart';
-import '../../providers/feed/feed_provider.dart'
-    show currentUserProfileProvider;
 import '../../providers/user/favorites_provider.dart';
-import '../../share/share_sheet.dart';
-import '../../share/share_subject.dart';
 import '../widgets/glass_panel.dart';
 import 'favorite_films_picker.dart';
 
@@ -67,33 +63,6 @@ class _Top3SectionState extends ConsumerState<Top3Section> {
       duration: const Duration(milliseconds: 380),
       curve: Curves.easeOutCubic,
     );
-  }
-
-  /// Your Top 3 as a story (ADR 0003, T1 and T2).
-  Future<void> _share(MediaType type) async {
-    final ids = _idsFor(type).take(3).toList();
-    final key = favoriteFilmsKey(ids);
-    try {
-      final films = await (type == MediaType.tv
-          ? ref.read(favoriteShowsDataProvider(key).future)
-          : ref.read(favoriteFilmsDataProvider(key).future));
-      final me = await ref.read(currentUserProfileProvider.future);
-      if (!mounted || films.isEmpty || me == null) return;
-      await showShareSheet(
-        context,
-        Top3Share(
-          username: me.username,
-          userPhotoUrl: me.photoUrl,
-          films: films,
-          isTv: type == MediaType.tv,
-        ),
-      );
-    } catch (_) {
-      if (mounted) {
-        showGlassToast(context, "Couldn't load your Top 3. Try again.",
-            destructive: true);
-      }
-    }
   }
 
   void _showPicker(MediaType type) {
@@ -172,27 +141,13 @@ class _Top3SectionState extends ConsumerState<Top3Section> {
             Positioned(
               top: AppSpace.sm,
               right: AppSpace.xl,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (currentIds.isNotEmpty) ...[
-                    GlassPillButton(
-                      label: 'Share',
-                      icon: CupertinoIcons.square_arrow_up,
-                      compact: true,
-                      onTap: () => _share(current),
-                    ),
-                    const SizedBox(width: AppSpace.sm),
-                  ],
-                  GlassPillButton(
-                    label: currentIds.isEmpty ? 'Add' : 'Edit',
-                    icon: currentIds.isEmpty
-                        ? CupertinoIcons.plus
-                        : CupertinoIcons.pencil,
-                    compact: true,
-                    onTap: () => _showPicker(current),
-                  ),
-                ],
+              child: GlassPillButton(
+                label: currentIds.isEmpty ? 'Add' : 'Edit',
+                icon: currentIds.isEmpty
+                    ? CupertinoIcons.plus
+                    : CupertinoIcons.pencil,
+                compact: true,
+                onTap: () => _showPicker(current),
               ),
             ),
         ],
