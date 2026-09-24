@@ -16,11 +16,12 @@ import '../providers/feed/feed_provider.dart'
         syncReviewCountProvider;
 import '../providers/friendship/friendship_provider.dart';
 import '../providers/lists/list_provider.dart'
-    show myWatchlistProvider, watchlistProvider;
+    show myWatchlistProvider, playlistsProvider, watchlistProvider;
 import '../providers/user/favorites_provider.dart';
 import 'widgets/arch_profile_frame.dart';
 import 'profile/recently_watched_section.dart';
 import 'profile/favorite_people_picker.dart';
+import 'lists/profile_playlists_section.dart';
 import 'lists/profile_watchlist_row.dart';
 import 'profile/badge_display.dart';
 import 'profile/delete_account_panel.dart';
@@ -82,11 +83,13 @@ class ProfilePage extends ConsumerWidget {
                   ref.invalidate(currentUserFavoriteDirectorsProvider);
                   ref.invalidate(currentUserRecentlyWatchedProvider);
                   ref.invalidate(myWatchlistProvider);
+                  ref.invalidate(playlistsProvider(profile.uid));
                 } else {
                   ref.invalidate(userProfileProvider(profile.uid));
                   ref.invalidate(userActivitiesProvider(profile.uid));
                   ref.invalidate(recentlyWatchedProvider(profile.uid));
                   ref.invalidate(watchlistProvider(profile.uid));
+                  ref.invalidate(playlistsProvider(profile.uid));
                 }
                 // Wait for refresh to complete
                 await Future.delayed(const Duration(milliseconds: 500));
@@ -229,6 +232,13 @@ class ProfilePage extends ConsumerWidget {
 
                   SliverToBoxAdapter(
                     child: ProfileWatchlistRow(
+                      userId: profile.uid,
+                      isOwnProfile: isOwnProfile,
+                    ),
+                  ),
+
+                  SliverToBoxAdapter(
+                    child: ProfilePlaylistsSection(
                       userId: profile.uid,
                       isOwnProfile: isOwnProfile,
                     ),

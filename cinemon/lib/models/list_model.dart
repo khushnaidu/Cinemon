@@ -115,6 +115,20 @@ class ListItem {
         addedAt: DateTime.tryParse(row['added_at'] as String? ?? ''),
       );
 
+  ListItem withPosition(double position) => ListItem(
+        listId: listId,
+        filmId: filmId,
+        mediaType: mediaType,
+        title: title,
+        posterPath: posterPath,
+        backdropPath: backdropPath,
+        year: year,
+        position: position,
+        note: note,
+        watchedAt: watchedAt,
+        addedAt: addedAt,
+      );
+
   ListItem withWatched(bool watched) => ListItem(
         listId: listId,
         filmId: filmId,

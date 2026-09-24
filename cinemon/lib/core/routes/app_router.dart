@@ -18,7 +18,7 @@ import '../../screens/film_detail_screen.dart';
 import '../../screens/profile/user_activity_screen.dart';
 import '../../screens/notifications_screen.dart';
 import '../../models/activity_model.dart';
-import '../../screens/lists/watchlist_screen.dart';
+import '../../screens/lists/playlist_screen.dart';
 import '../../screens/person/person_screen.dart';
 
 /// GoRouter configuration with auth guard
@@ -186,7 +186,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/lists/:listId',
         name: 'list',
         builder: (context, state) =>
-            WatchlistScreen(listId: state.pathParameters['listId']!),
+            ListScreen(listId: state.pathParameters['listId']!),
+      ),
+      // Share links: https://35mm.contact/l/<id> arrives here as a universal
+      // link (Flutter hands the path to the router).
+      GoRoute(
+        path: '/l/:listId',
+        redirect: (context, state) =>
+            '/lists/${state.pathParameters['listId']}',
       ),
       GoRoute(
         path: '/person/:personId',

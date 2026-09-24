@@ -2,16 +2,16 @@ import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../models/film_model.dart';
 import '../../models/list_model.dart';
 import '../../providers/lists/list_provider.dart';
 import '../widgets/glass_panel.dart';
+import 'add_to_list_sheet.dart';
 
 /// The bookmark on a film page: one tap puts it on your watchlist, another
 /// takes it off. Lit while it's there and unwatched. A long press opens
-/// the watchlist.
+/// Add to…, for playlists.
 class WatchlistButton extends ConsumerStatefulWidget {
   const WatchlistButton({super.key, required this.film});
 
@@ -19,6 +19,23 @@ class WatchlistButton extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<WatchlistButton> createState() => _WatchlistButtonState();
+}
+
+/// Add to… as its own button beside the bookmark, so playlists don't hide
+/// behind a long press.
+class AddToListButton extends StatelessWidget {
+  const AddToListButton({super.key, required this.film});
+
+  final FilmModel film;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'Add to a playlist',
+      icon: const Icon(CupertinoIcons.text_badge_plus, color: Colors.white),
+      onPressed: () => showAddToListSheet(context, film),
+    );
+  }
 }
 
 class _WatchlistButtonState extends ConsumerState<WatchlistButton> {
@@ -53,8 +70,8 @@ class _WatchlistButtonState extends ConsumerState<WatchlistButton> {
 
     return GestureDetector(
       onLongPress: () {
-        final list = ref.read(myWatchlistProvider).valueOrNull;
-        if (list != null) context.push('/lists/${list.id}');
+        HapticFeedback.mediumImpact();
+        showAddToListSheet(context, widget.film);
       },
       child: IconButton(
         tooltip: saved ? 'On your watchlist' : 'Add to watchlist',

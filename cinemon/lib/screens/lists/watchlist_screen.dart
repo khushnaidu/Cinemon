@@ -129,7 +129,8 @@ class _ListBodyState extends ConsumerState<_ListBody> {
           pinned: true,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => context.pop(),
+            onPressed: () =>
+                context.canPop() ? context.pop() : context.go('/home'),
           ),
           actions: [
             if (widget.isOwner)

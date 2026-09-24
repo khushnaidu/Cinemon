@@ -116,7 +116,10 @@ class _FilmDetailContent extends ConsumerWidget {
             icon: const Icon(Icons.arrow_back, color: Colors.white),
             onPressed: () => context.pop(),
           ),
-          actions: [WatchlistButton(film: film)],
+          actions: [
+            AddToListButton(film: film),
+            WatchlistButton(film: film),
+          ],
           flexibleSpace: FlexibleSpaceBar(
             background: Stack(
               fit: StackFit.expand,

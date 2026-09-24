@@ -73,7 +73,9 @@ class _Frame extends StatelessWidget {
           floating: true,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => context.pop(),
+            // Opened from a link, there's nothing underneath.
+            onPressed: () =>
+                context.canPop() ? context.pop() : context.go('/home'),
           ),
         ),
         child,

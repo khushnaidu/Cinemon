@@ -71,6 +71,15 @@ Phase 7  Trailers tab         ── reuses the player from Phase 1
 - **Phase 2** built 2026-09-23: `/person/:personId` with Known For, a per-department filmography and your history. It opens from the film page's cast and crew rail and from favorite actors and directors. Not yet linked from search, because people only appear in the favorites picker today.
 - **Search** gained a People tab (2026-09-23), which shows trending people before you type. It is the third entry point to person pages.
 - **Phase 3** built 2026-09-23: migration `008_lists.sql` adds lists, items and saves, `can_view_list` (which respects blocks), watchlist auto-creation, and strike-off on log. The app side is the film page bookmark, `/lists/:id` with strike-off and a log-it prompt, swipe actions and visibility, and a Watchlist row on profiles. Deferred to Phase 4, when playlists give it a second destination: the "Add to…" sheet, and bookmarks on Explore chips and search rows.
+- **Phase 4** built 2026-09-23, with no migration because `008` already had the tables:
+  - `PlaylistCover` (a 2×2 grid, a lead poster, or empty)
+  - the create/edit panel with a live cover
+  - Add to… (a film page button, plus long press on the bookmark)
+  - a multi-select "Add films" panel
+  - the playlist screen: Save, Share, Shuffle, drag to reorder with fractional positions (`planMove`), swipe to remove
+  - a Playlists rail on profiles, and share links to `https://35mm.contact/l/<id>`
+
+  Universal links go through Flutter's built-in deep linking straight into go_router (`/l/:id` redirects to `/lists/:id`), so `app_links` wasn't needed. Still to come: posting a list to Explore (Phase 5), and OG images of the cover (v2).
 
 ### Why this order
 
@@ -417,15 +426,15 @@ A small Vercel project (its own repo, e.g. `35mm-web`) serves everything on the 
     - account deletion
   - The support page gives a contact email and FAQs.
   - Add both URLs in App Store Connect.
-- [ ] **3. `/.well-known/apple-app-site-association`.**
+- [x] **3. `/.well-known/apple-app-site-association`.** *(Done 2026-09-23 for `/l/*` and `/person/*`. Add `/p/*` when Explore post links exist.)*
   - App ID: Team ID **`L6YHMZPSYT`** (from the Xcode signing config) and bundle ID `com.cinemon.app`, giving `L6YHMZPSYT.com.cinemon.app`.
   - Serve it as `application/json` with no redirects and no file extension. Set this with `headers` in `vercel.json`.
   - Covers the paths `/l/*`, `/p/*` and `/person/*`.
-- [ ] **4. App side.**
+- [x] **4. App side.** *(Done 2026-09-23. `Runner.entitlements` has `applinks:35mm.contact`, and automatic signing enabled the capability. Flutter deep linking replaces `app_links`.)*
   - Add the Associated Domains entitlement `applinks:35mm.contact` in Xcode, and enable Associated Domains on the App ID.
   - Add the `app_links` package and route incoming links into go_router: `/l/:id` goes to the list, `/p/:id` to the Explore post, and `/person/:id` to the person page.
   - Test on the device (burritoman) by tapping a link in Notes or Messages. Universal links don't fire when a link is typed into Safari.
-- [ ] **5. Fallback pages for people without the app.**
+- [ ] **5. Fallback pages for people without the app.** *(v1 done 2026-09-23: one generic `/open` page, rewritten from `/l/:id` and `/person/:id`, with static OG tags. Per-list titles and covers still need the anon policies below.)*
   - `/l/[id]`, `/p/[id]` and `/person/[id]` show a branded "Open in 35mm / Get it on the App Store" page. The App Store button can be added once there's an App Store listing.
   - Each page has `og:title`/`og:image` tags for iMessage previews:
     - v1 uses a static branded image
