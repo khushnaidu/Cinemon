@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../core/constants/api_constants.dart';
+import '../models/episode_model.dart';
 import '../models/film_model.dart';
 import '../models/person_model.dart';
 
@@ -124,6 +125,31 @@ class MovieRepository {
     } on DioException catch (e) {
       throw _handleDioError(e);
     }
+  }
+
+  /// Episodes of one season of a show, with stills and air dates.
+  Future<List<EpisodeModel>> getSeason(int tvId, int seasonNumber) async {
+    try {
+      final response =
+          await _dio.get(ApiConstants.tvSeason(tvId, seasonNumber));
+      final episodes = response.data['episodes'] as List<dynamic>? ?? const [];
+      return episodes
+          .map((json) => EpisodeModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  /// Several shows by id, fetched in parallel. Ids that fail are skipped
+  /// rather than failing the whole list.
+  Future<List<FilmModel>> getShowsByIds(List<int> ids) async {
+    if (ids.isEmpty) return [];
+    final results = await Future.wait(
+      ids.map((id) =>
+          getTvDetails(id).then<FilmModel?>((f) => f, onError: (_) => null)),
+    );
+    return results.whereType<FilmModel>().toList();
   }
 
   /// Get trending movies this week
@@ -339,7 +365,8 @@ class MovieRepository {
   /// Get detailed information about a person by ID
   Future<PersonModel> getPersonDetails(int personId) async {
     try {
-      final response = await _dio.get('${ApiConstants.personDetails}/$personId');
+      final response =
+          await _dio.get('${ApiConstants.personDetails}/$personId');
 
       return PersonModel.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {

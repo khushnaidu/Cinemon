@@ -1,98 +1,203 @@
-import 'package:flutter/material.dart';
-import '../../core/theme/app_theme.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../core/theme/app_theme.dart';
 import '../../models/film_model.dart';
 import '../../providers/user/favorites_provider.dart';
+import '../widgets/glass_panel.dart';
 import 'favorite_films_picker.dart';
 
 /// Badge position for film cards
 enum BadgePosition { left, right, bottom }
 
-/// Top 3 Films section - centered card layout with large middle card
-/// Cards overlap on top of the TOP 3 title backdrop
-class Top3FilmsSection extends ConsumerWidget {
+/// Top 3 — two pages under one "TOP 3" backdrop: films, then shows.
+///
+/// Swipe between them, or tap the Films / Shows switch. The podium layout is
+/// the same on both pages (large centre card for 1st, smaller flanks for 2nd
+/// and 3rd, badges half on and half off the poster), so the swipe reads as
+/// the same shelf turning over rather than a different section.
+class Top3Section extends ConsumerStatefulWidget {
   final List<int> filmIds;
+  final List<int> showIds;
   final bool isOwnProfile;
 
-  const Top3FilmsSection({
+  const Top3Section({
     super.key,
     required this.filmIds,
+    required this.showIds,
     required this.isOwnProfile,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Take only first 3 films and create stable key for provider
-    final top3Ids = filmIds.take(3).toList();
-    final filmsAsync =
-        ref.watch(favoriteFilmsDataProvider(favoriteFilmsKey(top3Ids)));
+  ConsumerState<Top3Section> createState() => _Top3SectionState();
+}
 
-    // Don't show section if empty and not own profile
-    if (filmIds.isEmpty && !isOwnProfile) {
-      return const SizedBox.shrink();
-    }
+class _Top3SectionState extends ConsumerState<Top3Section> {
+  final _controller = PageController();
+  int _page = 0;
 
-    // Cards at top:150 + height ~240 = need ~390 total height
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// Someone else's profile shows only the pages they've filled in.
+  List<MediaType> get _pages {
+    if (widget.isOwnProfile) return const [MediaType.movie, MediaType.tv];
+    return [
+      if (widget.filmIds.isNotEmpty) MediaType.movie,
+      if (widget.showIds.isNotEmpty) MediaType.tv,
+    ];
+  }
+
+  List<int> _idsFor(MediaType type) =>
+      type == MediaType.tv ? widget.showIds : widget.filmIds;
+
+  void _goTo(int index) {
+    _controller.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 380),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _showPicker(MediaType type) {
+    showGlassPanel(
+      context,
+      tall: true,
+      builder: (_) => FavoriteFilmsPickerSheet(
+        currentFilmIds: _idsFor(type),
+        mediaType: type,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pages = _pages;
+    if (pages.isEmpty) return const SizedBox.shrink();
+
+    final page = _page.clamp(0, pages.length - 1);
+    final current = pages[page];
+    final currentIds = _idsFor(current);
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return SizedBox(
       height: 300,
       child: Stack(
         clipBehavior: Clip.none,
+        alignment: Alignment.topCenter,
         children: [
-          // Main content
-          filmsAsync.when(
-            data: (films) => films.isEmpty
-                ? _buildEmptyState(context, ref)
-                : _buildCardsWithBackdrop(context, films),
-            loading: () => _buildLoadingState(context),
-            error: (_, __) => _buildEmptyState(context, ref),
+          // The "TOP 3" art stays put; only the shelf underneath turns.
+          Positioned(
+            top: 0,
+            child: Image.asset(
+              'assets/top3elements/133.png',
+              width: screenWidth * 0.95,
+              fit: BoxFit.fitWidth,
+            ),
           ),
 
-          // Edit button overlaid on top right
-          if (isOwnProfile)
+          Positioned.fill(
+            child: PageView(
+              controller: _controller,
+              clipBehavior: Clip.none,
+              physics: pages.length > 1
+                  ? const PageScrollPhysics()
+                  : const NeverScrollableScrollPhysics(),
+              onPageChanged: (i) => setState(() => _page = i),
+              children: [
+                for (final type in pages)
+                  _Top3Page(
+                    key: ValueKey(type),
+                    ids: _idsFor(type),
+                    mediaType: type,
+                    isOwnProfile: widget.isOwnProfile,
+                    onAdd: () => _showPicker(type),
+                  ),
+              ],
+            ),
+          ),
+
+          if (pages.length > 1)
             Positioned(
-              top: 8,
-              right: 24,
-              child: GestureDetector(
-                onTap: () => _showFilmPicker(context, ref),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Text(
-                    filmIds.isEmpty ? 'add' : 'edit',
-                    style: const TextStyle(
-                      color: Colors.white60,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+              top: AppSpace.sm,
+              left: AppSpace.xl,
+              child: SizedBox(
+                width: 132,
+                child: GlassSegmentedControl(
+                  labels: const ['Films', 'Shows'],
+                  index: page,
+                  onChanged: _goTo,
                 ),
+              ),
+            ),
+
+          if (widget.isOwnProfile)
+            Positioned(
+              top: AppSpace.sm,
+              right: AppSpace.xl,
+              child: GlassPillButton(
+                label: currentIds.isEmpty ? 'Add' : 'Edit',
+                icon: currentIds.isEmpty
+                    ? CupertinoIcons.plus
+                    : CupertinoIcons.pencil,
+                compact: true,
+                onTap: () => _showPicker(current),
               ),
             ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildCardsWithBackdrop(BuildContext context, List<FilmModel> films) {
+/// One shelf: the three cards, or the empty / loading stand-ins.
+class _Top3Page extends ConsumerWidget {
+  const _Top3Page({
+    super.key,
+    required this.ids,
+    required this.mediaType,
+    required this.isOwnProfile,
+    required this.onAdd,
+  });
+
+  final List<int> ids;
+  final MediaType mediaType;
+  final bool isOwnProfile;
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final top3 = ids.take(3).toList();
+    final key = favoriteFilmsKey(top3);
+    final filmsAsync = top3.isEmpty
+        ? const AsyncValue<List<FilmModel>>.data([])
+        : mediaType == MediaType.tv
+            ? ref.watch(favoriteShowsDataProvider(key))
+            : ref.watch(favoriteFilmsDataProvider(key));
+
+    return filmsAsync.when(
+      data: (films) => films.isEmpty
+          ? _buildEmptyState(context)
+          : _buildCards(context, films),
+      loading: () => _buildLoadingState(context),
+      error: (_, __) => _buildEmptyState(context),
+    );
+  }
+
+  Widget _buildCards(BuildContext context, List<FilmModel> films) {
     final screenWidth = MediaQuery.of(context).size.width;
 
+    // Cards container - below the title, overlapping circle
     return Stack(
-      alignment: Alignment.topCenter,
       clipBehavior: Clip.none,
+      alignment: Alignment.topCenter,
       children: [
-        // Combined circle + TOP 3 title backdrop (animated GIF)
-        _AnimatedGifBackdrop(
-          width: screenWidth * 0.95,
-          top: 0,
-        ),
-
-        // Cards container - below the title, overlapping circle
         Positioned(
           top: 150,
           child: SizedBox(
@@ -154,53 +259,42 @@ class Top3FilmsSection extends ConsumerWidget {
     );
   }
 
-  Widget _buildEmptyState(BuildContext context, WidgetRef ref) {
-    final screenWidth = MediaQuery.of(context).size.width;
-
+  Widget _buildEmptyState(BuildContext context) {
+    final isTv = mediaType == MediaType.tv;
     return Stack(
       alignment: Alignment.topCenter,
+      clipBehavior: Clip.none,
       children: [
-        // Combined circle + TOP 3 title backdrop (animated GIF)
-        _AnimatedGifBackdrop(
-          width: screenWidth * 0.95,
-          top: -20,
-        ),
-        // Empty state card
         Positioned(
           top: 160,
           child: GestureDetector(
-            onTap: isOwnProfile ? () => _showFilmPicker(context, ref) : null,
+            onTap: isOwnProfile ? onAdd : null,
             child: Container(
               width: 280,
               height: 160,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.ink.withValues(alpha: 0.06),
-                    Colors.transparent,
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(16),
+                color: Colors.white.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(AppRadius.lg),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  width: 1,
+                  color: Colors.white.withValues(alpha: 0.10),
+                  width: 0.8,
                 ),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.movie_outlined,
-                    color: Colors.white.withValues(alpha: 0.3),
-                    size: 32,
+                    isTv ? CupertinoIcons.tv : CupertinoIcons.film,
+                    color: AppColors.inkTertiary,
+                    size: 30,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpace.sm),
                   Text(
-                    isOwnProfile ? 'Add your top 3 films' : 'No top films yet',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.4),
-                      fontSize: 13,
-                    ),
+                    isOwnProfile
+                        ? 'Add your top 3 ${isTv ? 'shows' : 'films'}'
+                        : 'No top ${isTv ? 'shows' : 'films'} yet',
+                    style:
+                        AppText.caption.copyWith(color: AppColors.inkSecondary),
                   ),
                 ],
               ),
@@ -214,66 +308,37 @@ class Top3FilmsSection extends ConsumerWidget {
   Widget _buildLoadingState(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
 
+    Widget slab(double w, double h, {EdgeInsets margin = EdgeInsets.zero}) {
+      return Container(
+        width: w,
+        height: h,
+        margin: margin,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+        ),
+      );
+    }
+
     return Stack(
       alignment: Alignment.topCenter,
+      clipBehavior: Clip.none,
       children: [
-        // Combined circle + TOP 3 title backdrop (animated GIF)
-        _AnimatedGifBackdrop(
-          width: screenWidth * 0.95,
-          top: -20,
-        ),
-        // Loading placeholders
         Positioned(
-          top: 120,
+          top: 150,
           child: SizedBox(
             width: screenWidth,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // 2nd place placeholder
-                Container(
-                  width: 105,
-                  height: 155,
-                  margin: const EdgeInsets.only(right: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                // 1st place placeholder
-                Container(
-                  width: 130,
-                  height: 195,
-                  margin: const EdgeInsets.only(top: 20),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                // 3rd place placeholder
-                Container(
-                  width: 105,
-                  height: 155,
-                  margin: const EdgeInsets.only(left: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
+                slab(105, 155, margin: const EdgeInsets.only(right: 12)),
+                slab(130, 195, margin: const EdgeInsets.only(top: 20)),
+                slab(105, 155, margin: const EdgeInsets.only(left: 12)),
               ],
             ),
           ),
         ),
       ],
-    );
-  }
-
-  void _showFilmPicker(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => FavoriteFilmsPickerSheet(currentFilmIds: filmIds),
     );
   }
 }
@@ -383,11 +448,10 @@ class _AnimatedFilmCardState extends State<_AnimatedFilmCard>
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: widget.isFirst
-                            ? const Color(0xFFFF9800).withValues(alpha: 0.4)
-                            : Colors.black.withValues(alpha: 0.5),
+                        color: Colors.black
+                            .withValues(alpha: widget.isFirst ? 0.6 : 0.5),
                         blurRadius: widget.isFirst ? 24 : 16,
-                        offset: const Offset(0, 4),
+                        offset: const Offset(0, 6),
                       ),
                     ],
                   ),
@@ -403,14 +467,14 @@ class _AnimatedFilmCardState extends State<_AnimatedFilmCard>
                             ),
                             errorWidget: (_, __, ___) => Container(
                               color: AppColors.surface,
-                              child: const Icon(Icons.movie,
-                                  color: Colors.white24),
+                              child: const Icon(CupertinoIcons.film,
+                                  color: AppColors.inkTertiary),
                             ),
                           )
                         : Container(
                             color: AppColors.surface,
-                            child:
-                                const Icon(Icons.movie, color: Colors.white24),
+                            child: const Icon(CupertinoIcons.film,
+                                color: AppColors.inkTertiary),
                           ),
                   ),
                 ),
@@ -467,28 +531,5 @@ class _AnimatedFilmCardState extends State<_AnimatedFilmCard>
           ),
         );
     }
-  }
-}
-
-/// Backdrop widget (using PNG for now - GIFs too large for memory)
-class _AnimatedGifBackdrop extends StatelessWidget {
-  final double width;
-  final double top;
-
-  const _AnimatedGifBackdrop({
-    required this.width,
-    this.top = 0,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      top: top,
-      child: Image.asset(
-        'assets/top3elements/133.png',
-        width: width,
-        fit: BoxFit.fitWidth,
-      ),
-    );
   }
 }

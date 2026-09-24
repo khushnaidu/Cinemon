@@ -90,6 +90,10 @@ mixin _$FilmModel {
   @JsonKey(name: 'number_of_episodes')
   int? get numberOfEpisodes => throw _privateConstructorUsedError;
 
+  /// Seasons (for TV, from details endpoint). Specials come through as
+  /// season 0 and are listed last by [orderedSeasons].
+  List<SeasonModel> get seasons => throw _privateConstructorUsedError;
+
   /// Tagline (from details endpoint)
   String? get tagline => throw _privateConstructorUsedError;
 
@@ -128,6 +132,7 @@ abstract class $FilmModelCopyWith<$Res> {
       int? runtime,
       @JsonKey(name: 'number_of_seasons') int? numberOfSeasons,
       @JsonKey(name: 'number_of_episodes') int? numberOfEpisodes,
+      List<SeasonModel> seasons,
       String? tagline,
       String? status});
 }
@@ -165,6 +170,7 @@ class _$FilmModelCopyWithImpl<$Res, $Val extends FilmModel>
     Object? runtime = freezed,
     Object? numberOfSeasons = freezed,
     Object? numberOfEpisodes = freezed,
+    Object? seasons = null,
     Object? tagline = freezed,
     Object? status = freezed,
   }) {
@@ -249,6 +255,10 @@ class _$FilmModelCopyWithImpl<$Res, $Val extends FilmModel>
           ? _value.numberOfEpisodes
           : numberOfEpisodes // ignore: cast_nullable_to_non_nullable
               as int?,
+      seasons: null == seasons
+          ? _value.seasons
+          : seasons // ignore: cast_nullable_to_non_nullable
+              as List<SeasonModel>,
       tagline: freezed == tagline
           ? _value.tagline
           : tagline // ignore: cast_nullable_to_non_nullable
@@ -290,6 +300,7 @@ abstract class _$$FilmModelImplCopyWith<$Res>
       int? runtime,
       @JsonKey(name: 'number_of_seasons') int? numberOfSeasons,
       @JsonKey(name: 'number_of_episodes') int? numberOfEpisodes,
+      List<SeasonModel> seasons,
       String? tagline,
       String? status});
 }
@@ -325,6 +336,7 @@ class __$$FilmModelImplCopyWithImpl<$Res>
     Object? runtime = freezed,
     Object? numberOfSeasons = freezed,
     Object? numberOfEpisodes = freezed,
+    Object? seasons = null,
     Object? tagline = freezed,
     Object? status = freezed,
   }) {
@@ -409,6 +421,10 @@ class __$$FilmModelImplCopyWithImpl<$Res>
           ? _value.numberOfEpisodes
           : numberOfEpisodes // ignore: cast_nullable_to_non_nullable
               as int?,
+      seasons: null == seasons
+          ? _value._seasons
+          : seasons // ignore: cast_nullable_to_non_nullable
+              as List<SeasonModel>,
       tagline: freezed == tagline
           ? _value.tagline
           : tagline // ignore: cast_nullable_to_non_nullable
@@ -445,9 +461,11 @@ class _$FilmModelImpl extends _FilmModel {
       this.runtime,
       @JsonKey(name: 'number_of_seasons') this.numberOfSeasons,
       @JsonKey(name: 'number_of_episodes') this.numberOfEpisodes,
+      final List<SeasonModel> seasons = const [],
       this.tagline,
       this.status})
       : _genreIds = genreIds,
+        _seasons = seasons,
         super._();
 
   factory _$FilmModelImpl.fromJson(Map<String, dynamic> json) =>
@@ -552,6 +570,20 @@ class _$FilmModelImpl extends _FilmModel {
   @JsonKey(name: 'number_of_episodes')
   final int? numberOfEpisodes;
 
+  /// Seasons (for TV, from details endpoint). Specials come through as
+  /// season 0 and are listed last by [orderedSeasons].
+  final List<SeasonModel> _seasons;
+
+  /// Seasons (for TV, from details endpoint). Specials come through as
+  /// season 0 and are listed last by [orderedSeasons].
+  @override
+  @JsonKey()
+  List<SeasonModel> get seasons {
+    if (_seasons is EqualUnmodifiableListView) return _seasons;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_seasons);
+  }
+
   /// Tagline (from details endpoint)
   @override
   final String? tagline;
@@ -562,7 +594,7 @@ class _$FilmModelImpl extends _FilmModel {
 
   @override
   String toString() {
-    return 'FilmModel(id: $id, title: $title, name: $name, originalTitle: $originalTitle, originalName: $originalName, overview: $overview, posterPath: $posterPath, backdropPath: $backdropPath, releaseDate: $releaseDate, firstAirDate: $firstAirDate, voteAverage: $voteAverage, voteCount: $voteCount, popularity: $popularity, genreIds: $genreIds, originalLanguage: $originalLanguage, mediaType: $mediaType, adult: $adult, runtime: $runtime, numberOfSeasons: $numberOfSeasons, numberOfEpisodes: $numberOfEpisodes, tagline: $tagline, status: $status)';
+    return 'FilmModel(id: $id, title: $title, name: $name, originalTitle: $originalTitle, originalName: $originalName, overview: $overview, posterPath: $posterPath, backdropPath: $backdropPath, releaseDate: $releaseDate, firstAirDate: $firstAirDate, voteAverage: $voteAverage, voteCount: $voteCount, popularity: $popularity, genreIds: $genreIds, originalLanguage: $originalLanguage, mediaType: $mediaType, adult: $adult, runtime: $runtime, numberOfSeasons: $numberOfSeasons, numberOfEpisodes: $numberOfEpisodes, seasons: $seasons, tagline: $tagline, status: $status)';
   }
 
   @override
@@ -604,6 +636,7 @@ class _$FilmModelImpl extends _FilmModel {
                 other.numberOfSeasons == numberOfSeasons) &&
             (identical(other.numberOfEpisodes, numberOfEpisodes) ||
                 other.numberOfEpisodes == numberOfEpisodes) &&
+            const DeepCollectionEquality().equals(other._seasons, _seasons) &&
             (identical(other.tagline, tagline) || other.tagline == tagline) &&
             (identical(other.status, status) || other.status == status));
   }
@@ -632,6 +665,7 @@ class _$FilmModelImpl extends _FilmModel {
         runtime,
         numberOfSeasons,
         numberOfEpisodes,
+        const DeepCollectionEquality().hash(_seasons),
         tagline,
         status
       ]);
@@ -672,6 +706,7 @@ abstract class _FilmModel extends FilmModel {
       final int? runtime,
       @JsonKey(name: 'number_of_seasons') final int? numberOfSeasons,
       @JsonKey(name: 'number_of_episodes') final int? numberOfEpisodes,
+      final List<SeasonModel> seasons,
       final String? tagline,
       final String? status}) = _$FilmModelImpl;
   const _FilmModel._() : super._();
@@ -769,6 +804,11 @@ abstract class _FilmModel extends FilmModel {
   /// Number of episodes (for TV, from details endpoint)
   @JsonKey(name: 'number_of_episodes')
   int? get numberOfEpisodes;
+  @override
+
+  /// Seasons (for TV, from details endpoint). Specials come through as
+  /// season 0 and are listed last by [orderedSeasons].
+  List<SeasonModel> get seasons;
   @override
 
   /// Tagline (from details endpoint)

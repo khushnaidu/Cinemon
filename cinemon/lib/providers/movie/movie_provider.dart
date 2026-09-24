@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/episode_model.dart';
 import '../../models/film_model.dart';
 import '../../repositories/movie_repository.dart';
 
@@ -30,43 +31,37 @@ final searchTvOnlyProvider =
 });
 
 /// Provider for trending movies this week
-final trendingMoviesProvider =
-    FutureProvider<List<FilmModel>>((ref) async {
+final trendingMoviesProvider = FutureProvider<List<FilmModel>>((ref) async {
   final repository = ref.watch(movieRepositoryProvider);
   return repository.getTrendingMovies();
 });
 
 /// Provider for trending TV shows this week
-final trendingTvShowsProvider =
-    FutureProvider<List<FilmModel>>((ref) async {
+final trendingTvShowsProvider = FutureProvider<List<FilmModel>>((ref) async {
   final repository = ref.watch(movieRepositoryProvider);
   return repository.getTrendingTvShows();
 });
 
 /// Provider for popular movies
-final popularMoviesProvider =
-    FutureProvider<List<FilmModel>>((ref) async {
+final popularMoviesProvider = FutureProvider<List<FilmModel>>((ref) async {
   final repository = ref.watch(movieRepositoryProvider);
   return repository.getPopularMovies();
 });
 
 /// Provider for now playing movies
-final nowPlayingMoviesProvider =
-    FutureProvider<List<FilmModel>>((ref) async {
+final nowPlayingMoviesProvider = FutureProvider<List<FilmModel>>((ref) async {
   final repository = ref.watch(movieRepositoryProvider);
   return repository.getNowPlayingMovies();
 });
 
 /// Provider for upcoming movies
-final upcomingMoviesProvider =
-    FutureProvider<List<FilmModel>>((ref) async {
+final upcomingMoviesProvider = FutureProvider<List<FilmModel>>((ref) async {
   final repository = ref.watch(movieRepositoryProvider);
   return repository.getUpcomingMovies();
 });
 
 /// Provider for top rated movies
-final topRatedMoviesProvider =
-    FutureProvider<List<FilmModel>>((ref) async {
+final topRatedMoviesProvider = FutureProvider<List<FilmModel>>((ref) async {
   final repository = ref.watch(movieRepositoryProvider);
   return repository.getTopRatedMovies();
 });
@@ -99,16 +94,22 @@ final filmDetailsProvider =
   );
 });
 
+/// Episodes of one season of a show.
+/// Usage: ref.watch(seasonProvider((tvId: 1396, seasonNumber: 2)))
+final seasonProvider = FutureProvider.family<List<EpisodeModel>,
+    ({int tvId, int seasonNumber})>((ref, params) async {
+  final repository = ref.watch(movieRepositoryProvider);
+  return repository.getSeason(params.tvId, params.seasonNumber);
+});
+
 /// Provider for movie genres
-final movieGenresProvider =
-    FutureProvider<List<GenreModel>>((ref) async {
+final movieGenresProvider = FutureProvider<List<GenreModel>>((ref) async {
   final repository = ref.watch(movieRepositoryProvider);
   return repository.getMovieGenres();
 });
 
 /// Provider for TV genres
-final tvGenresProvider =
-    FutureProvider<List<GenreModel>>((ref) async {
+final tvGenresProvider = FutureProvider<List<GenreModel>>((ref) async {
   final repository = ref.watch(movieRepositoryProvider);
   return repository.getTvGenres();
 });

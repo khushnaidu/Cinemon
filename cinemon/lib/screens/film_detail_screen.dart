@@ -7,8 +7,9 @@ import '../models/film_model.dart';
 import '../providers/movie/movie_provider.dart';
 import '../providers/feed/feed_provider.dart';
 import '../core/constants/api_constants.dart';
-import 'widgets/activity_detail_sheet.dart';
+import 'widgets/episodes_section.dart';
 import 'widgets/post_review_sheet.dart';
+import 'widgets/review_editor.dart';
 
 /// Film detail screen showing full film info and friends' reviews
 class FilmDetailScreen extends ConsumerWidget {
@@ -55,7 +56,8 @@ class FilmDetailScreen extends ConsumerWidget {
                 onPressed: () => ref.invalidate(
                   filmDetailsProvider((
                     id: filmId,
-                    mediaType: mediaType == 'tv' ? MediaType.tv : MediaType.movie,
+                    mediaType:
+                        mediaType == 'tv' ? MediaType.tv : MediaType.movie,
                   )),
                 ),
                 child: const Text('Retry'),
@@ -174,7 +176,8 @@ class _FilmDetailContent extends ConsumerWidget {
                                 width: 100,
                                 height: 150,
                                 fit: BoxFit.cover,
-                                loadingBuilder: (context, child, loadingProgress) {
+                                loadingBuilder:
+                                    (context, child, loadingProgress) {
                                   if (loadingProgress == null) return child;
                                   return Container(
                                     width: 100,
@@ -187,7 +190,8 @@ class _FilmDetailContent extends ConsumerWidget {
                                     width: 100,
                                     height: 150,
                                     color: Colors.grey[800],
-                                    child: const Icon(Icons.movie, color: Colors.grey),
+                                    child: const Icon(Icons.movie,
+                                        color: Colors.grey),
                                   );
                                 },
                               )
@@ -195,7 +199,8 @@ class _FilmDetailContent extends ConsumerWidget {
                                 width: 100,
                                 height: 150,
                                 color: Colors.grey[800],
-                                child: const Icon(Icons.movie, color: Colors.grey),
+                                child:
+                                    const Icon(Icons.movie, color: Colors.grey),
                               ),
                       ),
                       const SizedBox(width: 16),
@@ -329,6 +334,18 @@ class _FilmDetailContent extends ConsumerWidget {
                     ),
                   ],
 
+                  // Seasons and episodes, for shows
+                  if (film.isTv && film.seasons.isNotEmpty) ...[
+                    const SizedBox(height: 28),
+                    EpisodesSection(
+                      show: film,
+                      onPostReview: (episode) =>
+                          showPostReviewSheet(context, film, episode: episode),
+                      onEditPost: (activity) =>
+                          showReviewEditor(context, activity),
+                    ),
+                  ],
+
                   // User's activity section
                   const SizedBox(height: 24),
                   _buildUserActivitySection(context, ref, activity, film),
@@ -365,7 +382,14 @@ class _FilmDetailContent extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 12),
-
+        if (film.isTv && film.seasons.isNotEmpty && activity == null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              'Reviewing an episode? Pick it from the list above.',
+              style: TextStyle(color: Colors.grey[500], fontSize: 13),
+            ),
+          ),
         if (activity != null) ...[
           // Show user's existing activity
           Container(
@@ -437,12 +461,7 @@ class _FilmDetailContent extends ConsumerWidget {
             width: double.infinity,
             child: OutlinedButton(
               onPressed: () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
-                  builder: (context) => ActivityDetailSheet(activity: activity),
-                );
+                showReviewEditor(context, activity);
               },
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Colors.white54),
@@ -550,7 +569,9 @@ class _FriendReviewCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '@${activity.username}',
+                      activity.isEpisode
+                          ? '@${activity.username}  ·  ${activity.episodeCode}'
+                          : '@${activity.username}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 14,
@@ -587,7 +608,8 @@ class _FriendReviewCard extends StatelessWidget {
           ),
 
           // Review text
-          if (activity.reviewText != null && activity.reviewText!.isNotEmpty) ...[
+          if (activity.reviewText != null &&
+              activity.reviewText!.isNotEmpty) ...[
             const SizedBox(height: 12),
             Text(
               activity.reviewText!,
@@ -614,7 +636,8 @@ class _FriendsReviewsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final friendsActivitiesAsync = ref.watch(friendsFilmActivitiesProvider(filmId));
+    final friendsActivitiesAsync =
+        ref.watch(friendsFilmActivitiesProvider(filmId));
 
     return friendsActivitiesAsync.when(
       loading: () => Column(
@@ -644,7 +667,8 @@ class _FriendsReviewsSection extends ConsumerWidget {
           ),
         ],
       ),
-      error: (_, __) => const SizedBox.shrink(), // Hide on error (index might be building)
+      error: (_, __) =>
+          const SizedBox.shrink(), // Hide on error (index might be building)
       data: (activities) {
         if (activities.isEmpty) {
           return const SizedBox.shrink();
@@ -661,7 +685,8 @@ class _FriendsReviewsSection extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 12),
-            ...activities.map((activity) => _FriendReviewCard(activity: activity)),
+            ...activities
+                .map((activity) => _FriendReviewCard(activity: activity)),
           ],
         );
       },

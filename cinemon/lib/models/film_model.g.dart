@@ -31,6 +31,10 @@ _$FilmModelImpl _$$FilmModelImplFromJson(Map<String, dynamic> json) =>
       runtime: (json['runtime'] as num?)?.toInt(),
       numberOfSeasons: (json['number_of_seasons'] as num?)?.toInt(),
       numberOfEpisodes: (json['number_of_episodes'] as num?)?.toInt(),
+      seasons: (json['seasons'] as List<dynamic>?)
+              ?.map((e) => SeasonModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
       tagline: json['tagline'] as String?,
       status: json['status'] as String?,
     );
@@ -57,6 +61,7 @@ Map<String, dynamic> _$$FilmModelImplToJson(_$FilmModelImpl instance) =>
       'runtime': instance.runtime,
       'number_of_seasons': instance.numberOfSeasons,
       'number_of_episodes': instance.numberOfEpisodes,
+      'seasons': instance.seasons,
       'tagline': instance.tagline,
       'status': instance.status,
     };

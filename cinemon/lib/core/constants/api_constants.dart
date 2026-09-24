@@ -18,6 +18,8 @@ class ApiConstants {
   static const String backdropSizeMedium = '/w780';
   static const String backdropSizeOriginal = '/original';
   static const String profileSizeMedium = '/w185';
+  static const String stillSizeMedium = '/w300';
+  static const String stillSizeLarge = '/w780';
 
   // Endpoints
   static const String searchMovie = '/search/movie';
@@ -39,6 +41,10 @@ class ApiConstants {
   static const String searchPerson = '/search/person';
   static const String personDetails = '/person';
 
+  /// `/tv/{id}/season/{n}` — episodes of one season, with stills.
+  static String tvSeason(int tvId, int seasonNumber) =>
+      '/tv/$tvId/season/$seasonNumber';
+
   // Helper methods
   static String getPosterUrl(String? path, {String size = posterSizeMedium}) {
     if (path == null || path.isEmpty) return '';
@@ -47,6 +53,11 @@ class ApiConstants {
 
   static String getBackdropUrl(String? path,
       {String size = backdropSizeMedium}) {
+    if (path == null || path.isEmpty) return '';
+    return '$tmdbImageBaseUrl$size$path';
+  }
+
+  static String getStillUrl(String? path, {String size = stillSizeMedium}) {
     if (path == null || path.isEmpty) return '';
     return '$tmdbImageBaseUrl$size$path';
   }

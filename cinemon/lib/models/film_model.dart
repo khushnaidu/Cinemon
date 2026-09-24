@@ -1,5 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import '../core/constants/api_constants.dart';
+import 'episode_model.dart';
 
 part 'film_model.freezed.dart';
 part 'film_model.g.dart';
@@ -78,6 +79,10 @@ class FilmModel with _$FilmModel {
     /// Number of episodes (for TV, from details endpoint)
     @JsonKey(name: 'number_of_episodes') int? numberOfEpisodes,
 
+    /// Seasons (for TV, from details endpoint). Specials come through as
+    /// season 0 and are listed last by [orderedSeasons].
+    @Default([]) List<SeasonModel> seasons,
+
     /// Tagline (from details endpoint)
     String? tagline,
 
@@ -93,7 +98,8 @@ class FilmModel with _$FilmModel {
   String get displayTitle => title ?? name ?? 'Unknown';
 
   /// Get the original display title
-  String get displayOriginalTitle => originalTitle ?? originalName ?? displayTitle;
+  String get displayOriginalTitle =>
+      originalTitle ?? originalName ?? displayTitle;
 
   /// Get the release/air date string
   String? get displayDate => releaseDate ?? firstAirDate;
@@ -122,6 +128,14 @@ class FilmModel with _$FilmModel {
 
   /// Check if this is a TV show
   bool get isTv => mediaType == MediaType.tv || name != null;
+
+  /// Regular seasons in order, then specials at the end if any exist.
+  List<SeasonModel> get orderedSeasons {
+    final regular = seasons.where((s) => !s.isSpecials).toList()
+      ..sort((a, b) => a.seasonNumber.compareTo(b.seasonNumber));
+    final specials = seasons.where((s) => s.isSpecials);
+    return [...regular, ...specials];
+  }
 
   /// Get formatted runtime (e.g., "2h 15m")
   String? get formattedRuntime {
