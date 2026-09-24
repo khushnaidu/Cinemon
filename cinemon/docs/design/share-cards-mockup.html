@@ -1,0 +1,793 @@
+<title>35mm Share Cards</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Reenie+Beanie&display=swap">
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#000; --panel:#0e0e10; --ink:#fff; --ink2:rgba(235,235,245,.62); --ink3:rgba(235,235,245,.34);
+  --line:rgba(255,255,255,.1); --gold:#FFD60A;
+  --sys:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue",Arial,sans-serif;
+  --serif:"Instrument Serif","New York",Georgia,serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --helv:"Helvetica Neue",Helvetica,Arial,sans-serif;
+  --marq:"Big Shoulders Display","Arial Narrow",Impact,sans-serif;
+  --hand:"Reenie Beanie","Bradley Hand","Marker Felt",cursive;
+  --grain:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  /*IMAGES*/
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sys);padding-inline:16px;padding-block:36px 80px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1240px;margin:0 auto}
+
+/* ── page chrome ───────────────────────────── */
+.top{display:grid;gap:18px;max-width:760px}
+.top .mark{width:92px;height:92px;background:var(--logo) center/contain no-repeat;margin-left:-10px}
+.top h1{font-size:clamp(30px,5vw,44px);letter-spacing:-.02em;line-height:1.05;margin:0;text-wrap:balance}
+.top p{margin:0;color:var(--ink2);font-size:16px;line-height:1.55;max-width:64ch}
+.controls{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+.toggle{display:inline-flex;align-items:center;gap:10px;padding:9px 14px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.05);font-size:14px;cursor:pointer;color:var(--ink);user-select:none}
+.toggle input{accent-color:#fff;width:16px;height:16px;margin:0}
+.toggle:focus-within{outline:2px solid #fff;outline-offset:2px}
+.legend{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:13px;color:var(--ink3)}
+.legend b{color:var(--ink2);font-weight:600}
+
+section{margin-top:64px}
+.sec-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;margin-bottom:6px}
+.sec-head h2{margin:0;font-size:24px;letter-spacing:-.01em}
+.sec-head .tag{font:500 12px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
+.sec-note{margin:0 0 20px;color:var(--ink2);font-size:15px;line-height:1.5;max-width:70ch}
+.row{display:flex;gap:22px;overflow-x:auto;padding-bottom:14px;scroll-snap-type:x mandatory;scrollbar-width:thin}
+figure{flex:0 0 auto;width:min(300px,78vw);margin:0;scroll-snap-align:start;display:grid;gap:12px;align-content:start}
+figcaption{display:grid;gap:4px;padding-inline:2px}
+figcaption .id{display:flex;gap:8px;align-items:baseline}
+figcaption .code{font:600 12px/1 var(--mono);color:#000;background:#fff;border-radius:5px;padding:4px 6px}
+figcaption b{font-size:15px}
+figcaption .mode{font:500 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+figcaption p{margin:0;color:var(--ink2);font-size:13.5px;line-height:1.45}
+
+/* ── the story frame: everything inside is sized in cqw, so 100cqw = 1080px on export ── */
+.story{position:relative;width:100%;max-width:100%;aspect-ratio:9/16;border-radius:16px;overflow:hidden;container-type:inline-size;background:#000;isolation:isolate;box-shadow:0 0 0 1px rgba(255,255,255,.08)}
+.story *{box-sizing:border-box}
+.fill{position:absolute;inset:0;background-size:cover;background-position:center}
+.blur{inset:-12%;filter:blur(7cqw) saturate(1.25)}
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.5)}
+.grain{position:absolute;inset:0;background:var(--grain);background-size:52cqw;opacity:.13;mix-blend-mode:overlay;pointer-events:none;z-index:5}
+.col{position:absolute;inset:21cqw 7cqw 16cqw;display:flex;flex-direction:column;z-index:2}
+.brand{display:flex;align-items:center;justify-content:center;gap:1.4cqw;margin-top:auto;font:700 3.8cqw/1 var(--helv);letter-spacing:-.01em;color:rgba(255,255,255,.78)}
+.brand i{width:11cqw;height:11cqw;background:var(--logo) center/contain no-repeat;margin:-3cqw -1cqw -3cqw -2cqw}
+.brand.dark{color:rgba(0,0,0,.7)}
+.who{display:flex;align-items:center;gap:2.2cqw;font:600 3.6cqw/1.1 var(--sys)}
+.who .av{width:7.4cqw;height:7.4cqw;border-radius:50%;flex:none;background:var(--me) center 20%/cover;box-shadow:0 0 0 .5cqw rgba(255,255,255,.25)}
+.who small{display:block;font-weight:500;font-size:3cqw;color:rgba(255,255,255,.6);margin-top:.4cqw}
+.stars{display:inline-flex;gap:.5cqw;font-size:5cqw;line-height:1}
+.stars i{font-style:normal;background:linear-gradient(90deg,var(--on,#FFD60A) var(--f),var(--off,rgba(255,255,255,.22)) var(--f));-webkit-background-clip:text;background-clip:text;color:transparent}
+.kick{display:flex;align-items:center;gap:1.6cqw;font:700 3.2cqw/1 var(--sys);letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.75)}
+.kick svg{width:3.8cqw;height:3.8cqw;fill:currentColor}
+.poster{background-size:cover;background-position:center;border-radius:1.6cqw;box-shadow:0 0 0 .2cqw rgba(255,255,255,.14),0 3cqw 8cqw rgba(0,0,0,.55)}
+
+/* Generic story UI, to check what Instagram covers */
+.ig{position:absolute;inset:0;z-index:20;pointer-events:none;display:none}
+body.showig .ig{display:block}
+.ig .bars{position:absolute;top:3.6cqw;left:2.4cqw;right:2.4cqw;display:flex;gap:1cqw}
+.ig .bars i{flex:1;height:.6cqw;border-radius:1cqw;background:rgba(255,255,255,.4)}
+.ig .bars i:first-child{background:#fff}
+.ig .hd{position:absolute;top:7cqw;left:3.6cqw;right:3.6cqw;display:flex;align-items:center;gap:2.4cqw;font:600 3.6cqw/1 var(--sys);text-shadow:0 0 2cqw rgba(0,0,0,.5)}
+.ig .hd i{width:8.4cqw;height:8.4cqw;border-radius:50%;background:var(--me) center 20%/cover}
+.ig .hd span{font-weight:400;opacity:.7}
+.ig .ft{position:absolute;bottom:4cqw;left:3.6cqw;right:3.6cqw;display:flex;align-items:center;gap:3.2cqw}
+.ig .ft .msg{flex:1;height:10.4cqw;border-radius:6cqw;border:.35cqw solid rgba(255,255,255,.75);display:flex;align-items:center;padding-left:4cqw;font:400 3.7cqw/1 var(--sys)}
+.ig .ft svg{width:6.6cqw;height:6.6cqw;fill:none;stroke:#fff;stroke-width:2}
+.ig .zone{position:absolute;left:0;right:0;height:14%;background:repeating-linear-gradient(135deg,rgba(255,59,48,.18) 0 2cqw,transparent 2cqw 4cqw)}
+.ig .zone.t{top:0}.ig .zone.b{bottom:0}
+
+/* ── H1 Headline ─────────────────────────── */
+.h1 .take{font:800 8.8cqw/1.08 var(--sys);letter-spacing:-.03em;margin:4cqw 0 0;text-wrap:balance}
+.meter{display:flex;gap:.8cqw;height:1.4cqw;margin-top:7cqw}
+.meter b{background:#fff;border-radius:1cqw}.meter s{flex:1;background:rgba(255,255,255,.22);border-radius:1cqw}
+.vl{display:flex;justify-content:space-between;margin-top:2.4cqw;font:700 4cqw/1 var(--sys)}
+.vl span:last-child{color:rgba(255,255,255,.55)}
+.vsub{font:500 3.1cqw/1 var(--sys);color:rgba(255,255,255,.5);margin-top:1.8cqw}
+.chip{display:flex;align-items:center;gap:3cqw;margin-top:6cqw;padding:2.2cqw;padding-right:4cqw;border-radius:3.4cqw;background:rgba(255,255,255,.1);border:.25cqw solid rgba(255,255,255,.14);align-self:flex-start}
+.chip .poster{width:9cqw;height:13.5cqw;border-radius:1cqw}
+.chip b{display:block;font:700 4cqw/1.1 var(--sys)}
+.chip span{font:500 3cqw/1.2 var(--sys);color:rgba(255,255,255,.6)}
+.vote-cta{margin-top:5cqw;font:600 3.4cqw/1.3 var(--sys);color:rgba(255,255,255,.72)}
+
+/* ── H2 Marquee ─────────────────────────── */
+.h2{background:radial-gradient(120% 80% at 50% 30%,#4a0d10,#140204 70%)}
+.h2 .col{inset:19cqw 5cqw 15cqw}
+.bulbs{margin-top:auto;padding:3.6cqw;border-radius:2.4cqw;background:radial-gradient(circle,#fff7d6 0 .8cqw,#ffc35a 1.1cqw,rgba(255,170,60,.35) 1.5cqw,transparent 2cqw) 0 0/4.5cqw 4.5cqw,#2c0708;box-shadow:0 0 10cqw rgba(255,170,60,.25)}
+.board{background:repeating-linear-gradient(#141414 0 7.3cqw,#050505 7.3cqw 8.1cqw);padding:3cqw 3.2cqw;border-radius:.8cqw;box-shadow:inset 0 0 4cqw #000}
+.now{font:900 4.2cqw/1 var(--marq);letter-spacing:.3em;color:#ffcf6b;text-align:center;margin-bottom:4cqw;text-shadow:0 0 3cqw rgba(255,190,80,.7)}
+.letters{font:700 7.1cqw/8.1cqw var(--marq);text-transform:uppercase;letter-spacing:.06em;text-align:center;color:#f4f1ea;text-shadow:0 .3cqw 0 #9d988e,0 .6cqw 1cqw rgba(0,0,0,.8);text-wrap:balance;margin:0}
+.letters em{font-style:normal;color:#ff5d4d}
+.marq-foot{display:flex;justify-content:center;gap:2cqw;margin-top:5cqw;flex-wrap:wrap}
+.marq-foot span{font:900 4.6cqw/1 var(--marq);letter-spacing:.12em;padding:2cqw 3cqw;border-radius:1cqw;background:#f4f1ea;color:#1a0505}
+.marq-foot span.no{background:transparent;color:#f4f1ea;box-shadow:inset 0 0 0 .4cqw #f4f1ea}
+.marq-sub{margin-top:4cqw;text-align:center;font:500 3.2cqw/1.4 var(--mono);color:rgba(255,230,200,.7);letter-spacing:.06em}
+
+/* ── H3 Sticker ─────────────────────────── */
+.h3{background:linear-gradient(170deg,#2b2677 0%,#15124a 45%,#07061c 100%)}
+.stk{position:absolute;left:8cqw;right:8cqw;top:36cqw;padding:5cqw;border-radius:6cqw;background:rgba(18,16,48,.72);border:.3cqw solid rgba(255,255,255,.16);box-shadow:0 5cqw 14cqw rgba(0,0,0,.55);transform:rotate(-3.5deg);overflow:hidden}
+.stk .amb{position:absolute;inset:-20%;background:var(--p_lalaland) center/cover;filter:blur(9cqw);opacity:.45;z-index:-1}
+.stk .take{font:800 6.6cqw/1.1 var(--sys);letter-spacing:-.025em;margin:3cqw 0 0;text-wrap:balance}
+.pills{display:flex;gap:2cqw;margin-top:5cqw}
+.pills span{flex:1;height:9cqw;border-radius:5cqw;display:flex;align-items:center;justify-content:center;gap:1.6cqw;font:600 3.5cqw/1 var(--sys);background:rgba(255,255,255,.08);border:.25cqw solid rgba(255,255,255,.14)}
+.pills span.on{background:rgba(255,255,255,.22)}
+.pills em{font-style:normal;opacity:.55;font-size:3.1cqw}
+.handles{position:absolute;left:8cqw;right:8cqw;top:36cqw;height:88cqw;transform:rotate(-3.5deg);outline:.3cqw dashed rgba(255,255,255,.5);outline-offset:2.4cqw;border-radius:6cqw;pointer-events:none}
+.h3 .brand{position:absolute;left:0;right:0;bottom:17cqw}
+
+/* ── R1 Ticket ─────────────────────────── */
+.r1{background:linear-gradient(160deg,#c89253 0%,#6b5a3e 45%,#20373a 100%)}
+.ticket{position:absolute;left:11cqw;right:11cqw;top:20cqw;background:#f4ecda;color:#1b1712;border-radius:2cqw;transform:rotate(-3deg);box-shadow:0 5cqw 12cqw rgba(0,0,0,.45);
+  -webkit-mask:radial-gradient(circle at 0 72%,transparent 3.2cqw,#000 3.3cqw) left/51% 100% no-repeat,radial-gradient(circle at 100% 72%,transparent 3.2cqw,#000 3.3cqw) right/51% 100% no-repeat;
+  mask:radial-gradient(circle at 0 72%,transparent 3.2cqw,#000 3.3cqw) left/51% 100% no-repeat,radial-gradient(circle at 100% 72%,transparent 3.2cqw,#000 3.3cqw) right/51% 100% no-repeat}
+.ticket .paper{position:absolute;inset:0;background:var(--grain);background-size:40cqw;opacity:.25;mix-blend-mode:multiply;border-radius:2cqw}
+.tk-main{padding:5cqw 5.4cqw 4cqw}
+.tk-top{display:flex;justify-content:space-between;align-items:center;font:600 2.7cqw/1 var(--mono);letter-spacing:.14em;color:#b3261e}
+.tk-admit{font:900 9cqw/.9 var(--marq);letter-spacing:.04em;color:#b3261e;margin-top:3cqw}
+.tk-film{display:flex;gap:4cqw;margin-top:4cqw;align-items:flex-end}
+.tk-film .poster{width:21cqw;height:31.5cqw;border-radius:.8cqw;box-shadow:0 0 0 .3cqw #1b1712;filter:sepia(.25)}
+.tk-film h3{margin:0;font:900 8.6cqw/.92 var(--marq);text-transform:uppercase;letter-spacing:.01em}
+.tk-film p{margin:1.6cqw 0 0;font:500 2.6cqw/1.4 var(--mono);letter-spacing:.06em;color:#5b5145}
+.r1 .stars{--on:#1b1712;--off:rgba(27,23,18,.18);font-size:4.8cqw;margin-top:2cqw}
+.tk-quote{margin:4cqw 0 0;font:italic 5cqw/1.2 var(--serif);color:#231d16}
+.tk-perf{border-top:.45cqw dashed rgba(27,23,18,.35);margin:0 4.4cqw}
+.tk-stub{padding:3.4cqw 5.4cqw 4.6cqw;display:grid;grid-template-columns:1fr auto;gap:1.4cqw 4cqw;align-items:end}
+.tk-stub dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:1cqw 2.4cqw;font:500 2.5cqw/1.2 var(--mono);letter-spacing:.06em}
+.tk-stub dt{color:#8a7e6d}.tk-stub dd{margin:0;font-weight:600}
+.barcode{height:10cqw;width:24cqw;background:repeating-linear-gradient(90deg,#1b1712 0 .35cqw,transparent .35cqw .8cqw,#1b1712 .8cqw 1.05cqw,transparent 1.05cqw 1.5cqw,#1b1712 1.5cqw 2.3cqw,transparent 2.3cqw 2.65cqw,#1b1712 2.65cqw 2.85cqw,transparent 2.85cqw 3.7cqw)}
+.tk-url{grid-column:1/-1;font:600 2.4cqw/1 var(--mono);letter-spacing:.1em;color:#8a7e6d}
+.r1 .brand{position:absolute;left:0;right:0;bottom:17cqw}
+
+/* ── R2 Poster + verdict ─────────────────────────── */
+.r2 .glow{position:absolute;left:50%;top:36%;width:70cqw;height:90cqw;transform:translate(-50%,-50%);background:var(--p_dune2) center/cover;filter:blur(12cqw) saturate(1.6);opacity:.9}
+.r2 .col{align-items:center;text-align:center}
+.r2 .poster{width:48cqw;height:72cqw;margin-top:11cqw;border-radius:2cqw}
+.r2 h3{margin:5cqw 0 0;font:800 7cqw/1.05 var(--sys);letter-spacing:-.02em}
+.r2 .meta{font:500 3.2cqw/1.3 var(--sys);color:rgba(255,255,255,.6);margin-top:1.2cqw}
+.r2 .stars{margin-top:3cqw;font-size:6cqw}
+.r2 .quote{margin:3.4cqw 0 0;font:500 4.3cqw/1.35 var(--sys);color:rgba(255,255,255,.92);text-wrap:balance}
+.r2 .who{position:absolute;top:21cqw;left:7cqw;z-index:3}
+
+/* ── R3 Film strip ─────────────────────────── */
+.r3{background:#070605}
+.strip{position:absolute;top:18cqw;left:14cqw;right:14cqw;padding:3cqw 10cqw;background:#1b140e;box-shadow:0 0 0 .2cqw #2b2017,0 4cqw 10cqw rgba(0,0,0,.6);transform:rotate(-2deg)}
+.strip::before,.strip::after{content:"";position:absolute;top:0;bottom:0;width:4cqw;background:repeating-linear-gradient(to bottom,transparent 0 1.3cqw,#e9e2d4 1.3cqw 4.1cqw,transparent 4.1cqw 5.4cqw)}
+.strip::before{left:3cqw}.strip::after{right:3cqw}
+.strip .fr{height:29cqw;background-size:cover;background-position:center;margin:1.8cqw 0;box-shadow:0 0 0 .3cqw #000}
+.strip .edge{position:absolute;right:.3cqw;top:0;bottom:0;writing-mode:vertical-rl;font:600 1.9cqw/1 var(--mono);letter-spacing:.3em;color:#ff9b3d;opacity:.85;display:flex;justify-content:space-around}
+.strip .edge.l{left:.3cqw;right:auto;transform:rotate(180deg)}
+.r3 .under{position:absolute;left:8cqw;right:8cqw;bottom:16cqw;display:grid;gap:2.4cqw;z-index:2}
+.r3 .under h3{margin:0;font:800 6.4cqw/1 var(--sys);letter-spacing:-.02em;display:flex;justify-content:space-between;align-items:baseline}
+.r3 .under h3 span{font:500 3cqw/1 var(--mono);color:rgba(255,255,255,.5);letter-spacing:.08em}
+.r3 .quote{margin:0;font:500 4cqw/1.35 var(--sys);color:rgba(255,255,255,.88)}
+.r3 .foot{display:flex;justify-content:space-between;align-items:center}
+.r3 .foot .brand{margin:0}
+
+/* ── E1 Episode card ─────────────────────────── */
+.ecard{position:absolute;left:7cqw;right:7cqw;top:33cqw;border-radius:5cqw;overflow:hidden;background:#1c1c1e;box-shadow:0 0 0 .25cqw rgba(255,255,255,.12),0 5cqw 14cqw rgba(0,0,0,.6)}
+.ecard .still{aspect-ratio:16/9;background-size:cover;background-position:center;position:relative}
+.ecard .still::after{content:"";position:absolute;inset:0;background:linear-gradient(transparent 55%,rgba(28,28,30,.95))}
+.gtag{position:absolute;left:3.4cqw;top:3.4cqw;z-index:2;padding:1.4cqw 2.6cqw;border-radius:5cqw;background:rgba(0,0,0,.45);border:.25cqw solid rgba(255,255,255,.3);font:700 3cqw/1 var(--sys);letter-spacing:.06em;backdrop-filter:blur(2cqw)}
+.ecard .body{padding:1cqw 5cqw 5.4cqw}
+.show{display:flex;gap:3.4cqw;align-items:center}
+.show .poster{width:9.6cqw;height:14.4cqw;border-radius:1.2cqw}
+.show b{display:block;font:700 4.4cqw/1.1 var(--sys)}
+.show span{font:600 3cqw/1.2 var(--sys);letter-spacing:.06em;color:rgba(235,235,245,.6)}
+.eplabel{margin-top:5cqw;font:600 2.9cqw/1 var(--sys);letter-spacing:.16em;color:rgba(235,235,245,.34)}
+.eptitle{margin:1.4cqw 0 0;font:800 9cqw/1 var(--sys);letter-spacing:-.03em}
+.ecard .stars{margin-top:3cqw;font-size:4.6cqw}
+.ecard .quote{margin:3cqw 0 0;font:500 3.9cqw/1.4 var(--sys);color:rgba(255,255,255,.88)}
+.e1 .who{position:absolute;top:21cqw;left:7cqw;z-index:3}
+.e1 .brand{position:absolute;left:0;right:0;bottom:17cqw}
+
+/* ── E2 Lower third ─────────────────────────── */
+.e2 .fill.st{background-position:62% center}
+.e2 .shade{position:absolute;inset:0;background:linear-gradient(rgba(0,0,0,.35),transparent 30%,transparent 42%,rgba(0,0,0,.92) 72%)}
+.live{position:absolute;top:21cqw;left:7cqw;display:flex;gap:1.6cqw;align-items:center;z-index:3}
+.live span{padding:1.5cqw 2.4cqw;font:800 2.9cqw/1 var(--sys);letter-spacing:.12em;border-radius:1cqw}
+.live .red{background:#ff3b30}.live .dk{background:rgba(0,0,0,.55);backdrop-filter:blur(2cqw)}
+.chyron{position:absolute;left:0;right:7cqw;bottom:48cqw;z-index:3}
+.chyron .a{display:inline-block;background:#fff;color:#000;font:900 7.4cqw/1 var(--marq);letter-spacing:.06em;padding:2.2cqw 4cqw 2cqw 7cqw;text-transform:uppercase}
+.chyron .b{display:inline-block;background:#e8a33d;color:#1a0f02;font:800 3.6cqw/1 var(--sys);letter-spacing:.08em;padding:2cqw 4cqw 2cqw 7cqw;text-transform:uppercase}
+.e2 .under{position:absolute;left:7cqw;right:7cqw;bottom:16cqw;display:grid;gap:3cqw;z-index:3}
+.e2 .quote{margin:0;font:600 4.5cqw/1.3 var(--sys)}
+.e2 .foot{display:flex;justify-content:space-between;align-items:center}
+.e2 .foot .brand{margin:0}
+
+/* ── C1 Cover ─────────────────────────── */
+.c1{background:#0b0d0c}
+.c1 .fill.hero{bottom:auto;height:112cqw;background-position:62% center;filter:saturate(.9) contrast(1.05)}
+.c1 .fade{position:absolute;left:0;right:0;top:40cqw;height:74cqw;background:linear-gradient(transparent,#0b0d0c 92%)}
+.mast{position:absolute;top:19cqw;left:7cqw;right:7cqw;display:flex;justify-content:space-between;align-items:center;z-index:3;font:600 2.8cqw/1 var(--mono);letter-spacing:.24em;text-transform:uppercase;text-shadow:0 0 3cqw rgba(0,0,0,.6)}
+.c1 .body{position:absolute;left:7cqw;right:7cqw;bottom:16cqw;z-index:3;display:grid;gap:3.4cqw}
+.c1 h3{margin:0;font:400 11.4cqw/.98 var(--serif);letter-spacing:-.01em;text-wrap:balance}
+.c1 h3 em{font-style:italic;color:#e6c08a}
+.c1 .stand{margin:0;font:italic 4.6cqw/1.3 var(--serif);color:rgba(255,255,255,.72)}
+.c1 .by{display:flex;justify-content:space-between;align-items:center;border-top:.25cqw solid rgba(255,255,255,.2);padding-top:3cqw;font:500 2.7cqw/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.7)}
+.c1 .by .brand{margin:0}
+
+/* ── C2 Pull quote ─────────────────────────── */
+.c2{background:radial-gradient(90% 60% at 30% 20%,#1d3a40,#08100f 70%)}
+.c2 .qm{font:400 44cqw/.7 var(--serif);color:#e6c08a;height:24cqw;margin-top:auto}
+.c2 blockquote{margin:0;font:400 8.6cqw/1.08 var(--serif);letter-spacing:-.005em;text-wrap:pretty}
+.c2 blockquote em{color:#e6c08a}
+.c2 .src{display:flex;gap:3.6cqw;align-items:center;margin-top:8cqw;padding-top:5cqw;border-top:.25cqw solid rgba(255,255,255,.18)}
+.c2 .src .poster{width:13cqw;height:19.5cqw;flex:none;border-radius:1cqw}
+.c2 .src b{display:block;font:400 5cqw/1.1 var(--serif)}
+.c2 .src span{display:block;margin-top:1.6cqw;font:500 2.6cqw/1.3 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.55)}
+
+/* ── T1 Podium ─────────────────────────── */
+.t1{background:#040405}
+.aura{position:absolute;inset:-10%;filter:blur(10cqw)}
+.aura i{position:absolute;border-radius:50%}
+.t1 .hd{position:absolute;top:21cqw;left:0;right:0;text-align:center;z-index:3}
+.t1 .hd small{display:block;font:600 3.2cqw/1 var(--sys);letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.7)}
+.t1 .hd b{display:block;margin-top:2cqw;font:900 18cqw/.85 var(--marq);letter-spacing:-.01em;text-transform:uppercase;transform:skewX(-10deg)}
+.pod{position:absolute;left:0;right:0;top:66cqw;height:80cqw;z-index:3}
+.pod .p{position:absolute;display:grid;justify-items:center;gap:2cqw}
+.pod .p .poster{border-radius:1.6cqw}
+.pod .p .n{position:absolute;font:900 30cqw/1 var(--marq);color:transparent;-webkit-text-stroke:.4cqw rgba(255,255,255,.55);z-index:-1}
+.pod .p span{font:700 3cqw/1.2 var(--sys);text-align:center;max-width:30cqw}
+.pod .p1{left:50%;top:0;transform:translateX(-50%);z-index:2}
+.pod .p1 .poster{width:40cqw;height:60cqw}
+.pod .p1 .n{top:-19cqw;left:-12cqw}
+.pod .p2{left:3cqw;top:14cqw;transform:rotate(-7deg)}
+.pod .p3{right:3cqw;top:14cqw;transform:rotate(7deg)}
+.pod .p2 .poster,.pod .p3 .poster{width:30cqw;height:45cqw}
+.pod .p2 .n{top:-17cqw;left:-4cqw}.pod .p3 .n{top:-17cqw;right:-4cqw}
+.t1 .brand{position:absolute;left:0;right:0;bottom:17cqw;z-index:3}
+
+/* ── T2 Contact sheet ─────────────────────────── */
+.t2{background:#ebe7df;color:#1a1a1a}
+.t2 .paper{position:absolute;inset:0;background:var(--grain);background-size:50cqw;opacity:.35;mix-blend-mode:multiply}
+.t2 .note{position:absolute;top:19cqw;left:8cqw;right:8cqw;font:400 10cqw/.9 var(--hand);color:#d0261b;transform:rotate(-3deg);z-index:3}
+.sheet{position:absolute;left:5cqw;right:5cqw;top:32cqw;display:grid;gap:3cqw;z-index:2}
+.sheet .band{position:relative;background:#111;padding:4.4cqw 3cqw;display:flex;gap:2cqw}
+.sheet .band::before,.sheet .band::after{content:"";position:absolute;left:0;right:0;height:1.6cqw;background:repeating-linear-gradient(90deg,transparent 0 1.6cqw,#ebe7df 1.6cqw 3.4cqw)}
+.sheet .band::before{top:1.3cqw}.sheet .band::after{bottom:1.3cqw}
+.sheet .band .fr{flex:none;width:48cqw;aspect-ratio:16/9;background-size:cover;background-position:center}
+.sheet .band .fr.ghost{width:34cqw;opacity:.35;filter:grayscale(.4)}
+.sheet .band .code{position:absolute;top:-.1cqw;left:6cqw;font:600 1.8cqw/1.6cqw var(--mono);color:#ff9b3d;letter-spacing:.2em}
+.circ{position:absolute;border:.8cqw solid #d0261b;border-radius:48% 52% 45% 55%/55% 45% 55% 45%;transform:rotate(-4deg);z-index:4}
+.t2 .num{position:absolute;font:400 16cqw/1 var(--hand);color:#d0261b;z-index:4}
+.t2 .lbl{position:absolute;font:400 6cqw/1 var(--hand);color:#d0261b;z-index:4}
+.t2 .brand{position:absolute;left:0;right:0;bottom:17cqw;z-index:3}
+
+/* ── P1 Member card ─────────────────────────── */
+.p1{background:#030306}
+.mcard{position:absolute;left:9cqw;right:9cqw;top:22cqw;height:118cqw;border-radius:5cqw;overflow:hidden;background:#07070d;box-shadow:0 0 0 .3cqw rgba(255,255,255,.18),0 6cqw 20cqw rgba(74,127,224,.35);transform:rotate(-2deg)}
+.mcard .holo{position:absolute;inset:-20%;filter:blur(8cqw)}
+.mcard .holo i{position:absolute;border-radius:50%}
+.mcard .sheen{position:absolute;inset:0;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.22) 42%,transparent 54%,transparent 62%,rgba(255,255,255,.12) 70%,transparent 78%)}
+.mcard .in{position:absolute;inset:0;padding:5.4cqw;display:flex;flex-direction:column}
+.mcard .row1{display:flex;justify-content:space-between;align-items:center;font:600 2.6cqw/1 var(--mono);letter-spacing:.26em}
+.mcard .row1 i{width:16cqw;height:10cqw;background:var(--logo) left center/contain no-repeat;margin:-2cqw 0 -2cqw -2cqw}
+.mcard .me{display:flex;gap:4cqw;align-items:center;margin-top:6cqw}
+.mcard .me .av{width:18cqw;height:18cqw;border-radius:50%;display:grid;place-items:center;font:800 8cqw/1 var(--sys);background:conic-gradient(from 200deg,#4a7fe0,#e58fb6,#f2c94c,#5ec8c0,#4a7fe0);box-shadow:0 0 0 .8cqw rgba(255,255,255,.2)}
+.mcard .me b{display:block;font:800 7cqw/1 var(--sys);letter-spacing:-.02em}
+.mcard .me span{display:block;margin-top:1.4cqw;font:500 3.2cqw/1 var(--sys);color:rgba(255,255,255,.7)}
+.mstats{display:grid;grid-template-columns:repeat(3,1fr);gap:2cqw;margin-top:6cqw;padding:3.4cqw 0;border-block:.25cqw solid rgba(255,255,255,.2)}
+.mstats b{display:block;font:800 7.4cqw/1 var(--sys);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.mstats span{display:block;margin-top:1.2cqw;font:600 2.3cqw/1 var(--mono);letter-spacing:.14em;color:rgba(255,255,255,.65)}
+.mtop{margin-top:4.4cqw}
+.mtop small,.mfav small{display:block;font:600 2.3cqw/1 var(--mono);letter-spacing:.16em;color:rgba(255,255,255,.6)}
+.mtop div{display:flex;gap:2.4cqw;margin-top:2.2cqw}
+.mtop .poster{width:14cqw;height:21cqw;border-radius:1.2cqw}
+.mfav{margin-top:4cqw}
+.mfav b{display:block;margin-top:1.4cqw;font:700 4.6cqw/1 var(--sys)}
+.mcard .bot{margin-top:auto;display:flex;justify-content:space-between;align-items:flex-end;font:600 2.3cqw/1 var(--mono);letter-spacing:.12em;color:rgba(255,255,255,.7)}
+.mcard .bot .barcode{height:8cqw;width:22cqw;filter:invert(1);opacity:.85}
+.p1 .cta{position:absolute;left:0;right:0;bottom:22cqw;text-align:center;font:700 4.2cqw/1 var(--sys);z-index:3}
+.p1 .brand{position:absolute;left:0;right:0;bottom:15cqw}
+
+/* ── P2 Receipt ─────────────────────────── */
+.p2{background:linear-gradient(170deg,#2a2a2e,#0b0b0c)}
+.receipt{position:absolute;left:12cqw;right:12cqw;top:17cqw;background:#f7f5ef;color:#141414;padding:6cqw 5.4cqw 9cqw;font:500 2.9cqw/1.5 var(--mono);transform:rotate(1.5deg);box-shadow:0 5cqw 12cqw rgba(0,0,0,.5);
+  -webkit-mask:conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) bottom/4cqw 51% repeat-x,linear-gradient(#000 0 0) top/100% 51% no-repeat;
+  mask:conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) bottom/4cqw 51% repeat-x,linear-gradient(#000 0 0) top/100% 51% no-repeat}
+.receipt .c{text-align:center}
+.receipt h4{margin:0;font:900 8cqw/1 var(--marq);letter-spacing:.1em}
+.receipt hr{border:0;border-top:.35cqw dashed #141414;margin:3cqw 0}
+.receipt .l{display:flex;justify-content:space-between;gap:2cqw}
+.receipt .l span:last-child{font-weight:600;text-align:right}
+.receipt .tot{font:900 5.4cqw/1.1 var(--marq);letter-spacing:.06em;display:flex;justify-content:space-between}
+.receipt .barcode{display:block;width:100%;height:9cqw;margin:3cqw 0 1.4cqw}
+.p2 .brand{position:absolute;left:0;right:0;bottom:15cqw}
+
+/* ── L1 Poster wall ─────────────────────────── */
+.l1{background:radial-gradient(100% 70% at 50% 40%,#3b4a5e,#0d1117 75%)}
+.l1 .tape{position:absolute;top:19cqw;left:12cqw;right:12cqw;z-index:4;background:rgba(245,236,200,.92);color:#2a2418;padding:2.8cqw 4cqw 2cqw;transform:rotate(-2.5deg);text-align:center;font:400 9.4cqw/.95 var(--hand);box-shadow:0 1.4cqw 3cqw rgba(0,0,0,.35)}
+.wall{position:absolute;left:7cqw;right:7cqw;top:40cqw;display:grid;grid-template-columns:repeat(3,1fr);gap:3.4cqw 3cqw;z-index:2}
+.wall .poster{aspect-ratio:2/3;border-radius:1.2cqw}
+.wall .poster:nth-child(1){transform:rotate(-3deg)}.wall .poster:nth-child(2){transform:rotate(2deg) translateY(1cqw)}.wall .poster:nth-child(3){transform:rotate(-1.5deg)}
+.wall .poster:nth-child(4){transform:rotate(2.5deg)}.wall .poster:nth-child(5){transform:rotate(-2deg) translateY(1.4cqw)}.wall .poster:nth-child(6){transform:rotate(3deg)}
+.l1 .meta{position:absolute;left:7cqw;right:7cqw;bottom:24cqw;display:flex;justify-content:space-between;align-items:center;z-index:3;font:600 3.4cqw/1 var(--sys);color:rgba(255,255,255,.8)}
+.l1 .brand{position:absolute;left:0;right:0;bottom:15cqw}
+
+/* ── J1 Polaroid ─────────────────────────── */
+.j1{background:#07030a}
+.j1 .hd{position:absolute;top:21cqw;left:0;right:0;text-align:center;z-index:3;font:700 3.2cqw/1 var(--sys);letter-spacing:.24em;text-transform:uppercase;color:rgba(255,255,255,.8)}
+.pola{position:absolute;left:13cqw;right:13cqw;top:31cqw;background:#fbfaf6;padding:4cqw 4cqw 0;transform:rotate(3deg);box-shadow:0 5cqw 14cqw rgba(0,0,0,.6);z-index:3}
+.pola .ph{aspect-ratio:1;background-size:cover;background-position:center 18%;filter:contrast(1.05) saturate(1.1)}
+.pola .cap{height:24cqw;display:flex;flex-direction:column;justify-content:center;color:#1f1f3a;font:400 8cqw/.95 var(--hand)}
+.pola .cap small{font-size:6cqw;opacity:.75}
+.pola .tp{position:absolute;top:-3cqw;width:20cqw;height:7cqw;background:rgba(255,245,220,.55);box-shadow:0 .4cqw 1cqw rgba(0,0,0,.15)}
+.pola .tp.a{left:-5cqw;transform:rotate(-38deg)}.pola .tp.b{right:-5cqw;transform:rotate(36deg)}
+.j1 .who{position:absolute;bottom:26cqw;left:0;right:0;justify-content:center;z-index:3}
+.j1 .brand{position:absolute;left:0;right:0;bottom:15cqw;z-index:3}
+
+/* ── Share sheet mock ─────────────────────────── */
+.sheetmock{background:#000}
+.sheetmock .behind{position:absolute;inset:0;background:var(--p_lalaland) center/cover;filter:blur(3cqw) brightness(.35)}
+.sheetmock .panel{position:absolute;left:0;right:0;bottom:0;top:12cqw;border-radius:7cqw 7cqw 0 0;background:#1c1c1e;padding:3cqw 0 6cqw;display:flex;flex-direction:column;z-index:3}
+.sheetmock .grab{width:10cqw;height:1.2cqw;border-radius:1cqw;background:rgba(255,255,255,.3);margin:0 auto}
+.sheetmock .ttl{display:flex;justify-content:space-between;align-items:center;padding:4cqw 6cqw 0;font:700 5cqw/1 var(--sys)}
+.sheetmock .ttl span{font:500 3.4cqw/1 var(--sys);color:rgba(235,235,245,.6)}
+.car{position:relative;height:98cqw;margin-top:5cqw}
+.car .slot{position:absolute;top:0;width:55cqw;left:50%;transform:translateX(-50%)}
+.car .slot.l{transform:translateX(-160%) scale(.86);opacity:.5}
+.car .slot.r{transform:translateX(60%) scale(.86);opacity:.5}
+.car .slot .story{border-radius:3cqw;box-shadow:0 3cqw 8cqw rgba(0,0,0,.5)}
+.car .slot .ig{display:none!important}
+.dots{display:flex;justify-content:center;gap:1.6cqw;margin-top:3.4cqw}
+.dots i{width:1.6cqw;height:1.6cqw;border-radius:50%;background:rgba(255,255,255,.3)}.dots i.on{background:#fff}
+.swatches{display:flex;justify-content:center;gap:3cqw;margin-top:5cqw}
+.swatches i{width:7cqw;height:7cqw;border-radius:50%;box-shadow:0 0 0 .3cqw rgba(255,255,255,.2)}
+.swatches i.on{box-shadow:0 0 0 .6cqw #1c1c1e,0 0 0 1.1cqw #fff}
+.acts{display:flex;justify-content:space-around;margin-top:auto;padding:0 4cqw}
+.acts div{display:grid;justify-items:center;gap:2cqw;font:500 2.6cqw/1.2 var(--sys);color:rgba(235,235,245,.8);text-align:center;width:16cqw}
+.acts i{width:13cqw;height:13cqw;border-radius:50%;display:grid;place-items:center;background:#2c2c2e}
+.acts i.ig1{background:radial-gradient(circle at 30% 110%,#fdb34a,#e8465c 45%,#8a3ab9 80%)}
+.acts i.fb{background:#1877f2}
+.acts svg{width:6cqw;height:6cqw;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+.foot-note{margin-top:72px;padding-top:24px;border-top:1px solid var(--line);color:var(--ink3);font-size:13px;line-height:1.6;max-width:80ch}
+@media (prefers-reduced-motion:no-preference){.row{scroll-behavior:smooth}}
+
+/* ── Round 2 ─────────────────────────── */
+b.new,.top p b.new{display:inline-block;font:600 10px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:#000;background:#FFD60A;border-radius:4px;padding:3px 5px;vertical-align:2px}
+figcaption .id b.new{font-size:10px}
+
+/* E2, plain type on the still */
+.e2-top{position:absolute;top:21cqw;left:7cqw;z-index:3;font:500 3.2cqw/1 var(--helv);letter-spacing:.02em;color:rgba(255,255,255,.85)}
+.e2 .under{gap:3.4cqw}
+.e2-title h3{margin:0;font:700 13cqw/.92 var(--helv);letter-spacing:-.045em}
+.e2-title p{margin:2.2cqw 0 0;font:400 4.6cqw/1.2 var(--helv);letter-spacing:-.01em;color:rgba(255,255,255,.72)}
+.e2 .quote{font:400 4.4cqw/1.35 var(--helv);color:rgba(255,255,255,.92)}
+
+/* T1, the in-app podium */
+.t1b{background:#000}
+.t1b .spark{position:absolute;inset:0;background:var(--profbd) center top/100% auto repeat-y;opacity:.55}
+.t1b .who{position:absolute;top:21cqw;left:7cqw;z-index:4}
+.t1b .orb{position:absolute;top:29cqw;left:2cqw;right:2cqw;aspect-ratio:1.13;background:var(--t_orb) center/contain no-repeat;z-index:1}
+.t1b .shelf{position:absolute;left:0;right:0;top:68cqw;height:72cqw;z-index:2}
+.t1b .card{position:absolute;animation:float 2.5s ease-in-out infinite alternate}
+.t1b .card .poster{position:absolute;border-radius:3cqw;box-shadow:0 1.6cqw 5cqw rgba(0,0,0,.45)}
+.t1b .badge{position:absolute;background-size:contain;background-repeat:no-repeat;background-position:center}
+.t1b .k2{left:0;top:0;width:39.5cqw;height:46cqw;animation-delay:.2s}
+.t1b .k2 .poster{left:8.5cqw;top:0;width:31cqw;height:46cqw}
+.t1b .k2 .badge{left:0;top:18.4cqw;width:17cqw;height:17cqw;background-image:var(--t_2)}
+.t1b .k3{right:0;top:0;width:39.5cqw;height:46cqw;animation-delay:.4s}
+.t1b .k3 .poster{right:8.5cqw;top:0;width:31cqw;height:46cqw}
+.t1b .k3 .badge{right:0;top:18.4cqw;width:17cqw;height:17cqw;background-image:var(--t_3)}
+.t1b .k1{left:31cqw;top:6cqw;width:38cqw;height:68cqw;z-index:2}
+.t1b .k1 .poster{left:0;top:0;width:38cqw;height:57cqw}
+.t1b .k1 .badge{left:9cqw;bottom:0;width:20cqw;height:20cqw;background-image:var(--t_1)}
+.t1b .names{position:absolute;left:7cqw;right:7cqw;top:147cqw;z-index:3;display:grid;grid-template-columns:auto 1fr auto 1fr auto 1fr;gap:1.4cqw 1.6cqw;align-items:baseline;font:500 3cqw/1.2 var(--helv);color:rgba(255,255,255,.75)}
+.t1b .names b{font:700 3cqw/1 var(--helv);color:#fff}
+.t1b .brand{position:absolute;left:0;right:0;bottom:17cqw;z-index:3}
+@keyframes float{from{transform:translateY(0)}to{transform:translateY(-2cqw)}}
+@media (prefers-reduced-motion:reduce){.t1b .card{animation:none}}
+
+/* P1, your profile header */
+.p1b{background:radial-gradient(90% 45% at 50% 22%,#141733 0%,#000 70%),#000}
+.p1b .spark{position:absolute;inset:0;background:var(--profbd) center top/100% auto repeat-y;opacity:.85}
+.p1b .arch{position:absolute;left:32cqw;width:36cqw;top:22cqw;height:48cqw;border-radius:18cqw 18cqw 0 0;background:var(--me) center 30%/cover;box-shadow:0 0 8cqw rgba(255,213,79,.42),0 0 1.6cqw rgba(255,213,79,.3);z-index:2}
+.p1b .uname{position:absolute;left:0;right:0;top:63cqw;text-align:center;z-index:3;font:400 11cqw/1 "Siberian",var(--marq);color:#fff;text-shadow:0 .8cqw 3cqw rgba(0,0,0,.6)}
+.p1b .bio{position:absolute;left:10cqw;right:10cqw;top:78cqw;text-align:center;z-index:3;font:400 3.7cqw/1.35 var(--helv);color:rgba(255,255,255,.85)}
+.p1b .stats{position:absolute;left:10cqw;right:10cqw;top:86cqw;z-index:3;display:grid;grid-template-columns:repeat(3,1fr);text-align:center}
+.p1b .stats b{display:block;font:400 8cqw/1 "Isometric3D",var(--helv);color:#fff}
+.p1b .stats span{display:block;margin-top:2.4cqw;font:400 3cqw/1 var(--helv);color:rgba(255,255,255,.54)}
+.p1b .mini{position:absolute;left:0;right:0;top:105cqw;z-index:3;display:flex;justify-content:center;align-items:flex-start;gap:4cqw}
+.p1b .mini div{position:relative}
+.p1b .mini .poster{display:block;width:24cqw;height:36cqw;border-radius:2.4cqw;box-shadow:0 1.6cqw 5cqw rgba(0,0,0,.5)}
+.p1b .mini div:nth-child(2){margin-top:-3cqw}
+.p1b .mini div:nth-child(2) .poster{width:28cqw;height:42cqw}
+.p1b .mini .badge{position:absolute;left:50%;bottom:-5cqw;width:11cqw;height:11cqw;transform:translateX(-50%);background:center/contain no-repeat}
+.p1b .follow{position:absolute;left:50%;bottom:17cqw;transform:translateX(-50%);z-index:3;display:flex;align-items:center;gap:1.4cqw;white-space:nowrap;padding:2.2cqw 5cqw 2.2cqw 2.6cqw;border-radius:8cqw;background:#fff;color:#000;font:700 3.8cqw/1 var(--helv);letter-spacing:-.01em}
+.p1b .follow i{width:8cqw;height:8cqw;background:var(--logo) center/contain no-repeat;margin:-2cqw 0}
+
+/* P2, the month */
+.p2b{background:#000}
+.p2b .aura{opacity:.5}
+.p2b .col{inset:20cqw 7cqw 16cqw}
+.p2b .mo{font:600 3cqw/1 var(--helv);letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.6)}
+.p2b h3{margin:1.6cqw 0 0;font:700 8.6cqw/1 var(--helv);letter-spacing:-.035em}
+.p2b .big{display:flex;align-items:flex-end;gap:4cqw;margin-top:4cqw}
+.p2b .big b{font:700 27cqw/.78 var(--helv);letter-spacing:-.06em}
+.p2b .big span{font:500 4cqw/1.25 var(--helv);color:rgba(255,255,255,.75);padding-bottom:.4cqw}
+.p2b .big span em{font-style:normal;color:#fff;font-weight:700}
+.p2b .grid{display:grid;grid-template-columns:repeat(6,1fr);gap:1.6cqw;margin-top:6cqw}
+.p2b .grid .poster{aspect-ratio:2/3;border-radius:1cqw;box-shadow:0 0 0 .2cqw rgba(255,255,255,.12)}
+.p2b dl{margin:5cqw 0 0;display:grid;grid-template-columns:auto 1fr}
+.p2b dt,.p2b dd{padding:2.3cqw 0;border-top:.2cqw solid rgba(255,255,255,.16);font:400 3.5cqw/1.2 var(--helv)}
+.p2b dt{color:rgba(255,255,255,.55)}
+.p2b dd{margin:0;text-align:right;font-weight:600}
+.p2b dd .stars{font-size:3.4cqw;vertical-align:-.2cqw}
+
+/* L1, the playlist like Spotify's */
+.l1b .fill.blur{opacity:.8}
+.l1b .shade{position:absolute;inset:0;background:linear-gradient(rgba(0,0,0,.25),rgba(0,0,0,.55) 45%,rgba(0,0,0,.88) 75%)}
+.l1b .cover{position:absolute;left:26cqw;top:20cqw;width:48cqw;height:48cqw;border-radius:5cqw;overflow:hidden;display:grid;grid-template-columns:1fr 1fr;box-shadow:0 0 0 .25cqw rgba(255,255,255,.14),0 4cqw 12cqw rgba(0,0,0,.55);z-index:2}
+.l1b .cover i{background-size:cover;background-position:center}
+.l1b .body{position:absolute;left:8cqw;right:8cqw;top:73cqw;z-index:3;display:flex;flex-direction:column;gap:5cqw}
+.l1b .info{text-align:center}
+.l1b .info h3{margin:0;font:700 7cqw/1.05 var(--helv);letter-spacing:-.035em;text-wrap:balance}
+.l1b .info .by{display:flex;justify-content:center;align-items:center;gap:1.8cqw;margin-top:2.2cqw;font:500 3.2cqw/1 var(--helv);color:rgba(255,255,255,.72)}
+.l1b .info .by .av{width:5.4cqw;height:5.4cqw;border-radius:50%;background:var(--me) center 20%/cover}
+.l1b .info p{margin:2.4cqw 0 0;font:400 3.5cqw/1.35 var(--helv);color:rgba(255,255,255,.62)}
+.l1b .list{display:grid;gap:2.2cqw}
+.l1b .it{display:flex;gap:3.2cqw;align-items:center}
+.l1b .it .poster{flex:none;width:7cqw;height:10.5cqw;border-radius:.9cqw;box-shadow:0 0 0 .2cqw rgba(255,255,255,.12)}
+.l1b .it b{display:block;font:600 3.8cqw/1.15 var(--helv);letter-spacing:-.01em}
+.l1b .it span{display:block;margin-top:.8cqw;font:400 3cqw/1 var(--helv);color:rgba(255,255,255,.58)}
+.l1b .foot{position:absolute;left:8cqw;right:8cqw;bottom:17cqw;z-index:3;display:flex;justify-content:space-between;align-items:center;font:500 3.2cqw/1 var(--helv);color:rgba(255,255,255,.6)}
+.l1b .foot .brand{margin:0}
+
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="mark" role="img" aria-label="35mm"></div>
+    <h1>35mm share cards, round 2</h1>
+    <p>Each card is a full Instagram story at 9:16, drawn to scale. The app would export them at 1080 × 1920. Posters and stills are real TMDB artwork, and the review text is sample copy. Every card has a code so you can say "keep R1, push H2, kill T2". Cards marked <b class="new">New</b> are the ones redone after your notes.</p>
+    <div class="controls">
+      <label class="toggle"><input type="checkbox" id="igui"> Show Instagram's UI and the areas it covers</label>
+    </div>
+    <div class="legend"><span><b>Full story</b> fills the whole screen.</span><span><b>Sticker</b> is a card on a poster-colour background that you can move and resize inside Instagram, like Spotify's song share.</span></div>
+  </header>
+
+  <section>
+    <div class="sec-head"><h2>The share sheet</h2><span class="tag">In the app</span></div>
+    <p class="sec-note">Tap Share on any post. Swipe sideways through that post's styles, choose a background colour taken from the poster, then send it straight to your Instagram or Facebook story, save it, or use the normal share menu.</p>
+    <div class="row">
+      <figure>
+        <div class="story sheetmock">
+          <div class="behind"></div>
+          <div class="panel">
+            <div class="grab"></div>
+            <div class="ttl">Share hot take <span>Done</span></div>
+            <div class="car">
+              <div class="slot l" data-clone="H2"></div>
+              <div class="slot r" data-clone="H3"></div>
+              <div class="slot" data-clone="H1"></div>
+            </div>
+            <div class="dots"><i class="on"></i><i></i><i></i></div>
+            <div class="swatches"><i class="on" style="background:#2b2677"></i><i style="background:#f2c230"></i><i style="background:#0b0b0b"></i><i style="background:#e4ddd0"></i></div>
+            <div class="acts">
+              <div><i class="ig1"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r=".6" fill="#fff"/></svg></i>Instagram story</div>
+              <div><i class="fb"><svg viewBox="0 0 24 24"><path d="M14 8h2V5h-2.5C11 5 10 6.6 10 9v2H8v3h2v6h3v-6h2.3l.5-3H13V9.3c0-.8.3-1.3 1-1.3z" fill="#fff" stroke="none"/></svg></i>Facebook story</div>
+              <div><i><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></i>Save image</div>
+              <div><i><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3" fill="#fff"/><circle cx="12" cy="12" r="1.3" fill="#fff"/><circle cx="19" cy="12" r="1.3" fill="#fff"/></svg></i>More</div>
+            </div>
+          </div>
+        </div>
+        <figcaption><div class="id"><span class="code">S0</span><b>Share sheet</b></div><span class="mode">App screen</span><p>A single sheet for every kind of post. The card preview updates as you pick styles and colours.</p></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ─────────────── HOT TAKES ─────────────── -->
+  <section>
+    <div class="sec-head"><h2>Hot takes</h2><span class="tag">H1 – H3</span></div>
+    <p class="sec-note">The goal is to start an argument. The vote split is what makes someone tap through, so each design shows it, and the text asks the viewer to vote on 35mm.</p>
+    <div class="row">
+      <figure>
+        <div class="story h1" data-id="H1">
+          <div class="fill blur" style="background-image:var(--p_lalaland)"></div><div class="dim"></div><div class="grain"></div>
+          <div class="col">
+            <div class="who"><i class="av"></i><div>@lilkhush<small>on La La Land</small></div></div>
+            <div style="margin-top:auto"></div>
+            <div class="kick"><svg viewBox="0 0 24 24"><path d="M12 2c1 3.5-1.5 5.2-3 7.4C7.6 11.5 7 13 7 15a5 5 0 0 0 10 0c0-2.3-1-4-2-5.3.1 1.4-.4 2.6-1.4 3.3.3-3.9-1.1-7.8-1.6-11z"/></svg>Hot take</div>
+            <p class="take">La La Land's last eight minutes are the best ending any musical has ever had.</p>
+            <div class="meter"><b style="width:71%"></b><s></s></div>
+            <div class="vl"><span>71% agree</span><span>29% disagree</span></div>
+            <div class="vsub">1,204 votes · vote on 35mm</div>
+            <div class="chip"><i class="poster" style="background-image:var(--p_lalaland)"></i><div><b>La La Land</b><span>2016 · Damien Chazelle</span></div></div>
+            <div class="brand"><i></i>35mm</div>
+          </div>
+        </div>
+        <figcaption><div class="id"><span class="code">H1</span><b>Headline</b></div><span class="mode">Full story</span><p>Your current hot take card, scaled up to fill the screen: the take in large type over the film's blurred poster.</p></figcaption>
+      </figure>
+
+      <figure>
+        <div class="story h2" data-id="H2">
+          <div class="grain"></div>
+          <div class="col">
+            <div class="bulbs"><div class="board">
+              <div class="now">★ Now showing ★</div>
+              <p class="letters">La La Land's last <em>8 minutes</em> are the best ending any musical ever had</p>
+            </div></div>
+            <div class="marq-foot"><span>Agree 71%</span><span class="no">Disagree 29%</span></div>
+            <div class="marq-sub">A HOT TAKE BY @KHUSH<br>ON LA LA LAND (2016)</div>
+            <div class="brand"><i></i>35mm</div>
+          </div>
+        </div>
+        <figcaption><div class="id"><span class="code">H2</span><b>Marquee</b></div><span class="mode">Full story</span><p>Cinema letterboard lettering inside a ring of bulbs. The loudest option, and the most obviously about film.</p></figcaption>
+      </figure>
+
+      <figure>
+        <div class="story h3" data-id="H3">
+          <div class="grain"></div>
+          <div class="handles"></div>
+          <div class="stk">
+            <div class="amb"></div>
+            <div class="who"><i class="av"></i><div>@lilkhush<small>on La La Land · 2016</small></div></div>
+            <div class="kick" style="margin-top:5cqw"><svg viewBox="0 0 24 24"><path d="M12 2c1 3.5-1.5 5.2-3 7.4C7.6 11.5 7 13 7 15a5 5 0 0 0 10 0c0-2.3-1-4-2-5.3.1 1.4-.4 2.6-1.4 3.3.3-3.9-1.1-7.8-1.6-11z"/></svg>Hot take</div>
+            <p class="take">La La Land's last eight minutes are the best ending any musical has ever had.</p>
+            <div class="pills"><span class="on">👍 Agree <em>71%</em></span><span>👎 Disagree <em>29%</em></span></div>
+          </div>
+          <div class="brand"><i></i>35mm</div>
+        </div>
+        <figcaption><div class="id"><span class="code">H3</span><b>Sticker</b></div><span class="mode">Sticker on poster colour</span><p>The post itself as a sticker on a colour from the poster. The dashed outline marks what you can move and resize inside Instagram.</p></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ─────────────── REVIEWS ─────────────── -->
+  <section>
+    <div class="sec-head"><h2>Reviews</h2><span class="tag">R2 – R3</span></div>
+    <p class="sec-note">This is the post people will share most often, so it gets the most styles. Each one keeps the rating and a single line of the review large enough to read without zooming.</p>
+    <div class="row">
+
+      <figure>
+        <div class="story r2" data-id="R2">
+          <div class="fill blur" style="background-image:var(--p_dune2);opacity:.55"></div><div class="glow"></div><div class="dim" style="background:rgba(0,0,0,.35)"></div><div class="grain"></div>
+          <div class="who"><i class="av"></i><div>@lilkhush<small>reviewed</small></div></div>
+          <div class="col">
+            <i class="poster" style="background-image:var(--p_dune2)"></i>
+            <h3>Dune: Part Two</h3>
+            <div class="meta">2024 · Denis Villeneuve</div>
+            <span class="stars" data-r="5"></span>
+            <p class="quote">Cinema as an event. The whole IMAX row gasped at the first sandworm ride.</p>
+            <div class="brand"><i></i>35mm</div>
+          </div>
+        </div>
+        <figcaption><div class="id"><span class="code">R2</span><b>Poster and verdict</b></div><span class="mode">Full story</span><p>The Spotify approach: the artwork is the hero and glows with its own colour. It works for any film, and you can read it at a glance.</p></figcaption>
+      </figure>
+
+      <figure>
+        <div class="story r3" data-id="R3">
+          <div class="grain"></div>
+          <div class="strip">
+            <div class="edge">KODAK 5219 ▸ 14 · 35MM ▸ 14A</div><div class="edge l">PAST LIVES · 2023 ▸ 15</div>
+            <div class="fr" style="background-image:var(--s2_pastlives)"></div>
+            <div class="fr" style="background-image:var(--s3_pastlives)"></div>
+            <div class="fr" style="background-image:var(--s1_pastlives)"></div>
+          </div>
+          <div class="under">
+            <h3>Past Lives <span class="stars" data-r="4.5" style="font-size:4.4cqw"></span></h3>
+            <p class="quote">A goodbye that says everything they never did. That final walk wrecked me.</p>
+            <div class="foot"><div class="who"><i class="av"></i>@lilkhush</div><div class="brand"><i></i>35mm</div></div>
+          </div>
+        </div>
+        <figcaption><div class="id"><span class="code">R3</span><b>Film strip</b></div><span class="mode">Full story</span><p>Three stills from the film on a strip of 35mm negative, with edge codes. It uses TMDB stills, so it needs no extra work from you.</p></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ─────────────── EPISODES ─────────────── -->
+  <section>
+    <div class="sec-head"><h2>Episode reviews</h2><span class="tag">E1 – E2</span></div>
+    <p class="sec-note">Episodes have a wide still rather than a poster, so their layouts are built around that shape.</p>
+    <div class="row">
+      <figure>
+        <div class="story e1" data-id="E1">
+          <div class="fill blur" style="background-image:var(--st_fishes)"></div><div class="dim" style="background:rgba(0,0,0,.45)"></div><div class="grain"></div>
+          <div class="who"><i class="av"></i><div>@lilkhush<small>reviewed an episode</small></div></div>
+          <div class="ecard">
+            <div class="still" style="background-image:var(--st_fishes)"><span class="gtag">S2 E6</span></div>
+            <div class="body">
+              <div class="show"><i class="poster" style="background-image:var(--p_bear)"></i><div><b>The Bear</b><span>Season 2 · Episode 6</span></div></div>
+              <div class="eplabel">EPISODE</div>
+              <h3 class="eptitle">Fishes</h3>
+              <span class="stars" data-r="5"></span>
+              <p class="quote">Seven Christmases of dread in one hour. I needed a walk after.</p>
+            </div>
+          </div>
+          <div class="brand"><i></i>35mm</div>
+        </div>
+        <figcaption><div class="id"><span class="code">E1</span><b>Episode card</b></div><span class="mode">Full story</span><p>The front of your existing episode card, lifted out as it is and placed over the still's own colour.</p></figcaption>
+      </figure>
+
+      <figure>
+        <div class="story e2" data-id="E2">
+          <div class="fill st" style="background-image:var(--st_fishes)"></div><div class="shade"></div><div class="grain"></div>
+          <div class="e2-top">Episode review</div>
+          <div class="under">
+            <div class="e2-title"><h3>The Bear</h3><p>S2 E6 &nbsp;·&nbsp; Fishes</p></div>
+            <span class="stars" data-r="5" style="font-size:5.4cqw"></span>
+            <p class="quote">Seven Christmases of dread in one hour. I needed a walk after.</p>
+            <div class="foot"><div class="who"><i class="av"></i>@lilkhush</div><div class="brand"><i></i>35mm</div></div>
+          </div>
+        </div>
+        <figcaption><div class="id"><span class="code">E2</span><b>Full-bleed still</b><b class="new">New</b></div><span class="mode">Full story</span><p>The caption bars are gone. The show and episode are set as plain Helvetica straight on the still, big title and quiet subtitle.</p></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ─────────────── CRITIQUES ─────────────── -->
+  <section>
+    <div class="sec-head"><h2>Critiques</h2><span class="tag">C1 – C2</span></div>
+    <p class="sec-note">Long-form pieces should look like something worth reading. They use a serif, like print criticism, so they stand apart from the quick posts.</p>
+    <div class="row">
+      <figure>
+        <div class="story c1" data-id="C1">
+          <div class="fill hero" style="background-image:var(--b_aftersun)"></div><div class="fade"></div><div class="grain"></div>
+          <div class="mast"><span>Critique</span><span>No. 12</span></div>
+          <div class="body">
+            <h3><em>Aftersun</em> is a memory you didn't know you were carrying</h3>
+            <p class="stand">Charlotte Wells builds a film out of the gaps in a camcorder tape, and trusts you to fill them.</p>
+            <div class="by"><span>By @lilkhush · 7 min read</span><div class="brand"><i></i>35mm</div></div>
+          </div>
+        </div>
+        <figcaption><div class="id"><span class="code">C1</span><b>Cover</b></div><span class="mode">Full story</span><p>A magazine cover: the film's still across the top, then the headline, the standfirst and the byline.</p></figcaption>
+      </figure>
+
+      <figure>
+        <div class="story c2" data-id="C2">
+          <div class="grain"></div>
+          <div class="col">
+            <div class="qm">"</div>
+            <blockquote>The saddest shot in the film is a Polaroid developing, and <em>nothing happens in it at all.</em></blockquote>
+            <div class="src"><i class="poster" style="background-image:var(--p_aftersun)"></i><div><b>Aftersun is a memory you didn't know you were carrying</b><span>Critique by @lilkhush · 7 min</span></div></div>
+            <div class="brand"><i></i>35mm</div>
+          </div>
+        </div>
+        <figcaption><div class="id"><span class="code">C2</span><b>Pull quote</b></div><span class="mode">Full story</span><p>You choose one sentence from the critique to feature. Pull quotes get shared far more than headlines.</p></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ─────────────── TOP 3 ─────────────── -->
+  <section>
+    <div class="sec-head"><h2>Top 3 and favourites</h2><span class="tag">T1 – T2</span></div>
+    <p class="sec-note">Top 3 lists are how people show their identity, and they're what friends reply to. T1 now uses the podium from your profile, with the same art and badges.</p>
+    <div class="row">
+      <figure>
+        <div class="story t1b" data-id="T1">
+          <div class="spark"></div><div class="grain"></div>
+          <div class="who"><i class="av"></i><div>@lilkhush<small>top 3 films</small></div></div>
+          <div class="orb"></div>
+          <div class="shelf">
+            <div class="card k2"><i class="poster" style="background-image:var(--p_spirited)"></i><i class="badge"></i></div>
+            <div class="card k3"><i class="poster" style="background-image:var(--p_mood)"></i><i class="badge"></i></div>
+            <div class="card k1"><i class="poster" style="background-image:var(--p_parasite)"></i><i class="badge"></i></div>
+          </div>
+          <div class="names"><b>1</b><span>Parasite</span><b>2</b><span>Spirited Away</span><b>3</b><span>In the Mood for Love</span></div>
+          <div class="brand"><i></i>35mm</div>
+        </div>
+        <figcaption><div class="id"><span class="code">T1</span><b>Podium</b><b class="new">New</b></div><span class="mode">Full story</span><p>The Top 3 from your profile, lifted out as it is: the TOP 3 orb, a large poster for number one, and the outlined 1, 2 and 3 badges half on and half off each poster. The posters float, as they do in the app.</p></figcaption>
+      </figure>
+      <figure>
+        <div class="story t2" data-id="T2">
+          <div class="paper"></div>
+          <div class="note">my top 3, ever.</div>
+          <div class="sheet">
+            <div class="band"><span class="code">▸ 12 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; KODAK 5219 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ▸ 12A</span><i class="fr" style="background-image:var(--b_parasite)"></i><i class="fr ghost" style="background-image:var(--b_parasite);transform:scaleX(-1)"></i></div>
+            <div class="band"><span class="code">▸ 13 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; KODAK 5219 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ▸ 13A</span><i class="fr" style="background-image:var(--b_spirited)"></i><i class="fr ghost" style="background-image:var(--b_spirited);transform:scaleX(-1)"></i></div>
+            <div class="band"><span class="code">▸ 14 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; KODAK 5219 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ▸ 14A</span><i class="fr" style="background-image:var(--b_mood)"></i><i class="fr ghost" style="background-image:var(--b_mood);transform:scaleX(-1)"></i></div>
+          </div>
+          <i class="circ" style="left:5cqw;top:33cqw;width:58cqw;height:34cqw"></i>
+          <span class="num" style="right:9cqw;top:37cqw">1</span>
+          <span class="num" style="right:9cqw;top:75cqw">2</span>
+          <span class="num" style="right:9cqw;top:114cqw">3</span>
+          <span class="lbl" style="left:8cqw;top:171cqw;display:none"></span>
+          <div class="brand dark"><i></i>@lilkhush on 35mm</div>
+        </div>
+        <figcaption><div class="id"><span class="code">T2</span><b>Contact sheet</b></div><span class="mode">Full story</span><p>A photographer's contact sheet: three film strips, number one circled in red grease pencil, with the numbers written by hand.</p></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ─────────────── PROFILE ─────────────── -->
+  <section>
+    <div class="sec-head"><h2>Profile cards</h2><span class="tag">P1 – P2</span></div>
+    <p class="sec-note">These say "follow me on 35mm". Both are rebuilt: P1 is your actual profile header, and P2 replaces the receipt with a cleaner monthly recap.</p>
+    <div class="row">
+      <figure>
+        <div class="story p1b" data-id="P1">
+          <div class="grain"></div>
+          <div class="arch"></div>
+          <div class="uname">@lilkhush</div>
+          <div class="bio">films, feelings, and far too many opinions</div>
+          <div class="stats"><div><b>214</b><span>Films</span></div><div><b>48</b><span>Reviews</span></div><div><b>1.2k</b><span>Followers</span></div></div>
+          <div class="mini">
+            <div><i class="poster" style="background-image:var(--p_spirited)"></i><i class="badge" style="background-image:var(--t_2)"></i></div>
+            <div><i class="poster" style="background-image:var(--p_parasite)"></i><i class="badge" style="background-image:var(--t_1)"></i></div>
+            <div><i class="poster" style="background-image:var(--p_mood)"></i><i class="badge" style="background-image:var(--t_3)"></i></div>
+          </div>
+          <div class="follow"><i></i>Follow me on 35mm</div>
+        </div>
+        <figcaption><div class="id"><span class="code">P1</span><b>Profile</b><b class="new">New</b></div><span class="mode">Full story</span><p>Your profile header as it looks in the app: the arch photo with its gold glow, the Siberian username and 3D Isometric counts, with your Top 3 large underneath on a plain dark background. The bio is sample text.</p></figcaption>
+      </figure>
+
+      <figure>
+        <div class="story p2b" data-id="P2">
+          <div class="aura"><i style="left:0;top:40%;width:60%;height:35%;background:#2f4d4f"></i><i style="right:0;top:45%;width:55%;height:35%;background:#9c5a2a"></i></div>
+          <div class="grain"></div>
+          <div class="col">
+            <div class="mo">September 2026 · @lilkhush</div>
+            <h3>My month in film</h3>
+            <div class="big"><b>23</b><span><em>films</em><br>41.5 hours watched</span></div>
+            <div class="grid">
+              <i class="poster" style="background-image:var(--p_pastlives)"></i><i class="poster" style="background-image:var(--p_dune2)"></i><i class="poster" style="background-image:var(--p_aftersun)"></i><i class="poster" style="background-image:var(--p_anora)"></i><i class="poster" style="background-image:var(--p_mood)"></i><i class="poster" style="background-image:var(--p_chungking)"></i>
+              <i class="poster" style="background-image:var(--p_lalaland)"></i><i class="poster" style="background-image:var(--p_lost)"></i><i class="poster" style="background-image:var(--p_sunrise)"></i><i class="poster" style="background-image:var(--p_interstellar)"></i><i class="poster" style="background-image:var(--p_women)"></i><i class="poster" style="background-image:var(--p_bear)"></i>
+            </div>
+            <dl>
+              <dt>Top genre</dt><dd>Drama, 38%</dd>
+              <dt>Most watched</dt><dd>Wong Kar-wai ×3</dd>
+              <dt>Highest rated</dt><dd>Past Lives <span class="stars" data-r="4.5"></span></dd>
+              <dt>Hottest take</dt><dd>71% agreed</dd>
+            </dl>
+            <div class="brand"><i></i>35mm</div>
+          </div>
+        </div>
+        <figcaption><div class="id"><span class="code">P2</span><b>Month in film</b><b class="new">New</b></div><span class="mode">Full story</span><p>The same idea as the receipt, done in the app's own style: one big number, the month's posters, and four facts separated by hairlines.</p></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ─────────────── PLAYLISTS ─────────────── -->
+  <section>
+    <div class="sec-head"><h2>Playlists</h2><span class="tag">L1</span></div>
+    <p class="sec-note">Modelled on Spotify's playlist share: the cover, the title and description, then the first films on the list.</p>
+    <div class="row">
+      <figure>
+        <div class="story l1b" data-id="L1">
+          <div class="fill blur" style="background-image:var(--p_amelie)"></div><div class="shade"></div><div class="grain"></div>
+          <div class="cover"><i style="background-image:var(--p_amelie)"></i><i style="background-image:var(--p_sunrise)"></i><i style="background-image:var(--p_paddington)"></i><i style="background-image:var(--p_lost)"></i></div>
+          <div class="body"><div class="info">
+            <h3>Rainy Sunday comfort watches</h3>
+            <div class="by"><i class="av"></i>@lilkhush · 6 films · 11 hr 7 min</div>
+            <p>For when it's pouring out and you need something warm.</p>
+          </div>
+          <div class="list">
+            <div class="it"><i class="poster" style="background-image:var(--p_amelie)"></i><div><b>Amélie</b><span>2001 · Jean-Pierre Jeunet</span></div></div>
+            <div class="it"><i class="poster" style="background-image:var(--p_sunrise)"></i><div><b>Before Sunrise</b><span>1995 · Richard Linklater</span></div></div>
+            <div class="it"><i class="poster" style="background-image:var(--p_paddington)"></i><div><b>Paddington 2</b><span>2017 · Paul King</span></div></div>
+          </div></div>
+          <div class="foot"><span>+ 3 more</span><div class="brand"><i></i>35mm</div></div>
+        </div>
+        <figcaption><div class="id"><span class="code">L1</span><b>Playlist</b><b class="new">New</b></div><span class="mode">Full story</span><p>The same 2×2 poster cover the app draws for playlists, then the title, who made it, the description and the first three films.</p></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <p class="foot-note">Film images and data come from TMDB, and the exported cards will carry a small "TMDB" credit. Sample reviews are placeholder copy. Fonts in these mockups: San Francisco and Helvetica Neue (both on every iPhone), the app's own Siberian and 3D Isometric, plus Instrument Serif, IBM Plex Mono, Big Shoulders Display and Reenie Beanie for the themed styles. Any of these would be bundled into the app.</p>
+</div>
+
+<script>
+(function(){
+  document.querySelectorAll('.stars').forEach(function(el){
+    var r=parseFloat(el.dataset.r||'0'),h='';
+    for(var i=0;i<5;i++){var f=Math.max(0,Math.min(1,r-i))*100;h+='<i style="--f:'+f+'%">★</i>';}
+    el.innerHTML=h;el.setAttribute('aria-label',r+' out of 5 stars');
+  });
+  var ig='<div class="ig" aria-hidden="true"><i class="zone t"></i><i class="zone b"></i><div class="bars"><i></i><i></i><i></i></div><div class="hd"><i></i>lilkhush <span>2m</span></div><div class="ft"><div class="msg">Send message</div><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg><svg viewBox="0 0 24 24"><path d="M21 3 10 14M21 3l-7 18-4-7-7-4z"/></svg></div></div>';
+  document.querySelectorAll('.story[data-id]').forEach(function(s){s.insertAdjacentHTML('beforeend',ig);});
+  document.querySelectorAll('[data-clone]').forEach(function(slot){
+    var src=document.querySelector('.story[data-id="'+slot.dataset.clone+'"]');
+    if(src){var c=src.cloneNode(true);c.removeAttribute('data-id');slot.appendChild(c);}
+  });
+  var box=document.getElementById('igui');
+  function apply(){document.body.classList.toggle('showig',box.checked);}
+  box.addEventListener('change',function(){apply();try{localStorage.setItem('igui',box.checked?'1':'0')}catch(e){}});
+  try{box.checked=localStorage.getItem('igui')==='1'}catch(e){}
+  apply();
+})();
+</script>

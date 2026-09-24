@@ -112,6 +112,7 @@ flutter:
     - assets/images/stickers/
     - assets/top3elements/
     - assets/badges/
+    - assets/share/
 
   # Custom fonts
   fonts:
