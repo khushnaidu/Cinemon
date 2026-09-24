@@ -13,6 +13,7 @@ import 'film/film_extras_sections.dart';
 import 'lists/watchlist_button.dart';
 import 'widgets/episodes_section.dart';
 import 'widgets/post_review_sheet.dart';
+import 'widgets/glass_panel.dart' show GlassPillButton;
 import 'widgets/report_sheet.dart';
 import 'widgets/review_editor.dart';
 
@@ -478,24 +479,11 @@ class _FilmDetailContent extends ConsumerWidget {
           // Edit button
           SizedBox(
             width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () {
-                showReviewEditor(context, activity);
-              },
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.white54),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(25),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-              child: const Text(
-                'Edit Your Post',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+            child: GlassPillButton(
+              label: 'Edit Your Post',
+              icon: CupertinoIcons.pencil,
+              expand: true,
+              onTap: () => showReviewEditor(context, activity),
             ),
           ),
         ] else ...[
@@ -510,27 +498,12 @@ class _FilmDetailContent extends ConsumerWidget {
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                // Show post review sheet
-                showPostReviewSheet(context, film);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(25),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                elevation: 0,
-              ),
-              child: const Text(
-                'Post a Review',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+            child: GlassPillButton(
+              label: 'Post a Review',
+              icon: CupertinoIcons.square_pencil,
+              prominent: true,
+              expand: true,
+              onTap: () => showPostReviewSheet(context, film),
             ),
           ),
         ],

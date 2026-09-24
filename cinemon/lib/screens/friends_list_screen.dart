@@ -1,6 +1,8 @@
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
 import 'widgets/app_search_field.dart';
+import 'widgets/glass_panel.dart' show GlassPillButton;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
@@ -256,21 +258,11 @@ class _FriendsListScreenState extends ConsumerState<FriendsListScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: () => context.push('/search-users'),
-              icon: const Icon(Icons.person_add),
-              label: const Text('Find Friends'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-              ),
+            GlassPillButton(
+              label: 'Find Friends',
+              icon: CupertinoIcons.person_add,
+              prominent: true,
+              onTap: () => context.push('/search-users'),
             ),
           ],
         ),
@@ -526,7 +518,8 @@ class _PendingRequestsSheet extends ConsumerWidget {
                   );
                 }
                 return ListView.builder(
-                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: requests.length,

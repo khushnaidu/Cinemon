@@ -16,8 +16,8 @@ import 'auth_scaffold.dart';
 
 /// Log in with email and password (ADR 0004 D8).
 ///
-/// On success the fields fall away and the logo zooms through the screen,
-/// then the router takes over: Home, or onboarding for a new account.
+/// On success the splash GIF plays again as the way in, then the router
+/// takes over: Home, or onboarding for a new account.
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -25,32 +25,18 @@ class LoginScreen extends ConsumerStatefulWidget {
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen>
-    with SingleTickerProviderStateMixin {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _passwordFocus = FocusNode();
   String? _emailError;
   String? _passwordError;
 
-  late final _exit = AnimationController(
-    duration: const Duration(milliseconds: 1400),
-    vsync: this,
-  );
-  late final _fieldsFade = CurvedAnimation(
-      parent: _exit, curve: const Interval(0, 0.25, curve: Curves.easeInCubic));
-  late final _logoZoom = CurvedAnimation(
-      parent: _exit,
-      curve: const Interval(0.2, 1, curve: Curves.easeInOutCubic));
-  late final _logoFade = CurvedAnimation(
-      parent: _exit, curve: const Interval(0.7, 1, curve: Curves.easeInCubic));
-
   @override
   void dispose() {
     _email.dispose();
     _password.dispose();
     _passwordFocus.dispose();
-    _exit.dispose();
     // Never leave the router stuck on this screen.
     authRedirectHold.value = false;
     super.dispose();
@@ -72,7 +58,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     if (!_validate()) return;
     final email = _email.text.trim();
 
-    // Hold the redirect so the zoom plays; released below either way.
+    // Hold the redirect so signing in doesn't jump straight to Home; the
+    // splash goes first. Released below either way.
     authRedirectHold.value = true;
     final auth = ref.read(authControllerProvider.notifier);
     await auth.signIn(email: email, password: _password.text);
@@ -103,7 +90,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     ref.invalidate(friendIdsProvider);
     ref.invalidate(onboardedProvider);
 
-    await _exit.forward();
+    // The splash plays its GIF, then moves on to /login, which the router
+    // turns into Home or onboarding.
+    context.go('/');
     authRedirectHold.value = false;
   }
 
@@ -111,27 +100,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   Widget build(BuildContext context) {
     final busy = ref.watch(authControllerProvider).isLoading;
 
-    Widget fading(Widget child) => AnimatedBuilder(
-          animation: _fieldsFade,
-          builder: (_, c) => Opacity(
-            opacity: 1 - _fieldsFade.value,
-            child:
-                Transform.scale(scale: 1 - 0.25 * _fieldsFade.value, child: c),
-          ),
-          child: child,
-        );
-
     return AuthScaffold(
-      header: AnimatedBuilder(
-        animation: _exit,
-        builder: (_, child) => Opacity(
-          opacity: 1 - _logoFade.value,
-          child: Transform.scale(scale: 1 + 3 * _logoZoom.value, child: child),
-        ),
-        child: const AuthLogo(),
-      ),
+      header: const AuthLogo(),
       children: [
-        fading(Column(
+        Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             GlassTextField(
@@ -190,7 +162,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               onTap: () => context.go('/signup'),
             ),
           ],
-        )),
+        ),
       ],
     );
   }

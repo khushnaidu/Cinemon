@@ -29,7 +29,7 @@ TextStyle _helv(double size, FontWeight w,
     );
 
 /// P1: your profile header as it looks in the app. The arch photo with its
-/// gold glow, the Siberian username, 3D Isometric counts, and your Top 3
+/// gold glow, the Helvetica username, 3D Isometric counts, and your Top 3
 /// large underneath, on a plain dark ground.
 class ProfileCard extends StatelessWidget {
   const ProfileCard({super.key, required this.profile});
@@ -102,23 +102,31 @@ class ProfileCard extends StatelessWidget {
         Positioned(
           left: 0,
           right: 0,
-          top: 59.u,
-          child: Text(
-            '@${user.username}',
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            style: TextStyle(
-              fontFamily: 'Siberian',
-              fontSize: 11.u,
-              height: 1,
-              color: Colors.white,
-              shadows: [
-                Shadow(
-                  color: Colors.black.withValues(alpha: 0.6),
-                  offset: Offset(0, 0.8.u),
-                  blurRadius: 3.u,
+          // Written across the foot of the arch, as on the profile.
+          top: 58.u,
+          // Long names shrink to the card's width rather than being cut off.
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 6.u),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                '@${user.username}',
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                style: TextStyle(
+                  fontFamily: AppText.usernameFamily,
+                  fontSize: 12.u,
+                  height: 1,
+                  color: Colors.white,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      offset: Offset(0, 0.8.u),
+                      blurRadius: 3.u,
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),

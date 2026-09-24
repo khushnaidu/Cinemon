@@ -1,9 +1,11 @@
 import 'dart:async';
 import '../core/theme/app_theme.dart';
 import 'dart:io';
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import '../core/utils/auth_rules.dart' show usernameProblem;
 import 'widgets/glass_panel.dart';
+import 'widgets/glass_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -135,7 +137,12 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   Future<void> _handleSave() async {
-    if (!_formKey.currentState!.validate()) return;
+    final problem =
+        usernameProblem(_usernameController.text.trim().toLowerCase());
+    if (problem != null) {
+      showGlassToast(context, problem, destructive: true);
+      return;
+    }
 
     final editState = ref.read(editProfileControllerProvider);
     final newUsername = _usernameController.text.trim();
@@ -292,89 +299,26 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     const SizedBox(height: 32),
 
                     // Username Field
-                    TextFormField(
+                    GlassTextField(
                       controller: _usernameController,
+                      placeholder: 'username',
+                      icon: CupertinoIcons.at,
+                      maxLength: 24,
+                      keyboardType: TextInputType.visiblePassword,
                       onChanged: _onUsernameChanged,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        labelText: 'Username',
-                        labelStyle: const TextStyle(color: Colors.white70),
-                        prefixIcon: const Icon(
-                          Icons.alternate_email,
-                          color: Colors.white54,
-                        ),
-                        suffixIcon: _buildUsernameSuffix(editState),
-                        filled: true,
-                        fillColor: Colors.white.withOpacity(0.1),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(
-                            color: _getUsernameBorderColor(editState),
-                            width: 1,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(
-                            color: _getUsernameBorderColor(editState),
-                            width: 2,
-                          ),
-                        ),
-                      ),
-                      validator: (value) =>
-                          usernameProblem((value ?? '').trim().toLowerCase()),
+                      errorText: editState.usernameError,
+                      trailing: _buildUsernameSuffix(editState),
                     ),
-                    if (editState.usernameError != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          editState.usernameError!,
-                          style: const TextStyle(
-                            color: AppColors.destructive,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
                     const SizedBox(height: 20),
 
                     // Bio Field
-                    TextFormField(
+                    GlassTextWell(
                       controller: _bioController,
-                      onChanged: (_) => _checkForChanges(),
-                      maxLines: 4,
+                      hint: 'Tell people what you watch',
                       maxLength: 150,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        labelText: 'Bio',
-                        labelStyle: const TextStyle(color: Colors.white70),
-                        hintText: 'Tell us about yourself...',
-                        hintStyle: const TextStyle(color: Colors.white38),
-                        counterStyle: const TextStyle(color: Colors.white54),
-                        filled: true,
-                        fillColor: Colors.white.withOpacity(0.1),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Colors.white24,
-                            width: 1,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Colors.white,
-                            width: 2,
-                          ),
-                        ),
-                      ),
+                      minLines: 3,
+                      maxLines: 5,
+                      onChanged: (_) => _checkForChanges(),
                     ),
                     const SizedBox(height: 32),
 
@@ -455,22 +399,5 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     }
 
     return null;
-  }
-
-  Color _getUsernameBorderColor(EditProfileState state) {
-    final currentUsername = _usernameController.text.trim().toLowerCase();
-
-    // Default color if username hasn't changed
-    if (currentUsername == _originalUsername?.toLowerCase()) {
-      return Colors.white24;
-    }
-
-    if (currentUsername.isEmpty || state.isCheckingUsername) {
-      return Colors.white24;
-    }
-    if (state.isUsernameAvailable && state.usernameError == null) {
-      return Colors.greenAccent;
-    }
-    return Colors.redAccent;
   }
 }

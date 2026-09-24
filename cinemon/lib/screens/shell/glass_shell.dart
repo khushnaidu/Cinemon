@@ -92,7 +92,9 @@ class _BranchDepthObserver extends NavigatorObserver {
   }
 
   void _bump(int delta) {
-    _branchDepth += delta;
+    // Never below zero: a pop reported after the shell was rebuilt would
+    // otherwise hide the bar for good.
+    _branchDepth = (_branchDepth + delta).clamp(0, 1 << 20);
     _publishChrome();
   }
 }
@@ -125,6 +127,17 @@ class GlassShell extends StatefulWidget {
 class _GlassShellState extends State<GlassShell> with RouteAware {
   bool _compact = false;
 
+  /// A shell that's just been built has nothing on top of it. The counts are
+  /// app-wide and only move on pushes and pops, so without this a shell torn
+  /// down with a sheet or screen still open (signing out from Settings,
+  /// deleting an account) left them stuck, and the next account's Home came
+  /// up with no tab bar until the app restarted.
+  @override
+  void initState() {
+    super.initState();
+    _resetChrome();
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -135,7 +148,14 @@ class _GlassShellState extends State<GlassShell> with RouteAware {
   @override
   void dispose() {
     shellRouteObserver.unsubscribe(this);
+    _resetChrome();
     super.dispose();
+  }
+
+  static void _resetChrome() {
+    _rootCovered = false;
+    _branchDepth = 0;
+    _publishChrome();
   }
 
   // Published rather than held in State: the home feed's floating buttons are

@@ -16,6 +16,8 @@ import 'package:cinemon/screens/auth/onboarding_screen.dart';
 import 'package:cinemon/screens/auth/password_reset_screens.dart';
 import 'package:cinemon/screens/auth/signup_screen.dart';
 import 'package:cinemon/screens/auth/verify_code_screen.dart';
+import 'package:cinemon/screens/profile/profile_header.dart';
+import 'package:cinemon/screens/widgets/arch_profile_frame.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -54,6 +56,12 @@ void main() {
     await _font('CupertinoSystemText', [sf]);
     await _font('CupertinoSystemDisplay', [sf]);
     await _font('Roboto', [sf]);
+    await _font('Helvetica Neue', ['/System/Library/Fonts/HelveticaNeue.ttc']);
+    // USERNAME_FONT_FILE renders another candidate in the username slot.
+    await _font(AppText.usernameFamily, [
+      Platform.environment['USERNAME_FONT_FILE'] ??
+          'assets/fonts/username/Brafesuit.ttf',
+    ]);
     final home = Platform.environment['HOME'];
     await _font('packages/cupertino_icons/CupertinoIcons', [
       '$home/.pub-cache/hosted/pub.dev/cupertino_icons-1.0.6/assets/CupertinoIcons.ttf'
@@ -84,6 +92,41 @@ void main() {
     'forgot': () => const ForgotPasswordScreen(),
     'new_password': () => const NewPasswordScreen(),
     'onboarding': () => const OnboardingScreen(),
+    // The top of your own profile: brush name, grey @name, then the rest.
+    'profile_header': () => Scaffold(
+          backgroundColor: Colors.black,
+          body: SafeArea(
+            child: ProfileHeader(
+              profile: profile.copyWith(
+                username: 'khush',
+                bio: 'films, feelings, and far too many opinions',
+              ),
+              isOwnProfile: true,
+            ),
+          ),
+        ),
+    // Usernames under the profile photo: a short one, and the longest kind.
+    'username_arch': () => const Scaffold(
+          backgroundColor: Colors.black,
+          body: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ArchProfileFrame(
+                    photoUrl: null,
+                    username: 'lilkhush',
+                    width: 120,
+                    height: 160),
+                SizedBox(height: 80),
+                ArchProfileFrame(
+                    photoUrl: null,
+                    username: 'user_4f2a9c01b7.films_2024',
+                    width: 120,
+                    height: 160),
+              ],
+            ),
+          ),
+        ),
   };
 
   for (final entry in screens.entries) {
