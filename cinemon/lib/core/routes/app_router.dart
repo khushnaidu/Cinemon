@@ -21,6 +21,7 @@ import '../../models/activity_model.dart';
 import '../../screens/lists/playlist_screen.dart';
 import '../../screens/person/person_screen.dart';
 import '../../screens/trailers/trailers_screen.dart';
+import '../../share/shared_link_screens.dart';
 
 /// GoRouter configuration with auth guard
 final goRouterProvider = Provider<GoRouter>((ref) {
@@ -204,6 +205,17 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/l/:listId',
         redirect: (context, state) =>
             '/lists/${state.pathParameters['listId']}',
+      ),
+      // Story link stickers (ADR 0003): a post, or someone's profile.
+      GoRoute(
+        path: '/p/:postId',
+        builder: (context, state) =>
+            SharedPostScreen(postId: state.pathParameters['postId']!),
+      ),
+      GoRoute(
+        path: '/u/:username',
+        builder: (context, state) =>
+            SharedProfileScreen(username: state.pathParameters['username']!),
       ),
       GoRoute(
         path: '/person/:personId',

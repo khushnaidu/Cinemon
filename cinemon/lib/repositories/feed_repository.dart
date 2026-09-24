@@ -215,6 +215,34 @@ class FeedRepository {
     return rows.map(ActivityModel.fromRow).toList();
   }
 
+  /// Everything one user logged in [from, to), newest first. For their
+  /// month in film (ADR 0003, P2).
+  Future<List<ActivityModel>> getUserActivitiesBetween({
+    required String userId,
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    final rows = await _client
+        .from(_view)
+        .select()
+        .eq('user_id', userId)
+        .gte('created_at', from.toUtc().toIso8601String())
+        .lt('created_at', to.toUtc().toIso8601String())
+        .order('created_at', ascending: false)
+        .limit(500);
+    return rows.map(ActivityModel.fromRow).toList();
+  }
+
+  /// How many films and episodes one user has logged, ever.
+  Future<int> countUserActivities(String userId) async {
+    final res = await _client
+        .from(_view)
+        .select('id')
+        .eq('user_id', userId)
+        .count(CountOption.exact);
+    return res.count;
+  }
+
   /// Activities for a specific film.
   Future<List<ActivityModel>> getFilmActivities({
     required int filmId,

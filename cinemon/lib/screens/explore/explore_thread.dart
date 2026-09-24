@@ -10,6 +10,8 @@ import '../../models/activity_model.dart' show CommentModel;
 import '../../models/explore_post_model.dart';
 import '../../providers/auth/auth_provider.dart';
 import '../../providers/explore/explore_provider.dart';
+import '../../share/share_sheet.dart';
+import '../../share/share_subject.dart';
 import '../widgets/comment_thread.dart';
 import '../widgets/comments_sheet.dart' show CommentSendButton, GlassHint;
 import '../widgets/block_user.dart';
@@ -356,10 +358,23 @@ Future<void> showExplorePostMenu(
           if (fromThread) Navigator.of(context).pop();
         }
 
+        final share = shareSubjectForPost(post);
+
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: AppSpace.sm),
+            if (share != null) ...[
+              GlassMenuRow(
+                icon: CupertinoIcons.square_arrow_up,
+                title: 'Share',
+                onTap: () {
+                  close();
+                  showShareSheet(context, share);
+                },
+              ),
+              const GlassMenuDivider(),
+            ],
             if (subject != null && onSubjectTap != null) ...[
               GlassMenuRow(
                 icon: CupertinoIcons.line_horizontal_3_decrease,

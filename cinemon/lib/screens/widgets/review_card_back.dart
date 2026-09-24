@@ -6,6 +6,8 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/poster_palette.dart';
 import '../../models/activity_model.dart';
 import '../../models/sticker_model.dart';
+import '../../share/share_sheet.dart';
+import '../../share/share_subject.dart';
 import 'review_photo_stack.dart';
 import 'voice_note_player.dart';
 
@@ -465,6 +467,9 @@ class _Tallies extends StatelessWidget {
         currentUserId != null ? activity.getReactionFrom(currentUserId!) : null;
     final sticker =
         reaction != null ? StickerRegistry.getStickerById(reaction) : null;
+    final share = currentUserId != null && currentUserId == activity.userId
+        ? shareSubjectForActivity(activity)
+        : null;
 
     return Container(
       padding: const EdgeInsets.only(top: AppSpace.sm),
@@ -496,6 +501,14 @@ class _Tallies extends StatelessWidget {
             activeColor: AppColors.destructive,
             onTap: onLike,
           ),
+          // Your own reviews only: a logged review is for friends, so taking
+          // it to Instagram is the author's call (ADR 0003).
+          if (share != null)
+            _Tally(
+              icon: CupertinoIcons.square_arrow_up,
+              count: 0,
+              onTap: () => showShareSheet(context, share),
+            ),
           // Only on your own posts, and last: it's the one action here that
           // isn't about responding to the review.
           if (onEdit != null)

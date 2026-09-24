@@ -112,9 +112,31 @@ flutter:
     - assets/images/stickers/
     - assets/top3elements/
     - assets/badges/
+    - assets/share/
 
   # Custom fonts
   fonts:
+    # Share cards (ADR 0003, D5). OFL licences sit next to the files.
+    - family: InstrumentSerif
+      fonts:
+        - asset: assets/fonts/share/InstrumentSerif-Regular.ttf
+        - asset: assets/fonts/share/InstrumentSerif-Italic.ttf
+          style: italic
+    - family: IBMPlexMono
+      fonts:
+        - asset: assets/fonts/share/IBMPlexMono-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/share/IBMPlexMono-SemiBold.ttf
+          weight: 600
+    - family: BigShoulders
+      fonts:
+        - asset: assets/fonts/share/BigShouldersDisplay-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/share/BigShouldersDisplay-Black.ttf
+          weight: 900
+    - family: ReenieBeanie
+      fonts:
+        - asset: assets/fonts/share/ReenieBeanie.ttf
     - family: Siberian
       fonts:
         - asset: assets/siberian-font/SiberianPersonalUseRegular-d9Log.ttf
