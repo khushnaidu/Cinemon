@@ -178,7 +178,6 @@ class ProfileSetupController extends StateNotifier<ProfileSetupState> {
       // Create user profile
       final userModel = UserModel(
         uid: user.uid,
-        email: user.email ?? '',
         username: username.toLowerCase(),
         displayName: username,
         photoUrl: photoUrl,

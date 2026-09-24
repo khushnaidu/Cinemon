@@ -24,9 +24,6 @@ mixin _$UserModel {
   @JsonKey(name: 'id')
   String get uid => throw _privateConstructorUsedError;
 
-  /// User's email address
-  String get email => throw _privateConstructorUsedError;
-
   /// Unique username for search/display (e.g., @filmfan42)
   String get username => throw _privateConstructorUsedError;
 
@@ -82,7 +79,6 @@ abstract class $UserModelCopyWith<$Res> {
   @useResult
   $Res call(
       {@JsonKey(name: 'id') String uid,
-      String email,
       String username,
       String? displayName,
       String? photoUrl,
@@ -113,7 +109,6 @@ class _$UserModelCopyWithImpl<$Res, $Val extends UserModel>
   @override
   $Res call({
     Object? uid = null,
-    Object? email = null,
     Object? username = null,
     Object? displayName = freezed,
     Object? photoUrl = freezed,
@@ -133,10 +128,6 @@ class _$UserModelCopyWithImpl<$Res, $Val extends UserModel>
       uid: null == uid
           ? _value.uid
           : uid // ignore: cast_nullable_to_non_nullable
-              as String,
-      email: null == email
-          ? _value.email
-          : email // ignore: cast_nullable_to_non_nullable
               as String,
       username: null == username
           ? _value.username
@@ -208,7 +199,6 @@ abstract class _$$UserModelImplCopyWith<$Res>
   @useResult
   $Res call(
       {@JsonKey(name: 'id') String uid,
-      String email,
       String username,
       String? displayName,
       String? photoUrl,
@@ -237,7 +227,6 @@ class __$$UserModelImplCopyWithImpl<$Res>
   @override
   $Res call({
     Object? uid = null,
-    Object? email = null,
     Object? username = null,
     Object? displayName = freezed,
     Object? photoUrl = freezed,
@@ -257,10 +246,6 @@ class __$$UserModelImplCopyWithImpl<$Res>
       uid: null == uid
           ? _value.uid
           : uid // ignore: cast_nullable_to_non_nullable
-              as String,
-      email: null == email
-          ? _value.email
-          : email // ignore: cast_nullable_to_non_nullable
               as String,
       username: null == username
           ? _value.username
@@ -328,7 +313,6 @@ class __$$UserModelImplCopyWithImpl<$Res>
 class _$UserModelImpl implements _UserModel {
   const _$UserModelImpl(
       {@JsonKey(name: 'id') required this.uid,
-      required this.email,
       required this.username,
       this.displayName,
       this.photoUrl,
@@ -357,10 +341,6 @@ class _$UserModelImpl implements _UserModel {
   @override
   @JsonKey(name: 'id')
   final String uid;
-
-  /// User's email address
-  @override
-  final String email;
 
   /// Unique username for search/display (e.g., @filmfan42)
   @override
@@ -473,7 +453,7 @@ class _$UserModelImpl implements _UserModel {
 
   @override
   String toString() {
-    return 'UserModel(uid: $uid, email: $email, username: $username, displayName: $displayName, photoUrl: $photoUrl, bio: $bio, badgeIds: $badgeIds, reviewCount: $reviewCount, followerCount: $followerCount, followingCount: $followingCount, favoriteGenres: $favoriteGenres, favoriteFilmIds: $favoriteFilmIds, favoriteShowIds: $favoriteShowIds, favoriteActorIds: $favoriteActorIds, favoriteDirectorIds: $favoriteDirectorIds, createdAt: $createdAt)';
+    return 'UserModel(uid: $uid, username: $username, displayName: $displayName, photoUrl: $photoUrl, bio: $bio, badgeIds: $badgeIds, reviewCount: $reviewCount, followerCount: $followerCount, followingCount: $followingCount, favoriteGenres: $favoriteGenres, favoriteFilmIds: $favoriteFilmIds, favoriteShowIds: $favoriteShowIds, favoriteActorIds: $favoriteActorIds, favoriteDirectorIds: $favoriteDirectorIds, createdAt: $createdAt)';
   }
 
   @override
@@ -482,7 +462,6 @@ class _$UserModelImpl implements _UserModel {
         (other.runtimeType == runtimeType &&
             other is _$UserModelImpl &&
             (identical(other.uid, uid) || other.uid == uid) &&
-            (identical(other.email, email) || other.email == email) &&
             (identical(other.username, username) ||
                 other.username == username) &&
             (identical(other.displayName, displayName) ||
@@ -516,7 +495,6 @@ class _$UserModelImpl implements _UserModel {
   int get hashCode => Object.hash(
       runtimeType,
       uid,
-      email,
       username,
       displayName,
       photoUrl,
@@ -549,7 +527,6 @@ class _$UserModelImpl implements _UserModel {
 abstract class _UserModel implements UserModel {
   const factory _UserModel(
       {@JsonKey(name: 'id') required final String uid,
-      required final String email,
       required final String username,
       final String? displayName,
       final String? photoUrl,
@@ -573,10 +550,6 @@ abstract class _UserModel implements UserModel {
   /// Supabase Auth user id — primary key of `profiles`
   @JsonKey(name: 'id')
   String get uid;
-  @override
-
-  /// User's email address
-  String get email;
   @override
 
   /// Unique username for search/display (e.g., @filmfan42)

@@ -170,6 +170,13 @@ class ExploreFeedNotifier extends StateNotifier<ExploreFeedState> {
     );
   }
 
+  /// Drop everything by one author, after blocking them.
+  void removeAuthor(String userId) {
+    state = state.copyWith(
+      posts: state.posts.where((p) => p.userId != userId).toList(),
+    );
+  }
+
   void bumpComments(String postId, int delta) {
     final i = state.posts.indexWhere((p) => p.id == postId);
     if (i != -1) _replace(state.posts[i].withCommentDelta(delta));

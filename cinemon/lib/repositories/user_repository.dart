@@ -99,6 +99,46 @@ class UserRepository {
     await _users.delete().eq('id', uid);
   }
 
+  // ============ ACCOUNT DELETION ============
+
+  /// Delete the signed-in account and everything it owns.
+  ///
+  /// Storage goes first because it has no cascade and can't be cleared from
+  /// SQL. If it fails, nothing else has been touched and the whole thing can
+  /// be retried. `delete_my_account` (migration 006) then deletes the auth
+  /// user, which cascades through `profiles` to every row the account owns.
+  /// The caller signs out afterwards.
+  Future<void> deleteAccount(String uid) async {
+    await _removeFolder('avatars', uid);
+    await _removeFolder('review-media', uid);
+    await _client.rpc('delete_my_account');
+  }
+
+  /// Remove every object under [prefix], descending into folders.
+  /// `list` isn't recursive, and it returns folders as entries with no id.
+  Future<void> _removeFolder(String bucket, String prefix) async {
+    const page = 1000;
+    final files = <String>[];
+    for (var offset = 0;; offset += page) {
+      final entries = await _client.storage.from(bucket).list(
+            path: prefix,
+            searchOptions: SearchOptions(limit: page, offset: offset),
+          );
+      for (final e in entries) {
+        final path = '$prefix/${e.name}';
+        if (e.id == null) {
+          await _removeFolder(bucket, path);
+        } else {
+          files.add(path);
+        }
+      }
+      if (entries.length < page) break;
+    }
+    if (files.isNotEmpty) {
+      await _client.storage.from(bucket).remove(files);
+    }
+  }
+
   // ============ AVATARS ============
 
   /// Upload a profile photo and return its public URL.

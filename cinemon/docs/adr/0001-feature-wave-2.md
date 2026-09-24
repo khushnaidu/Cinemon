@@ -4,6 +4,7 @@
 - **Date:** 2026-09-23
 - **Scope:** Six features from the "35mm Plans" list, plus the shared infrastructure they need
 - **Supersedes:** nothing. Builds on migrations 001–005 and the Explore work.
+- **Amended by:** [ADR 0002](0002-website-commitments.md). Its P0 items (privacy hardening, account deletion, block and moderation) go ahead of Phase 3 here, and migration numbers below shift by two: `006` is privacy hardening plus account deletion, `007` is blocking and moderation, and ADR 0001's own migrations start at `008`.
 
 ---
 
@@ -354,7 +355,7 @@ The home feed (friends) shows friends' **Explore posts**, interleaved by time wi
 | **TMDB rate limits** (~50 req/s per IP, no daily cap) | Enriched details (D1) and provider caching keep film detail at 1 request. The trailer feed fetches 2 pages ahead, never more. Server jobs throttle to ≤40 req/s. |
 | **Attribution (App Review)** | TMDB (already required), plus **JustWatch** on where-to-watch. YouTube branding stays visible in the player. |
 | **Moderation** | Playlist titles and descriptions are user text shown publicly. Reuse `content_reports` by adding a nullable `list_id` next to `post_id`, with a check that exactly one is set, and use the existing report reasons panel. Guideline 1.2 requires this for UGC. |
-| **Migrations** | `006_lists.sql` (Phase 3–4), `009_home_feed_and_list_posts.sql` (Phase 5: `home_feed` view, `explore_posts.list_id`, `list` kind), `010_trailer_feed.sql` (Phase 7), `007a_person_follow_enum.sql` + `007_person_follows.sql` (Phase 6), `008_profile_badges.sql` (Phase 5). The user pastes each one, as before, and each is idempotent and safe to re-run. |
+| **Migrations** | `008_lists.sql` (Phase 3–4), `009_profile_badges.sql` (Phase 5), `010_home_feed_and_list_posts.sql` (Phase 5: `home_feed` view, `explore_posts.list_id`, `list` kind), `011a_person_follow_enum.sql` + `011_person_follows.sql` (Phase 6), `012_trailer_feed.sql` (Phase 7). Numbered after ADR 0002's `006` and `007`. The user pastes each one, as before, and each is idempotent and safe to re-run. |
 | **Notifications** | New types: `personNewCredit` (P6) and `listSaved` (P4, optional). Each enum add goes in its own file. |
 | **Offline and failure** | All TMDB-only sections hide on error, like friends' reviews already do. List writes are optimistic with rollback and a toast, the same pattern as Explore votes. |
 | **Testing** | Unit tests: `FilmExtras` parsing (fixtures of real TMDB responses), theatrical status inference, fractional-index renumbering, and `CommentThreads`-style grouping for the filmography. Everything else is checked on the device. |
@@ -402,8 +403,8 @@ The home feed (friends) shows friends' **Explore posts**, interleaved by time wi
 
 A small Vercel project (its own repo, e.g. `35mm-web`) serves everything on the domain. Items 1–2 are needed for App Store submission whatever the phase. Items 3–5 are needed before Phase 4 sharing ships.
 
-- [ ] **1. Connect the domain.** Point `35mm.contact` at the Vercel project, and redirect `www.35mm.contact` to the apex. Check that HTTPS works on both.
-- [ ] **2. `/privacy` and `/support` pages.**
+- [x] **1. Connect the domain.** *(Done 2026-09-23. The site is live from repo `khushnaidu/35mm`. The apex now serves directly with no redirect, which Apple needs when fetching the association file for `applinks:35mm.contact`.)* Point `35mm.contact` at the Vercel project, and redirect `www.35mm.contact` to the apex. Check that HTTPS works on both.
+- [x] **2. `/privacy` and `/support` pages.** *(Pages done. Still to do: email forwarding for `support@35mm.contact` and entering both URLs in App Store Connect.)*
   - The privacy policy covers what we store:
     - Supabase account data, posts, lists, voice notes and photos
     - TMDB, KinoCheck and JustWatch data we show but don't collect
@@ -411,7 +412,7 @@ A small Vercel project (its own repo, e.g. `35mm-web`) serves everything on the 
   - The support page gives a contact email and FAQs.
   - Add both URLs in App Store Connect.
 - [ ] **3. `/.well-known/apple-app-site-association`.**
-  - Needs the **Apple Developer Team ID** (developer.apple.com, Membership section) and the bundle ID.
+  - App ID: Team ID **`L6YHMZPSYT`** (from the Xcode signing config) and bundle ID `com.cinemon.app`, giving `L6YHMZPSYT.com.cinemon.app`.
   - Serve it as `application/json` with no redirects and no file extension. Set this with `headers` in `vercel.json`.
   - Covers the paths `/l/*`, `/p/*` and `/person/*`.
 - [ ] **4. App side.**

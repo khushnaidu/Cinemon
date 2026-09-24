@@ -20,7 +20,9 @@ import 'widgets/arch_profile_frame.dart';
 import 'profile/recently_watched_section.dart';
 import 'profile/favorite_people_picker.dart';
 import 'profile/badge_display.dart';
+import 'profile/delete_account_panel.dart';
 import 'profile/top3_films_section.dart';
+import 'widgets/block_user.dart';
 import 'widgets/glass_panel.dart';
 import 'widgets/review_editor.dart';
 
@@ -110,7 +112,14 @@ class ProfilePage extends ConsumerWidget {
                               onPressed: () => _showSettingsMenu(context, ref),
                             ),
                           ]
-                        : null,
+                        : [
+                            IconButton(
+                              icon: const Icon(CupertinoIcons.ellipsis,
+                                  color: Colors.white),
+                              onPressed: () =>
+                                  _showOtherProfileMenu(context, ref, profile),
+                            ),
+                          ],
                   ),
 
                   // Profile Header with Backdrop
@@ -322,6 +331,39 @@ class ProfilePage extends ConsumerWidget {
     );
   }
 
+  void _showOtherProfileMenu(
+      BuildContext context, WidgetRef ref, UserModel profile) {
+    showGlassPanel(
+      context,
+      builder: (panelContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: AppSpace.sm),
+          GlassMenuRow(
+            icon: CupertinoIcons.hand_raised,
+            title: 'Block @${profile.username}',
+            destructive: true,
+            onTap: () async {
+              Navigator.of(panelContext).pop();
+              final blocked = await confirmAndBlock(
+                context,
+                ref,
+                userId: profile.uid,
+                username: profile.username,
+              );
+              // Their profile is hidden from you now; nothing to stay for.
+              if (blocked && context.mounted && context.canPop()) {
+                context.pop();
+              }
+            },
+          ),
+          const SizedBox(height: AppSpace.sm),
+        ],
+      ),
+    );
+  }
+
   void _showSettingsMenu(BuildContext context, WidgetRef ref) {
     // Captured before the panel closes: the builder's context is deactivated
     // the moment it pops, so anything looked up from it goes nowhere. Toasts
@@ -372,6 +414,16 @@ class ProfilePage extends ConsumerWidget {
           ),
           const GlassMenuDivider(),
           GlassMenuRow(
+            icon: CupertinoIcons.hand_raised,
+            title: 'Blocked accounts',
+            chevron: true,
+            onTap: () {
+              Navigator.of(panelContext).pop();
+              showBlockedAccountsPanel(context);
+            },
+          ),
+          const GlassMenuDivider(),
+          GlassMenuRow(
             icon: CupertinoIcons.square_arrow_right,
             title: 'Sign out',
             destructive: true,
@@ -383,6 +435,33 @@ class ProfilePage extends ConsumerWidget {
               ref.invalidate(friendIdsProvider);
               await ref.read(authControllerProvider.notifier).signOut();
               router.go('/login');
+            },
+          ),
+          const GlassMenuDivider(),
+          GlassMenuRow(
+            icon: CupertinoIcons.trash,
+            title: 'Delete account',
+            subtitle: 'Permanently remove your account and everything in it',
+            destructive: true,
+            onTap: () async {
+              Navigator.of(panelContext).pop();
+              final currentUser = ref.read(currentUserProvider);
+              final profile = ref.read(currentUserProfileProvider).valueOrNull;
+              if (currentUser == null || profile == null) return;
+              final deleted = await showDeleteAccountPanel(
+                context,
+                uid: currentUser.uid,
+                username: profile.username,
+              );
+              if (!deleted) return;
+              ref.invalidate(currentUserProfileProvider);
+              ref.invalidate(homeFeedProvider);
+              ref.invalidate(friendIdsProvider);
+              await ref.read(authControllerProvider.notifier).signOut();
+              router.go('/login');
+              if (context.mounted) {
+                showGlassToast(context, 'Your account has been deleted');
+              }
             },
           ),
           const SizedBox(height: AppSpace.md),

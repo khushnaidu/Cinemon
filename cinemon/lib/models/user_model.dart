@@ -17,9 +17,6 @@ class UserModel with _$UserModel {
     /// Supabase Auth user id — primary key of `profiles`
     @JsonKey(name: 'id') required String uid,
 
-    /// User's email address
-    required String email,
-
     /// Unique username for search/display (e.g., @filmfan42)
     required String username,
 
@@ -89,12 +86,10 @@ extension UserModelDb on UserModel {
   /// Creates a new user with minimal required fields
   static UserModel createNew({
     required String uid,
-    required String email,
     required String username,
   }) {
     return UserModel(
       uid: uid,
-      email: email,
       username: username,
       createdAt: DateTime.now(),
     );

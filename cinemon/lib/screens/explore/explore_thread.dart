@@ -12,6 +12,7 @@ import '../../providers/auth/auth_provider.dart';
 import '../../providers/explore/explore_provider.dart';
 import '../widgets/comment_thread.dart';
 import '../widgets/comments_sheet.dart' show CommentSendButton, GlassHint;
+import '../widgets/block_user.dart';
 import '../widgets/glass_panel.dart';
 import 'explore_composer.dart' show showExploreEditor;
 import 'explore_post_card.dart';
@@ -393,6 +394,24 @@ Future<void> showExplorePostMenu(
                 onTap: () async {
                   close();
                   await _report(context, ref, post, fromThread: fromThread);
+                },
+              ),
+              const GlassMenuDivider(),
+              GlassMenuRow(
+                icon: CupertinoIcons.hand_raised,
+                title: 'Block @${post.username}',
+                destructive: true,
+                onTap: () async {
+                  close();
+                  final blocked = await confirmAndBlock(
+                    context,
+                    ref,
+                    userId: post.userId,
+                    username: post.username,
+                  );
+                  if (blocked && fromThread && context.mounted) {
+                    Navigator.of(context).pop();
+                  }
                 },
               ),
             ] else ...[
