@@ -363,7 +363,7 @@ class _GlassShellState extends State<GlassShell> with RouteAware {
                       GlassTabItem(
                         symbol: 'play.rectangle.on.rectangle',
                         activeSymbol: 'play.rectangle.on.rectangle.fill',
-                        label: 'Trailers',
+                        label: 'Discover',
                         fallbackIcon: CupertinoIcons.play_rectangle,
                         fallbackActiveIcon: CupertinoIcons.play_rectangle_fill,
                       ),

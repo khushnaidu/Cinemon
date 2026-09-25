@@ -67,8 +67,8 @@ const _steps = [
       'Likes, comments, votes and follow requests land here.'),
   _Step(_Target.exploreTab, 'Explore',
       'Hot takes and posts from everyone. Agree, disagree, or reply.'),
-  _Step(_Target.trailersTab, 'Trailers',
-      'Swipe up for the next one. Turn it sideways for full screen.'),
+  _Step(_Target.trailersTab, 'Discover',
+      'Trailers for what\'s trending, by genre. Swipe up for the next one.'),
   _Step(
       _Target.profileTab,
       'Your profile',

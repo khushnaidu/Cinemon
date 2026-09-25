@@ -38,8 +38,8 @@ Can be changed any time without a review.
 > EXPLORE HOT TAKES
 > Post a thought, a hot take, a critique or a playlist to Explore, where everyone on 35mm can agree, disagree and reply. Sort by latest or top, or dive into everything said about one film.
 >
-> SWIPE THROUGH TRAILERS
-> A feed of new and trending trailers. Swipe up for the next, turn it sideways for full screen, and save anything that catches your eye to your watchlist.
+> DISCOVER WHAT TO WATCH NEXT
+> Swipe through trailers for what's trending and new, films or shows, and narrow it to a genre when you're in the mood for one. Turn it sideways for full screen, and save anything that catches your eye to your watchlist.
 >
 > YOUR WATCHLIST AND PLAYLISTS
 > Save what you want to watch, and strike it off when you do. Make playlists for every mood, share them, and save other people's.
@@ -114,7 +114,7 @@ python3 cinemon/tool/app_store_screenshots.py ~/Cinémon/app-store-screens/raw ~
 | 02 | A film page (poster, where to watch, friends' reviews) | Everything about a film, and where to watch it |
 | 03 | Posting a review (stars, text, a photo) | Log it. Rate it. Say what you really think. |
 | 04 | Explore, a hot take with agree/disagree | Hot takes. Agree or disagree. |
-| 05 | Trailers | Swipe through what's coming |
+| 05 | Discover, a genre chosen | Find tonight's film, one trailer at a time |
 | 06 | Profile (header, Top 3, tabs) | Your Top 3, your films, your badges |
 | 07 | Films tab (library grid) | Every film you've ever seen, in one place |
 | 08 | A share card in the share sheet | Share any review to your story |

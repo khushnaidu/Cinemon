@@ -14,6 +14,7 @@ import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/film_model.dart';
+import '../../models/genres.dart';
 import '../../models/trailer_item.dart';
 import '../../providers/trailer/trailer_provider.dart';
 import '../../providers/trailer/trailer_seen.dart';
@@ -21,14 +22,16 @@ import '../film/film_extras_sections.dart';
 import '../lists/watchlist_button.dart';
 import '../shell/glass_shell.dart';
 import '../widgets/glass_panel.dart';
-import '../widgets/liquid_glass.dart' show LiquidGlass;
+import '../widgets/liquid_glass.dart' show GlassLens, LiquidGlass;
 import '../widgets/poster_ambience.dart';
 
 /// This tab's index in the shell.
 const _kTrailersTab = 3;
 
-/// The Trailers tab (ADR 0001, Phase 7): one trailer per page, swiped
-/// vertically, from a feed the database keeps (migrations 012–013).
+/// Discover (ADR 0001, Phase 7): one trailer per page, swiped vertically,
+/// from feeds the database keeps (migrations 012, 013 and 027). Home is
+/// what's trending and then what's popular, New is the last 60 days' trailers;
+/// either for films or shows, and narrowed to a genre if you like.
 ///
 /// The playback budget is a single web view. Only the settled page has a
 /// player; every other page is its thumbnail. The player is created when a
@@ -47,7 +50,13 @@ class TrailersScreen extends ConsumerStatefulWidget {
 
 class _TrailersScreenState extends ConsumerState<TrailersScreen>
     with WidgetsBindingObserver {
-  TrailerFeed _feed = TrailerFeed.trending;
+  TrailerFeed _feed = TrailerFeed.home;
+  MediaType _type = MediaType.movie;
+
+  /// TMDB's genre id, or every genre.
+  int? _genre;
+
+  DiscoverQuery get _query => (feed: _feed, type: _type, genre: _genre);
   PageController _pages = PageController();
   int _page = 0;
 
@@ -312,13 +321,21 @@ class _TrailersScreenState extends ConsumerState<TrailersScreen>
     );
   }
 
-  void _setFeed(int index) {
-    final feed = TrailerFeed.values[index];
-    if (feed == _feed) return;
+  /// A different feed, type or genre: a fresh pager from its first page.
+  /// What you've watched still goes to the back, whatever the filter.
+  void _setQuery({TrailerFeed? feed, MediaType? type, int? Function()? genre}) {
+    final nextType = type ?? _type;
+    var nextGenre = genre != null ? genre() : _genre;
+    // Comedy is Comedy either way; Horror has no TV twin.
+    if (genreById(nextType, nextGenre) == null) nextGenre = null;
+    final next = (feed: feed ?? _feed, type: nextType, genre: nextGenre);
+    if (next == _query) return;
     _detach();
     final old = _pages;
     setState(() {
-      _feed = feed;
+      _feed = next.feed;
+      _type = next.type;
+      _genre = next.genre;
       _page = 0;
       _orderedFrom = null;
       _pages = PageController();
@@ -330,9 +347,10 @@ class _TrailersScreenState extends ConsumerState<TrailersScreen>
   }
 
   Future<void> _refresh() async {
-    ref.invalidate(trailerFeedProvider(_feed));
+    final q = _query;
+    ref.invalidate(trailerFeedProvider(q));
     try {
-      await ref.read(trailerFeedProvider(_feed).future);
+      await ref.read(trailerFeedProvider(q).future);
     } catch (_) {}
   }
 
@@ -354,16 +372,16 @@ class _TrailersScreenState extends ConsumerState<TrailersScreen>
 
   @override
   Widget build(BuildContext context) {
-    final feed = ref.watch(trailerFeedProvider(_feed));
+    final feed = ref.watch(trailerFeedProvider(_query));
     // A fresh feed (first load, refresh) may have moved what's on this page.
-    ref.listen(trailerFeedProvider(_feed), (_, next) {
+    ref.listen(trailerFeedProvider(_query), (_, next) {
       if (next.hasValue) {
         WidgetsBinding.instance.addPostFrameCallback((_) => _sync());
       }
     });
 
     final padding = MediaQuery.paddingOf(context);
-    final headerHeight = padding.top + kFloatingHeaderInset;
+    final headerHeight = padding.top + _DiscoverHeader.inset;
 
     final Widget body = _seen == null
         ? const Center(child: CupertinoActivityIndicator())
@@ -377,6 +395,17 @@ class _TrailersScreenState extends ConsumerState<TrailersScreen>
             data: (fetched) {
               final items = _orderFor(fetched);
               if (items.isEmpty) {
+                final genre = genreById(_type, _genre);
+                if (genre != null) {
+                  return _Message(
+                    title: 'No ${genre.name} trailers yet',
+                    body: _feed == TrailerFeed.latest
+                        ? 'Nothing new lately. Try Home, or another genre.'
+                        : 'Try another genre, or check back soon.',
+                    actionLabel: 'All genres',
+                    onRetry: () async => _setQuery(genre: () => null),
+                  );
+                }
                 return _Message(
                   title: 'Trailers are on their way',
                   body: 'The feed fills a few minutes after it first runs.',
@@ -391,7 +420,7 @@ class _TrailersScreenState extends ConsumerState<TrailersScreen>
                 child: NotificationListener<ScrollNotification>(
                   onNotification: _onScroll,
                   child: PageView.builder(
-                    key: ValueKey(_feed),
+                    key: ValueKey(_query),
                     controller: _pages,
                     scrollDirection: Axis.vertical,
                     // Bouncing at the top is what pulls down to refresh.
@@ -409,6 +438,7 @@ class _TrailersScreenState extends ConsumerState<TrailersScreen>
                       return _TrailerPage(
                         item: item,
                         current: i == _page,
+                        headerHeight: headerHeight,
                         player: player != null &&
                                 _playerPage == i &&
                                 _playerVideo == item.videoId
@@ -456,18 +486,302 @@ class _TrailersScreenState extends ConsumerState<TrailersScreen>
               top: padding.top + 6,
               left: 0,
               right: 0,
-              child: Center(
-                child: SizedBox(
-                  width: 220,
-                  child: GlassSegmentedControl(
-                    labels: const ['Trending', 'New'],
-                    index: _feed.index,
-                    onChanged: _setFeed,
-                  ),
-                ),
+              child: _DiscoverHeader(
+                feed: _feed,
+                type: _type,
+                genre: _genre,
+                onFeed: (f) => _setQuery(feed: f),
+                onType: (t) => _setQuery(type: t),
+                onGenre: (g) => _setQuery(genre: () => g),
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Discover's switches, floating over the top of the page: Home or New,
+/// and under it one quiet line saying what you're looking at ("Films · All
+/// genres"), which opens the panel to change it.
+class _DiscoverHeader extends StatelessWidget {
+  const _DiscoverHeader({
+    required this.feed,
+    required this.type,
+    required this.genre,
+    required this.onFeed,
+    required this.onType,
+    required this.onGenre,
+  });
+
+  final TrailerFeed feed;
+  final MediaType type;
+  final int? genre;
+  final ValueChanged<TrailerFeed> onFeed;
+  final ValueChanged<MediaType> onType;
+  final ValueChanged<int?> onGenre;
+
+  static const _switchHeight = 34.0;
+  static const _lineHeight = 30.0;
+
+  /// How far below the status bar the page's content starts.
+  static const inset = 6 + _switchHeight + _lineHeight + AppSpace.sm;
+
+  @override
+  Widget build(BuildContext context) {
+    final kind = type == MediaType.tv ? 'Shows' : 'Films';
+    final name = genreById(type, genre)?.name ?? 'All genres';
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 220,
+          child: GlassSegmentedControl(
+            labels: const ['Home', 'New'],
+            index: feed.index,
+            onChanged: (i) => onFeed(TrailerFeed.values[i]),
+          ),
+        ),
+        Semantics(
+          button: true,
+          label: '$kind, $name. Change',
+          excludeSemantics: true,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => showGlassPanel<void>(
+              context,
+              builder: (_) => _FilterPanel(
+                type: type,
+                genre: genre,
+                onType: onType,
+                onGenre: onGenre,
+              ),
+            ),
+            child: SizedBox(
+              height: _lineHeight,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '$kind  ·  $name',
+                      style: AppText.footnote.copyWith(
+                        color: AppColors.ink.withValues(alpha: 0.75),
+                        fontWeight: FontWeight.w500,
+                        shadows: const [
+                          Shadow(color: Colors.black54, blurRadius: 8),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(CupertinoIcons.chevron_down,
+                        size: 11, color: AppColors.ink.withValues(alpha: 0.75)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Films or shows, and a genre: the popular ones first, then the rest.
+/// Films or Shows applies at once and the list follows it; a genre applies
+/// and closes.
+class _FilterPanel extends StatefulWidget {
+  const _FilterPanel({
+    required this.type,
+    required this.genre,
+    required this.onType,
+    required this.onGenre,
+  });
+
+  final MediaType type;
+  final int? genre;
+  final ValueChanged<MediaType> onType;
+  final ValueChanged<int?> onGenre;
+
+  @override
+  State<_FilterPanel> createState() => _FilterPanelState();
+}
+
+class _FilterPanelState extends State<_FilterPanel> {
+  late MediaType _type = widget.type;
+  late int? _genre = widget.genre;
+
+  void _setType(MediaType t) {
+    if (t == _type) return;
+    widget.onType(t);
+    setState(() {
+      _type = t;
+      // As the screen does: a genre only carries over if it exists there.
+      if (genreById(t, _genre) == null) _genre = null;
+    });
+  }
+
+  void _pick(int? id) {
+    widget.onGenre(id);
+    Navigator.of(context).pop();
+  }
+
+  /// Genres two to a row.
+  Widget _grid(List<Genre?> genres) => Column(
+        children: [
+          for (var i = 0; i < genres.length; i += 2)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpace.sm),
+              child: Row(
+                children: [
+                  Expanded(child: _cell(genres[i])),
+                  const SizedBox(width: AppSpace.sm),
+                  Expanded(
+                    child: i + 1 < genres.length
+                        ? _cell(genres[i + 1])
+                        : const SizedBox.shrink(),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      );
+
+  /// One genre, or every genre for null.
+  Widget _cell(Genre? g) => _GenreCell(
+        label: g?.name ?? 'All genres',
+        selected: g?.id == _genre,
+        onTap: () => _pick(g?.id),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final popular = popularGenresFor(_type);
+    final rest = [
+      for (final g in genresFor(_type))
+        if (!popular.contains(g)) g,
+    ];
+
+    return ConstrainedBox(
+      // Never taller than most of the screen; the genres scroll inside.
+      constraints:
+          BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.72),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const GlassPanelHeader(title: 'Discover'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+                AppSpace.lg, AppSpace.xs, AppSpace.lg, AppSpace.md),
+            child: GlassSegmentedControl(
+              labels: const ['Films', 'Shows'],
+              index: _type == MediaType.tv ? 1 : 0,
+              onChanged: (i) =>
+                  _setType(i == 1 ? MediaType.tv : MediaType.movie),
+            ),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpace.lg, AppSpace.sm, AppSpace.lg, AppSpace.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _cell(null),
+                  const SizedBox(height: AppSpace.lg),
+                  const GlassSectionLabel('Popular'),
+                  const SizedBox(height: AppSpace.sm),
+                  _grid(popular),
+                  const SizedBox(height: AppSpace.md),
+                  const GlassSectionLabel('More genres'),
+                  const SizedBox(height: AppSpace.sm),
+                  _grid(rest),
+                ],
+              ),
+            ),
+          ),
+          // The way out, pinned under the list so it's always in reach.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+                AppSpace.lg, AppSpace.sm, AppSpace.lg, AppSpace.lg),
+            child: GlassPillButton(
+              label: 'Done',
+              prominent: true,
+              expand: true,
+              onTap: () => Navigator.of(context).pop(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A genre in the filter panel: a quiet well, lit with a check when chosen.
+class _GenreCell extends StatelessWidget {
+  const _GenreCell({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  static const _height = 42.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(12);
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      excludeSemantics: true,
+      child: GlassPressable(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        child: SizedBox(
+          height: _height,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (selected)
+                GlassLens(radius: radius)
+              else
+                DecoratedBox(decoration: glassWellDecoration(radius: 12)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpace.md),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.label.copyWith(
+                          fontSize: 14,
+                          color: AppColors.ink,
+                          fontWeight:
+                              selected ? FontWeight.w600 : FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    if (selected)
+                      const Icon(CupertinoIcons.checkmark_alt,
+                          size: 15, color: AppColors.ink),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -479,6 +793,7 @@ class _TrailerPage extends StatelessWidget {
   const _TrailerPage({
     required this.item,
     required this.current,
+    required this.headerHeight,
     required this.player,
     required this.muted,
     required this.landscape,
@@ -489,6 +804,9 @@ class _TrailerPage extends StatelessWidget {
 
   final TrailerItem item;
   final bool current;
+
+  /// Status bar plus Discover's switches, which float over the page.
+  final double headerHeight;
   final Widget? player;
   final bool muted;
   final bool landscape;
@@ -515,7 +833,7 @@ class _TrailerPage extends StatelessWidget {
         videoRect =
             Rect.fromLTWH(left + (width - w) / 2, (c.maxHeight - h) / 2, w, h);
       } else {
-        final top = padding.top + kFloatingHeaderInset;
+        final top = headerHeight;
         final bottom = padding.bottom + kFloatingTabBarInset;
         final band = c.maxHeight - top - bottom;
         final videoHeight = c.maxWidth * 9 / 16;
@@ -795,11 +1113,13 @@ class _Message extends StatelessWidget {
     required this.title,
     required this.body,
     required this.onRetry,
+    this.actionLabel = 'Check again',
   });
 
   final String title;
   final String body;
   final Future<void> Function() onRetry;
+  final String actionLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -817,8 +1137,7 @@ class _Message extends StatelessWidget {
                 style: AppText.footnote.copyWith(color: AppColors.inkSecondary),
                 textAlign: TextAlign.center),
             const SizedBox(height: AppSpace.lg),
-            GlassPillButton(
-                label: 'Check again', compact: true, onTap: onRetry),
+            GlassPillButton(label: actionLabel, compact: true, onTap: onRetry),
           ],
         ),
       ),

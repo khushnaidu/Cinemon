@@ -37,10 +37,13 @@ const _sections = [
         'On Home, tap the people button in the top left, then Find people '
             'and search by username. Tap Follow on anyone you know.'),
     _Faq(
-        'What are Trailers?',
-        'A feed of new and trending trailers. Swipe up for the next one, '
-            'tap Sound for audio, and the sideways-phone button to watch it '
-            'full screen. Bookmark one to add it to your watchlist.'),
+        'What\'s Discover?',
+        'Trailers to help you pick what to watch. Home is what\'s trending '
+            'and popular, New is the last two months\' trailers, for films or shows. '
+            'Tap the line under Home and New to switch between films and '
+            'shows or pick a genre. Swipe up for the next one, tap Sound for audio, and the '
+            'sideways-phone button to watch it full screen. Bookmark one to '
+            'add it to your watchlist.'),
   ]),
   _Section('Lists', [
     _Faq(

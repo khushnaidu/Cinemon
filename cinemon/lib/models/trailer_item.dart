@@ -1,15 +1,21 @@
 import 'film_model.dart';
 
-/// Which list the Trailers tab is showing.
+/// Which list Discover is showing. Home is what's trending, then the
+/// pool's popular titles (migration 027); New is the last 30 days'
+/// trailers.
 enum TrailerFeed {
-  trending('trending'),
+  home('home'),
   latest('latest');
 
   const TrailerFeed(this.value);
   final String value;
 }
 
-/// One page of the Trailers tab: a trailer and the title it's for, as the
+/// What Discover asks for: a feed, films or shows, and a genre (TMDB's id)
+/// or every genre.
+typedef DiscoverQuery = ({TrailerFeed feed, MediaType type, int? genre});
+
+/// One page of Discover: a trailer and the title it's for, as the
 /// database's feed job left it (migration 013).
 class TrailerItem {
   const TrailerItem({
