@@ -478,22 +478,6 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
                             ),
                           ),
                         ),
-
-                        // The author, layered onto the card's top edge rather than
-                        // stacked above it in the Column.
-                        //
-                        // This is what lets both get bigger. In a Column the block
-                        // and the card compete for the same band — and because the
-                        // card can only be centred if the gutters match, every
-                        // extra point of header cost the card two. Overlapping
-                        // means only the part that actually protrudes
-                        // (_kAuthorRise) has to be reserved.
-                        Positioned(
-                          top: -_kAuthorRise,
-                          left: 0,
-                          right: 0,
-                          child: _PostAuthor(activity: widget.activity),
-                        ),
                       ],
                     ),
                   ),
@@ -533,6 +517,26 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
                   ),
                 ],
               ),
+            ),
+            // The author, over the card's top edge rather than stacked above
+            // it in the Column.
+            //
+            // This is what lets both get bigger. In a Column the block and
+            // the card compete for the same band — and because the card can
+            // only be centred if the gutters match, every extra point of
+            // header cost the card two. Overlapping means only the part that
+            // actually protrudes (_kAuthorRise) has to be reserved.
+            //
+            // It's placed here, in the page's Stack, and not in the card's
+            // own Stack at a negative offset: Flutter only delivers taps
+            // inside a widget's bounds, so there it drew but couldn't be
+            // tapped. The card is centred in the band (equal gutters), which
+            // gives its top.
+            Positioned(
+              top: topInset + (band - cardHeight) / 2 - _kAuthorRise,
+              left: (constraints.maxWidth - cardWidth) / 2,
+              width: cardWidth,
+              child: _PostAuthor(activity: widget.activity),
             ),
           ],
         );

@@ -854,10 +854,15 @@ class GlassChip extends StatelessWidget {
           child: Stack(
             fit: StackFit.passthrough,
             children: [
-              AnimatedOpacity(
-                duration: const Duration(milliseconds: 200),
-                opacity: selected ? 1 : 0,
-                child: GlassLens(radius: radius),
+              // Filled to the chip's edges. Unpositioned in a passthrough
+              // Stack, the lens got the row's unbounded width and, having no
+              // child, shrank to nothing but its border: a sliver at one end.
+              Positioned.fill(
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 200),
+                  opacity: selected ? 1 : 0,
+                  child: GlassLens(radius: radius),
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
