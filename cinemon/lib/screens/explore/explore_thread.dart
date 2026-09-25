@@ -18,6 +18,7 @@ import '../widgets/comments_sheet.dart' show CommentSendButton, GlassHint;
 import '../widgets/block_user.dart';
 import '../widgets/report_sheet.dart';
 import '../widgets/glass_panel.dart';
+import 'critique_reader.dart' show showCritiqueReader;
 import 'explore_composer.dart' show showExploreEditor;
 import 'explore_post_card.dart';
 
@@ -31,6 +32,10 @@ Future<void> showExploreThread(
   ValueChanged<ExploreSubject>? onSubjectTap,
   bool focusComposer = false,
 }) {
+  // A critique has no thread; it opens as an article.
+  if (post.kind == ExploreKind.critique) {
+    return showCritiqueReader(context, post, onSubjectTap: onSubjectTap);
+  }
   return showGlassPanel<void>(
     context,
     tall: true,

@@ -9,12 +9,15 @@ import '../../core/theme/app_theme.dart';
 import '../../models/explore_post_model.dart';
 import '../../providers/auth/auth_provider.dart';
 import '../../providers/explore/explore_provider.dart';
+import '../../providers/feed/feed_provider.dart' show userProfileProvider;
 import '../../providers/lists/list_provider.dart'
     show PlaylistSummary, playlistsProvider;
 import '../lists/playlist_cover.dart';
 import '../widgets/glass_panel.dart';
 import '../widgets/liquid_glass.dart' show GlassLens;
 import '../widgets/star_input.dart';
+import 'critique_reader.dart' show critiqueBodyStyle;
+import 'critique_writer.dart';
 import 'explore_post_card.dart';
 import 'subject_picker.dart';
 
@@ -94,6 +97,12 @@ class _ExploreComposerState extends ConsumerState<ExploreComposer> {
   bool _spoilers = false;
   bool _posting = false;
 
+  /// A new critique is saved on the phone as it's written, until it's
+  /// posted or thrown away.
+  final _draft = CritiqueDraftSaver();
+  bool _draftSettled = false;
+  bool get _keepsDraft => !_isEdit && _kind == ExploreKind.critique;
+
   bool get _isEdit => widget.editing != null;
 
   /// Kind can't change: once posted, or when sharing a specific playlist.
@@ -111,12 +120,41 @@ class _ExploreComposerState extends ConsumerState<ExploreComposer> {
     }
     _headline.addListener(_refresh);
     _body.addListener(_refresh);
+    if (_keepsDraft) _restoreDraft();
   }
 
-  void _refresh() => setState(() {});
+  void _refresh() {
+    setState(() {});
+    if (_keepsDraft && !_draftSettled) {
+      _draft.schedule(_headline.text, _body.text);
+    }
+  }
+
+  /// Picks up the last unposted critique, if nothing's been written here.
+  Future<void> _restoreDraft() async {
+    if (_headline.text.isNotEmpty || _body.text.isNotEmpty) return;
+    final d = await CritiqueDraft.load();
+    if (d == null || !mounted || !_keepsDraft) return;
+    if (_headline.text.isNotEmpty || _body.text.isNotEmpty) return;
+    _headline.text = d.headline;
+    _body.text = d.body;
+    showGlassToast(context, 'Picked up your draft',
+        icon: CupertinoIcons.doc_text);
+  }
+
+  /// Posted or discarded: the saved draft goes too.
+  void _settleDraft() {
+    if (!_keepsDraft) return;
+    _draftSettled = true;
+    _draft.cancel();
+    CritiqueDraft.clear();
+  }
 
   @override
   void dispose() {
+    if (_keepsDraft && !_draftSettled) {
+      _draft.flush(_headline.text, _body.text);
+    }
     _headline.dispose();
     _body.dispose();
     super.dispose();
@@ -170,6 +208,7 @@ class _ExploreComposerState extends ConsumerState<ExploreComposer> {
     if (kind == _kind) return;
     HapticFeedback.selectionClick();
     setState(() => _kind = kind);
+    if (_keepsDraft) _restoreDraft();
     // The playlist is the whole point of a list post; ask for it at once.
     if (kind.isList && _list == null) _pickList();
   }
@@ -232,6 +271,7 @@ class _ExploreComposerState extends ConsumerState<ExploreComposer> {
       );
       return;
     }
+    _settleDraft();
     showGlassToast(context, _isEdit ? 'Post updated' : 'Posted to Explore');
     Navigator.of(context).pop(post);
   }
@@ -252,7 +292,40 @@ class _ExploreComposerState extends ConsumerState<ExploreComposer> {
       cancelLabel: 'Keep writing',
       destructive: true,
     );
-    if (discard && mounted) Navigator.of(context).pop();
+    if (discard && mounted) {
+      _settleDraft();
+      Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _openWriter() async {
+    FocusScope.of(context).unfocus();
+    await showCritiqueWriter(
+      context,
+      headline: _headline,
+      body: _body,
+      maxLength: _kind.maxLength,
+      subject: _subject,
+      preview: _previewPost,
+    );
+  }
+
+  /// The critique as it stands, for the writer's preview.
+  ExplorePost _previewPost() {
+    final me = ref.read(currentUserProvider)?.id ?? '';
+    final profile =
+        me.isEmpty ? null : ref.read(userProfileProvider(me)).valueOrNull;
+    return ExplorePost(
+      id: 'preview',
+      userId: me,
+      username: profile?.username ?? 'you',
+      userPhotoUrl: profile?.photoUrl,
+      kind: ExploreKind.critique,
+      headline: _headlineText,
+      body: _bodyText,
+      subject: _subject,
+      createdAt: DateTime.now(),
+    );
   }
 
   @override
@@ -388,35 +461,24 @@ class _ExploreComposerState extends ConsumerState<ExploreComposer> {
                     ],
 
                     const SizedBox(height: AppSpace.xl),
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment.topCenter,
-                      child: _kind.hasHeadline
-                          ? Padding(
-                              padding:
-                                  const EdgeInsets.only(bottom: AppSpace.sm),
-                              child: GlassTextWell(
-                                controller: _headline,
-                                hint: 'Title',
-                                maxLength: 120,
-                                minLines: 1,
-                                maxLines: 3,
-                                style: exploreHeadlineStyle(),
-                                textCapitalization: TextCapitalization.words,
-                              ),
-                            )
-                          : const SizedBox(width: double.infinity),
-                    ),
-                    // The body, set in the kind's own type.
-                    GlassTextWell(
-                      controller: _body,
-                      hint: _hint(_kind),
-                      maxLength: _kind.maxLength,
-                      minLines: _kind == ExploreKind.critique ? 10 : 4,
-                      maxLines: _kind == ExploreKind.critique ? 40 : 12,
-                      style: exploreBodyStyle(_kind),
-                    ),
+                    // A critique is written on its own page; here it's a
+                    // tile showing how far it's got. Everything else is
+                    // typed in place, in the kind's own type.
+                    if (_kind == ExploreKind.critique)
+                      _ManuscriptTile(
+                        headline: _headlineText,
+                        body: _bodyText,
+                        onTap: _openWriter,
+                      )
+                    else
+                      GlassTextWell(
+                        controller: _body,
+                        hint: _hint(_kind),
+                        maxLength: _kind.maxLength,
+                        minLines: 4,
+                        maxLines: 12,
+                        style: exploreBodyStyle(_kind),
+                      ),
 
                     if (!_kind.isList) ...[
                       const SizedBox(height: AppSpace.lg),
@@ -459,6 +521,94 @@ class _ExploreComposerState extends ConsumerState<ExploreComposer> {
         ExploreKind.discussion => 'Ask everyone something.',
         ExploreKind.list => 'Say something about it (optional)',
       };
+}
+
+/// The critique in the composer: its headline and opening, how long it is,
+/// and the way into the writer.
+class _ManuscriptTile extends StatelessWidget {
+  const _ManuscriptTile({
+    required this.headline,
+    required this.body,
+    required this.onTap,
+  });
+
+  final String headline;
+  final String body;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final empty = headline.isEmpty && body.isEmpty;
+    final words = body.isEmpty ? 0 : body.split(RegExp(r'\s+')).length;
+    const mono = TextStyle(
+      fontFamily: 'IBMPlexMono',
+      fontWeight: FontWeight.w500,
+      fontSize: 10.5,
+      letterSpacing: 1.2,
+      color: AppColors.inkTertiary,
+    );
+
+    return GlassPressable(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(
+            AppSpace.lg, AppSpace.lg, AppSpace.lg, AppSpace.md),
+        decoration: glassWellDecoration(radius: AppRadius.md + 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              empty
+                  ? 'Start writing'
+                  : (headline.isEmpty ? 'Untitled' : headline),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: 'InstrumentSerif',
+                fontStyle: empty ? FontStyle.italic : FontStyle.normal,
+                fontSize: 28,
+                height: 1.05,
+                color:
+                    headline.isEmpty ? AppColors.inkSecondary : AppColors.ink,
+              ),
+            ),
+            const SizedBox(height: AppSpace.sm),
+            Text(
+              empty
+                  ? 'Opens a full page to write on, set the way it will be '
+                      'read. Your draft is kept as you go.'
+                  : body.isEmpty
+                      ? 'No words yet.'
+                      : body,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: critiqueBodyStyle(size: 15).copyWith(
+                height: 1.45,
+                color: AppColors.inkSecondary,
+              ),
+            ),
+            const SizedBox(height: AppSpace.md),
+            Row(
+              children: [
+                Text(
+                  words == 0
+                      ? 'CRITIQUE'
+                      : '$words WORD${words == 1 ? '' : 'S'}  ·  ${(words / 230).ceil()} MIN READ',
+                  style: mono,
+                ),
+                const Spacer(),
+                Text(empty ? 'WRITE' : 'KEEP WRITING',
+                    style: mono.copyWith(color: AppColors.ink)),
+                const SizedBox(width: 4),
+                const Icon(CupertinoIcons.chevron_right,
+                    size: 12, color: AppColors.ink),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// Before posting a playlist that's already on Explore: says how many times

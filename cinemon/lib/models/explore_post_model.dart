@@ -41,7 +41,7 @@ enum ExploreKind {
 
   int get maxLength => switch (this) {
         ExploreKind.take => 280,
-        ExploreKind.critique => 4000,
+        ExploreKind.critique => 12000,
         ExploreKind.review => 2000,
         ExploreKind.list => 500,
         _ => 1000,

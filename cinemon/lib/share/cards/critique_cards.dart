@@ -24,7 +24,8 @@ TextStyle _monoStyle(double size, {double alpha = 0.7}) => TextStyle(
     );
 
 /// The headline with the film's title, where it appears, in gold italic.
-List<InlineSpan> _headlineSpans(String headline, String? title) {
+List<InlineSpan> critiqueHeadlineSpans(String headline, String? title,
+    {Color accent = _gold}) {
   if (title == null || title.isEmpty) return [TextSpan(text: headline)];
   final i = headline.toLowerCase().indexOf(title.toLowerCase());
   if (i < 0) return [TextSpan(text: headline)];
@@ -32,14 +33,14 @@ List<InlineSpan> _headlineSpans(String headline, String? title) {
     TextSpan(text: headline.substring(0, i)),
     TextSpan(
       text: headline.substring(i, i + title.length),
-      style: const TextStyle(fontStyle: FontStyle.italic, color: _gold),
+      style: TextStyle(fontStyle: FontStyle.italic, color: accent),
     ),
     TextSpan(text: headline.substring(i + title.length)),
   ];
 }
 
 /// The critique's opening sentence, as a standfirst.
-String _standfirst(String body) {
+String critiqueStandfirst(String body) {
   final first = RegExp(r'^[^.!?]+[.!?]+')
           .firstMatch(body.trim().replaceAll(RegExp(r'\s+'), ' '))
           ?.group(0) ??
@@ -136,7 +137,8 @@ class CritiqueCoverCard extends StatelessWidget {
             children: [
               Text.rich(
                 TextSpan(
-                    children: _headlineSpans(headline, post.subject?.title)),
+                    children:
+                        critiqueHeadlineSpans(headline, post.subject?.title)),
                 maxLines: 5,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -149,7 +151,7 @@ class CritiqueCoverCard extends StatelessWidget {
               ),
               SizedBox(height: 3.4.u),
               Text(
-                _standfirst(post.body),
+                critiqueStandfirst(post.body),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(

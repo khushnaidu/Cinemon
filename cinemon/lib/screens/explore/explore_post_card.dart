@@ -17,6 +17,7 @@ import '../widgets/glass_panel.dart';
 import '../widgets/liquid_glass.dart' show GlassLens;
 import '../widgets/star_input.dart' show GlassStar;
 import '../widgets/verified_mark.dart';
+import 'critique_feed_card.dart';
 
 // ─────────────────────────────────────────────────────────────
 // Type per kind
@@ -79,7 +80,8 @@ TextStyle exploreHeadlineStyle({bool expanded = false}) =>
 ///                   with an agree / disagree split instead of a like.
 ///   * Review      — built around the subject: its wide artwork, poster,
 ///                   title and stars, then the verdict.
-///   * Critique    — an article: kicker, title, standfirst, read time.
+///   * Critique    — a magazine cover (CritiqueFeedCard): the film's still,
+///                   the headline, the standfirst, the byline.
 ///   * Discussion  — the question, large, and the thread as the call to act.
 ///   * List        — a playlist's cover and title, then the caption. Tapping
 ///                   it opens the playlist; the thread is behind comments.
@@ -130,6 +132,15 @@ class _ExplorePostCardState extends ConsumerState<ExplorePostCard> {
   @override
   Widget build(BuildContext context) {
     final post = watchLivePost(ref, widget.post);
+    // A critique in a feed is a magazine cover, on the film's colours.
+    if (post.kind == ExploreKind.critique && !widget.expanded) {
+      return CritiqueFeedCard(
+        post: post,
+        onOpen: widget.onOpen,
+        onMenu: widget.onMenu,
+        onLike: () => _vote(1),
+      );
+    }
     final subject = post.subject;
     final ambient = post.kind == ExploreKind.take && subject != null;
 
