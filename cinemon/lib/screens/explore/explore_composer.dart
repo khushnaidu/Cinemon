@@ -1,3 +1,4 @@
+import '../../core/utils/content_refusal.dart';
 import 'package:flutter/cupertino.dart'
     show CupertinoActivityIndicator, CupertinoIcons, CupertinoSwitch;
 import 'package:flutter/material.dart';
@@ -224,9 +225,9 @@ class _ExploreComposerState extends ConsumerState<ExploreComposer> {
     if (post == null) {
       showGlassToast(
         context,
-        _isEdit
+        refusalOr(_isEdit
             ? "Couldn't save those changes. Try again in a moment."
-            : "Couldn't post that. Try again in a moment.",
+            : "Couldn't post that. Try again in a moment."),
         destructive: true,
       );
       return;

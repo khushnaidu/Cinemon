@@ -23,11 +23,15 @@ class AuthRepository {
   /// Throws [AuthException] on failure, including when the email is already
   /// registered: Supabase hides that by returning a user with no identities,
   /// which would leave someone waiting for a code that never comes.
+  /// [agreement] is what the sign-up screen confirmed (terms version, age
+  /// confirmed, under 18); migration 021 copies it onto the profile.
   Future<AuthResponse> signUp({
     required String email,
     required String password,
+    Map<String, dynamic>? agreement,
   }) async {
-    final response = await _auth.signUp(email: email, password: password);
+    final response =
+        await _auth.signUp(email: email, password: password, data: agreement);
     final identities = response.user?.identities;
     if (response.session == null && identities != null && identities.isEmpty) {
       throw const AuthException('User already registered',

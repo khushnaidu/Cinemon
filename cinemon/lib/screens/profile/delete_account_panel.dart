@@ -78,7 +78,8 @@ class _DeleteAccountPanelState extends ConsumerState<_DeleteAccountPanel> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Delete account', style: AppText.title, textAlign: TextAlign.center),
+          Text('Delete account',
+              style: AppText.title, textAlign: TextAlign.center),
           const SizedBox(height: AppSpace.sm),
           Text(
             'This permanently deletes your profile, logs, reviews, posts, '

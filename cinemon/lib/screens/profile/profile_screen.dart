@@ -462,6 +462,17 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           ),
           const GlassMenuDivider(),
           GlassMenuRow(
+            icon: CupertinoIcons.question_circle,
+            title: 'Help',
+            subtitle: 'Questions, the tour, and how to reach us',
+            chevron: true,
+            onTap: () {
+              Navigator.of(panelContext).pop();
+              router.push('/help');
+            },
+          ),
+          const GlassMenuDivider(),
+          GlassMenuRow(
             icon: CupertinoIcons.info_circle,
             title: 'About',
             subtitle: 'Terms, privacy, help and contact',

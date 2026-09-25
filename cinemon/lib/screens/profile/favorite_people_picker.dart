@@ -638,9 +638,8 @@ class _FavoritePeoplePickerSheetState
               }
 
               return ListView.separated(
-
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(
                     AppSpace.sm, 0, AppSpace.sm, AppSpace.lg),

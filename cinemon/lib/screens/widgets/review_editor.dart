@@ -1,3 +1,4 @@
+import '../../core/utils/content_refusal.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
@@ -97,7 +98,7 @@ class _ReviewEditorState extends ConsumerState<ReviewEditor> {
     } else {
       showGlassToast(
         context,
-        "Couldn't save those changes. Try again in a moment.",
+        refusalOr("Couldn't save those changes. Try again in a moment."),
         destructive: true,
       );
     }

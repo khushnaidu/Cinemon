@@ -205,8 +205,7 @@ class _ListBodyState extends ConsumerState<_ListBody> {
       SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, AppSpace.sm),
-          child: GlassSectionLabel(
-              '${toWatch.length} to watch'),
+          child: GlassSectionLabel('${toWatch.length} to watch'),
         ),
       ),
       SliverList.builder(
@@ -232,8 +231,8 @@ class _ListBodyState extends ConsumerState<_ListBody> {
           child: GlassPressable(
             onTap: () => setState(() => _showWatched = !_showWatched),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                  20, AppSpace.xl, 20, AppSpace.sm),
+              padding:
+                  const EdgeInsets.fromLTRB(20, AppSpace.xl, 20, AppSpace.sm),
               child: GlassSectionLabel(
                 'Watched (${watched.length})',
                 trailing: Icon(

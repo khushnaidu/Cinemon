@@ -2,6 +2,9 @@ import UIKit
 import Flutter
 import MessageUI
 import Photos
+#if canImport(DeclaredAgeRange)
+import DeclaredAgeRange
+#endif
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -21,6 +24,7 @@ import Photos
         withId: "cinemon/liquid_glass_button"
       )
       StoryShareChannel.register(messenger: controller.binaryMessenger)
+      AgeRangeChannel.register(messenger: controller.binaryMessenger)
     }
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
@@ -207,4 +211,68 @@ final class MessageComposer: NSObject, MFMessageComposeViewControllerDelegate {
     while let next = top?.presentedViewController { top = next }
     return top
   }
+}
+
+/// Apple's age signal (Declared Age Range), for the state laws that require
+/// apps to check it (Texas SB2420 now; Utah, Louisiana and California
+/// later). Dart asks `check`; the answer is one of:
+///   {status: "notRequired"}   not in a region where the law applies, or
+///                             the API isn't on this iOS
+///   {status: "sharing", lower: Int?, upper: Int?}
+///   {status: "declined"}      the person chose not to share
+///   {status: "unavailable"}   the system couldn't answer
+enum AgeRangeChannel {
+  static func register(messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "app.35mm/age_range", binaryMessenger: messenger)
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "check" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      #if canImport(DeclaredAgeRange)
+      if #available(iOS 26.2, *) {
+        Task { @MainActor in
+          result(await check())
+        }
+        return
+      }
+      #endif
+      result(["status": "notRequired"])
+    }
+  }
+
+  #if canImport(DeclaredAgeRange)
+  @available(iOS 26.2, *)
+  @MainActor
+  private static func check() async -> [String: Any] {
+    do {
+      guard try await AgeRangeService.shared.isEligibleForAgeFeatures else {
+        return ["status": "notRequired"]
+      }
+      guard let controller = UIApplication.shared.connectedScenes
+        .compactMap({ ($0 as? UIWindowScene)?.keyWindow?.rootViewController })
+        .first
+      else {
+        return ["status": "unavailable"]
+      }
+      // 13 is 35mm's minimum; 18 splits teens (private by default) from
+      // adults.
+      let response = try await AgeRangeService.shared.requestAgeRange(
+        ageGates: 13, 18, in: controller)
+      switch response {
+      case .declinedSharing:
+        return ["status": "declined"]
+      case .sharing(let range):
+        var out: [String: Any] = ["status": "sharing"]
+        if let lower = range.lowerBound { out["lower"] = lower }
+        if let upper = range.upperBound { out["upper"] = upper }
+        return out
+      @unknown default:
+        return ["status": "unavailable"]
+      }
+    } catch {
+      return ["status": "unavailable"]
+    }
+  }
+  #endif
 }

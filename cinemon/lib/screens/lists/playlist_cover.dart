@@ -101,8 +101,8 @@ class PlaylistCover extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         borderRadius: r,
-        border: Border.all(
-            color: Colors.white.withValues(alpha: 0.12), width: 0.8),
+        border:
+            Border.all(color: Colors.white.withValues(alpha: 0.12), width: 0.8),
       ),
       child: ClipRRect(borderRadius: r, child: content),
     );

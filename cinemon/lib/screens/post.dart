@@ -81,8 +81,8 @@ class _PeopleSearchNotifier
   }
 }
 
-final _peopleSearchProvider = StateNotifierProvider<_PeopleSearchNotifier,
-    AsyncValue<List<PersonModel>>>(
+final _peopleSearchProvider =
+    StateNotifierProvider<_PeopleSearchNotifier, AsyncValue<List<PersonModel>>>(
   (ref) => _PeopleSearchNotifier(ref.watch(movieRepositoryProvider)),
 );
 
@@ -417,8 +417,8 @@ class _PersonCard extends StatelessWidget {
                   person.knownForDepartment == 'Production'
                       ? 'Producing'
                       : person.knownForDepartment!,
-                  style: AppText.footnote.copyWith(
-                      color: AppColors.inkTertiary, fontSize: 11),
+                  style: AppText.footnote
+                      .copyWith(color: AppColors.inkTertiary, fontSize: 11),
                   maxLines: 1,
                 ),
             ],

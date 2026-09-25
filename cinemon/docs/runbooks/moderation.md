@@ -61,3 +61,36 @@ update public.profiles set bio = null where id = '<user id>';
 ```
 
 From a signed-in admin session the same actions are `mod_remove_content(kind, id, reason)`, `mod_dismiss_reports(id, reason)` and `mod_suspend_user(user_id, until, reason)`, and `moderation_queue` shows everything open with a text excerpt.
+
+## Automatic checks (migrations 020 and 022)
+
+Text is checked by the database before it's saved (`objectionable_term`); photos by the `moderate-image` Edge Function before anything shows them. Neither needs you day to day. To add a banned term, or allow an innocent word that contains one:
+
+```sql
+insert into public.moderation_terms (term, anywhere) values ('some slur', false);
+insert into public.moderation_allowed_words (word) values ('scunthorpe');
+```
+
+`anywhere = true` also matches inside words and spelled-out letters; use it only for long terms that aren't part of ordinary words.
+
+Refused photos, newest first:
+
+```sql
+select checked_at, bucket, path, owner_id, verdict, categories
+  from public.media_checks where verdict <> 'ok' order by checked_at desc;
+```
+
+## A photo flagged as involving a minor (`verdict = 'minors'`)
+
+US law (18 U.S.C. 2258A) requires reporting apparent child sexual abuse material to NCMEC and preserving it for a year. The function has already moved the file to the private `quarantine` bucket, removed it from the app, and suspended the account. Check daily:
+
+```sql
+select * from public.media_checks where verdict = 'minors' and reported_at is null;
+```
+
+For each one:
+
+1. Don't download, copy or forward the file. Look at it only as far as needed to judge whether it's apparent CSAM (Dashboard → Storage → quarantine). If it clearly isn't (a false positive), restore nothing: lift the suspension with `mod_suspend_user(id, null, 'false positive')`, delete the quarantined file, and mark the row reported with `report_id = 'false positive'`.
+2. Otherwise, file a CyberTipline report at report.cybertip.org, using the ESP account (register once at esp.ncmec.org/registration). Include the account's username, email, the upload time and the file.
+3. Record it: `update public.media_checks set reported_at = now(), report_id = '<NCMEC report number>' where bucket = '…' and path = '…';`
+4. Leave the account suspended and the file in quarantine for one year from the report, then delete both.

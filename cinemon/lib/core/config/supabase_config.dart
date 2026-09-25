@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../utils/content_refusal.dart';
+
 /// Supabase configuration and initialization.
 ///
 /// Values are injected at build time and have no defaults, so which backend a
@@ -61,6 +63,9 @@ class SupabaseConfig {
     await Supabase.initialize(
       url: url,
       anonKey: publishableKey,
+      // Notes when the content filter (migration 020) refuses a write, so
+      // the screen can say why.
+      httpClient: RefusalWatchingClient(),
       authOptions: const FlutterAuthClientOptions(
         // Persists the session to disk so users stay logged in across
         // launches.

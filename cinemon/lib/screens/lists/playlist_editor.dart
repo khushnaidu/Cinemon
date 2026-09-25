@@ -1,3 +1,4 @@
+import '../../core/utils/content_refusal.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons, CupertinoSwitch;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -121,7 +122,7 @@ class _PlaylistEditorState extends ConsumerState<_PlaylistEditor> {
     if (!mounted) return;
     if (saved == null) {
       setState(() => _busy = false);
-      showGlassToast(context, "Couldn't save your playlist.",
+      showGlassToast(context, refusalOr("Couldn't save your playlist."),
           destructive: true);
       return;
     }

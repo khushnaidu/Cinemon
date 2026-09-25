@@ -6,6 +6,8 @@ import '../../screens/splash_screen.dart';
 import '../../screens/auth/login_screen.dart';
 import '../../screens/auth/signup_screen.dart';
 import '../../providers/auth/onboarding_provider.dart';
+import '../../screens/auth/agree_screen.dart';
+import '../../screens/help_screen.dart';
 import '../../screens/auth/onboarding_screen.dart';
 import '../../screens/auth/password_reset_screens.dart';
 import '../../screens/auth/verify_code_screen.dart';
@@ -43,6 +45,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
   final refresh = _RouterRefresh();
   ref.listen(authStateProvider, (_, __) => refresh.ping());
   ref.listen(onboardedProvider, (_, __) => refresh.ping());
+  ref.listen(termsStatusProvider, (_, __) => refresh.ping());
   authRedirectHold.addListener(refresh.ping);
   ref.onDispose(() {
     authRedirectHold.removeListener(refresh.ping);
@@ -76,6 +79,15 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           state.uri.queryParameters['purpose'] == 'recovery') {
         return '/new-password';
       }
+
+      // The current Terms, and an age, before anything else (migration 021).
+      final terms = ref.read(termsStatusProvider);
+      if (terms.isLoading && !terms.hasValue) return null;
+      final status = terms.valueOrNull;
+      if (status != null && !status.accepted) {
+        return location == '/agree' ? null : '/agree';
+      }
+      if (location == '/agree') return '/home';
 
       // Everyone new picks a username first (ADR 0004 D7). If the lookup
       // fails, let them in: everyone from before onboarding counts as done.
@@ -124,6 +136,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/new-password',
         builder: (context, state) => const NewPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/help',
+        builder: (context, state) => const HelpScreen(),
+      ),
+      GoRoute(
+        path: '/agree',
+        builder: (context, state) => const AgreeScreen(),
       ),
       GoRoute(
         path: '/onboarding',

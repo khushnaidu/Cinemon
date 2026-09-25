@@ -1,3 +1,9 @@
+import '../../core/platform/age_signal.dart';
+import '../../repositories/user_repository.dart';
+import '../auth/age_gate.dart' show blockAgeGate;
+import '../widgets/glass_panel.dart' show showGlassConfirm, showGlassToast;
+import '../../core/config/supabase_config.dart';
+import 'first_run_tour.dart';
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
@@ -136,10 +142,89 @@ class _GlassShellState extends State<GlassShell> with RouteAware {
   /// down with a sheet or screen still open (signing out from Settings,
   /// deleting an account) left them stuck, and the next account's Home came
   /// up with no tab bar until the app restarted.
+  /// The first-run tour is showing.
+  bool _touring = false;
+
   @override
   void initState() {
     super.initState();
     _resetChrome();
+    tourRequests.addListener(_replayTour);
+    final uid = SupabaseConfig.currentUserId;
+    if (uid != null) {
+      tourDone(uid).then((done) {
+        if (mounted && !done) setState(() => _touring = true);
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkAgeSignal());
+    }
+  }
+
+  /// Where state law requires it (Texas now), Apple's age signal decides:
+  /// under 13 closes the account, 13 to 17 is recorded (and goes private),
+  /// and declining to share keeps the app closed until they do. Anywhere
+  /// else this returns straight away. Once per launch.
+  static bool _ageChecked = false;
+
+  Future<void> _checkAgeSignal() async {
+    if (_ageChecked) return;
+    final signal = await checkAgeSignal();
+    if (!mounted) return;
+    switch (signal) {
+      case AgeSignalShared(:final under13, :final minor):
+        _ageChecked = true;
+        if (under13) return _closeUnderage();
+        try {
+          await SupabaseConfig.client
+              .rpc('record_age_signal', params: {'minor': minor});
+        } catch (_) {}
+      case AgeSignalDeclined():
+        final retry = await showGlassConfirm(
+          context,
+          title: 'Share your age range to continue',
+          message: 'In your region, apps like 35mm are required to check '
+              'your age range with Apple before you can use them. Only the '
+              'range is shared, never your birthday.',
+          confirmLabel: 'Try again',
+          cancelLabel: 'Sign out',
+        );
+        if (!mounted) return;
+        if (retry) {
+          await _checkAgeSignal();
+        } else {
+          await SupabaseConfig.client.auth.signOut();
+          if (mounted) GoRouter.of(context).go('/login');
+        }
+      case AgeSignalNotRequired():
+        _ageChecked = true;
+      case AgeSignalUnavailable():
+        // Try again next launch rather than lock someone out over a
+        // system hiccup.
+        break;
+    }
+  }
+
+  Future<void> _closeUnderage() async {
+    final uid = SupabaseConfig.currentUserId;
+    await blockAgeGate();
+    try {
+      if (uid != null) await UserRepository().deleteAccount(uid);
+    } catch (_) {}
+    await SupabaseConfig.client.auth.signOut();
+    if (!mounted) return;
+    GoRouter.of(context).go('/login');
+    showGlassToast(
+        context, 'Sorry, you can\'t use 35mm. Your account has been deleted.');
+  }
+
+  void _replayTour() {
+    widget.navigationShell.goBranch(0, initialLocation: true);
+    setState(() => _touring = true);
+  }
+
+  void _endTour() {
+    final uid = SupabaseConfig.currentUserId;
+    if (uid != null) markTourDone(uid);
+    setState(() => _touring = false);
   }
 
   @override
@@ -151,8 +236,10 @@ class _GlassShellState extends State<GlassShell> with RouteAware {
 
   @override
   void dispose() {
+    tourRequests.removeListener(_replayTour);
     shellRouteObserver.unsubscribe(this);
     _resetChrome();
+    _ageChecked = false;
     super.dispose();
   }
 
@@ -221,6 +308,16 @@ class _GlassShellState extends State<GlassShell> with RouteAware {
         child: Stack(
           children: [
             widget.navigationShell,
+            // Over Home only, and not while anything covers the shell.
+            if (_touring && index == 0)
+              Positioned.fill(
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: shellChromeVisible,
+                  builder: (context, visible, _) => visible
+                      ? FirstRunTour(onDone: _endTour)
+                      : const SizedBox.shrink(),
+                ),
+              ),
             Positioned(
               left: 34,
               right: 34,

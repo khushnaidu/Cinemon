@@ -1,3 +1,4 @@
+import '../../core/utils/content_refusal.dart';
 import 'package:flutter/cupertino.dart'
     show CupertinoActivityIndicator, CupertinoIcons;
 import 'package:flutter/material.dart';
@@ -113,7 +114,7 @@ class _CommentsSheetState extends ConsumerState<CommentsSheet> {
     if (result == null) {
       showGlassToast(
         context,
-        "Couldn't post that comment. Try again.",
+        refusalOr("Couldn't post that comment. Try again."),
         destructive: true,
       );
       return;

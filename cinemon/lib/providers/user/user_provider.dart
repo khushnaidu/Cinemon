@@ -1,3 +1,4 @@
+import '../../core/utils/content_refusal.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show User;
@@ -193,7 +194,8 @@ class ProfileSetupController extends StateNotifier<ProfileSetupState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Failed to create profile: ${e.toString()}',
+        errorMessage: describeContentError(
+            e, 'Couldn\'t create your profile. Try again.'),
       );
       return false;
     }
@@ -365,7 +367,8 @@ class EditProfileController extends StateNotifier<EditProfileState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Failed to update profile: ${e.toString()}',
+        errorMessage: describeContentError(
+            e, 'Couldn\'t update your profile. Try again.'),
       );
       return false;
     }

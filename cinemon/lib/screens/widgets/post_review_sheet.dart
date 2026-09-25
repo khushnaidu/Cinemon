@@ -1,3 +1,4 @@
+import '../../core/utils/content_refusal.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
@@ -113,7 +114,7 @@ class _PostReviewSheetState extends ConsumerState<PostReviewSheet> {
       setState(() => _isPosting = false);
       showGlassToast(
         context,
-        "Couldn't post that. Check your connection and try again.",
+        refusalOr("Couldn't post that. Check your connection and try again."),
         destructive: true,
       );
       return;

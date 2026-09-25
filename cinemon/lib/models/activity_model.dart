@@ -126,7 +126,8 @@ class ActivityModel with _$ActivityModel {
   bool get isEpisode => seasonNumber != null && episodeNumber != null;
 
   /// "S2 E5", or null for a film/show-level post.
-  String? get episodeCode => isEpisode ? 'S$seasonNumber E$episodeNumber' : null;
+  String? get episodeCode =>
+      isEpisode ? 'S$seasonNumber E$episodeNumber' : null;
 
   /// What to call the thing that was watched: the episode's name for an
   /// episode post, the film's otherwise.

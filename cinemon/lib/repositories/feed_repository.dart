@@ -1,3 +1,4 @@
+import '../core/utils/image_check.dart';
 import 'dart:io';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -57,7 +58,9 @@ class FeedRepository {
     return _client.storage.from(_mediaBucket).getPublicUrl(path);
   }
 
-  /// Upload review photos in order and return their public URLs.
+  /// Upload review photos in order and return their public URLs. Each is
+  /// checked (migration 022) before the next; throws [ImageRejected] if one
+  /// is refused.
   ///
   /// Sequential rather than concurrent: there are at most four, and a failure
   /// partway through leaves a prefix of uploaded files that the caller can
@@ -82,6 +85,9 @@ class FeedRepository {
               contentType: 'image/jpeg',
             ),
           );
+      // Refused photos are already deleted by the check; the caller cleans
+      // up the rest by activity id.
+      await checkUploadedImage(_client, _mediaBucket, path);
       urls.add(_client.storage.from(_mediaBucket).getPublicUrl(path));
     }
     return urls;

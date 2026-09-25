@@ -1,3 +1,4 @@
+import '../core/utils/image_check.dart';
 import 'dart:io';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -146,11 +147,14 @@ class UserRepository {
 
   /// Upload a profile photo and return its public URL.
   ///
-  /// Stored at `avatars/<uid>/avatar.<ext>` — the storage RLS policy requires
-  /// the first path segment to equal the caller's uid.
+  /// Stored at `avatars/<uid>/avatar_<stamp>.<ext>` — the storage RLS policy
+  /// requires the first path segment to equal the caller's uid. A new name
+  /// each time, so the photo check (migration 022) sees every photo as new.
+  ///
+  /// Throws [ImageRejected] if the photo check refuses it.
   Future<String> uploadAvatar(String uid, File file) async {
     final ext = file.path.split('.').last.toLowerCase();
-    final path = '$uid/avatar.$ext';
+    final path = '$uid/avatar_${DateTime.now().millisecondsSinceEpoch}.$ext';
 
     await _client.storage.from('avatars').upload(
           path,
@@ -158,9 +162,17 @@ class UserRepository {
           fileOptions: const FileOptions(upsert: true),
         );
 
-    // Bust the CDN cache so a re-upload to the same path actually shows up.
-    final url = _client.storage.from('avatars').getPublicUrl(path);
-    return '$url?v=${DateTime.now().millisecondsSinceEpoch}';
+    await checkUploadedImage(_client, 'avatars', path);
+    // Earlier photos go, now that this one is in.
+    try {
+      final files = await _client.storage.from('avatars').list(path: uid);
+      final old = [
+        for (final f in files)
+          if ('$uid/${f.name}' != path) '$uid/${f.name}'
+      ];
+      if (old.isNotEmpty) await _client.storage.from('avatars').remove(old);
+    } catch (_) {}
+    return _client.storage.from('avatars').getPublicUrl(path);
   }
 
   /// Remove a user's stored avatars.

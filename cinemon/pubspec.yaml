@@ -19,7 +19,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # Bump the build number (+N) on EVERY TestFlight upload — App Store Connect
 # permanently rejects a build number it has already seen for a given version.
 # Shipped so far: 1.0.0 (1), 1.0.0 (2) — both Jan 18 2026.
-version: 1.1.0+4
+version: 1.1.0+5
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
@@ -42,6 +42,8 @@ dependencies:
 
   # Backend (Supabase)
   supabase_flutter: ^2.9.0
+  # For the client that notes content-filter refusals (content_refusal.dart).
+  http: ^1.1.0
 
   # Networking (TMDB API)
   dio: ^5.4.0

@@ -298,6 +298,14 @@ Each phase is its own branch and ends with a TestFlight build, so testers see pr
   - Settings → About: Terms, Privacy, Help and contact, Licences (bundled font licences are registered), and the TMDB credit.
   - `schema.sql` is marked baseline-only.
   - **When `friendships` is dropped**, redefine `on_user_block` first: it still deletes from that table (017).
+- **App Store readiness:** 2026-09-24.
+  - iPhone only (`TARGETED_DEVICE_FAMILY = 1`).
+  - `020_content_filter`: every user-written text column is checked on the server against `moderation_terms` (slurs, sexual content involving minors, sexual violence, telling people to kill themselves; not swearing). Stretched letters, look-alike characters and spelled-out letters are caught; real film titles and place names are deliberately not. Reserved usernames (35mm, admin, support…). Tested with 42 phrases, 11 refused writes and a rerun. The app explains a refusal through `content_refusal.dart`, which reads it off the HTTP response.
+  - `021_terms_and_age`: sign-up asks for date of birth (neutral, per the FTC's COPPA guidance) and an explicit agree checkbox; under 13 makes no account and closes sign-up on the device. Existing accounts, and future Apple/Google sign-ins, see `/agree`. Only `is_minor`, `age_confirmed_at` and the terms version are stored. Under-18s start private. Bump `kTermsVersion` in `lib/core/config/legal.dart` to make everyone agree again.
+  - Apple's Declared Age Range (Texas SB2420 now; Utah, Louisiana, California in 2027): checked once per launch in the shell. Under 13 deletes the account; 13–17 is recorded with `record_age_signal`; declining keeps the app closed. Not yet done: App Store Server Notifications for `RESCIND_CONSENT` (Apple already blocks the app from launching), and the significant-update acknowledgement for minors.
+  - `022_media_moderation` and the `moderate-image` Edge Function: every photo is checked by OpenAI's free moderation model, by the app before posting and by the database for every upload. Refused photos are deleted and unlinked; `sexual/minors` is quarantined, the account suspended, and reported to NCMEC per the runbook.
+  - Help (Settings → Help) with FAQs and "Replay the tour"; a skippable first-run tour over Home.
+  - Website: copyright (DMCA) page, and Terms and Privacy updated for the age gate, automatic checks, OpenAI, YouTube API Services and third-party credits.
 
 Every migration is tested first on the local Postgres 16 scratch cluster, with the stub `auth` and `storage` schemas, acting as several users under `set role authenticated`.
 

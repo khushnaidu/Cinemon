@@ -62,8 +62,8 @@ class _WatchlistButtonState extends ConsumerState<WatchlistButton> {
 
   @override
   Widget build(BuildContext context) {
-    final key = ListItem.titleKey(
-        widget.film.id, widget.film.isTv ? 'tv' : 'movie');
+    final key =
+        ListItem.titleKey(widget.film.id, widget.film.isTv ? 'tv' : 'movie');
     final saved = _optimistic ??
         (ref.watch(myWatchlistKeysProvider).valueOrNull?.contains(key) ??
             false);

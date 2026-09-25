@@ -183,7 +183,8 @@ class CrewMember {
   final String job;
   final String? profilePath;
 
-  factory CrewMember.fromJson(Map<String, dynamic> json, {required String job}) =>
+  factory CrewMember.fromJson(Map<String, dynamic> json,
+          {required String job}) =>
       CrewMember(
         id: json['id'] as int,
         name: json['name'] as String? ?? '',
@@ -247,12 +248,11 @@ class WatchProviders {
   List<WatchProvider> get paid => _dedupe([...rent, ...buy]);
 
   factory WatchProviders.fromJson(Map<String, dynamic> json) {
-    List<WatchProvider> list(String key) =>
-        (json[key] as List? ?? const [])
-            .cast<Map<String, dynamic>>()
-            .map(WatchProvider.fromJson)
-            .toList()
-          ..sort((a, b) => a.priority.compareTo(b.priority));
+    List<WatchProvider> list(String key) => (json[key] as List? ?? const [])
+        .cast<Map<String, dynamic>>()
+        .map(WatchProvider.fromJson)
+        .toList()
+      ..sort((a, b) => a.priority.compareTo(b.priority));
 
     return WatchProviders(
       link: json['link'] as String?,
@@ -314,8 +314,8 @@ class TheatricalStatus {
     final opened = theatrical.where((d) => !d.at!.isAfter(now)).toList();
     if (opened.isNotEmpty) {
       final latest = opened.last.at!;
-      final digitalSince = dates.any((d) =>
-          d.type == 4 && !d.at!.isAfter(now) && !d.at!.isBefore(latest));
+      final digitalSince = dates.any(
+          (d) => d.type == 4 && !d.at!.isAfter(now) && !d.at!.isBefore(latest));
       if (now.difference(latest) <= window && !digitalSince) {
         return TheatricalStatus._(TheatricalPhase.inTheaters, latest);
       }

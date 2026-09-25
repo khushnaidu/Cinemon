@@ -97,6 +97,9 @@ class WhereToWatchRow extends ConsumerWidget {
                     Text(note,
                         style: AppText.footnote
                             .copyWith(color: AppColors.inkTertiary)),
+                  // TMDB's watch-provider terms: credit JustWatch wherever
+                  // its data shows.
+                  if (logos.isNotEmpty) const _JustWatchCredit(),
                 ],
               )
             else
@@ -144,8 +147,22 @@ class CompactWhereToWatch extends ConsumerWidget {
       spacing: AppSpace.sm,
       runSpacing: AppSpace.sm,
       crossAxisAlignment: WrapCrossAlignment.center,
-      children: children,
+      children: [
+        ...children,
+        if (logos.isNotEmpty) const _JustWatchCredit(),
+      ],
     );
+  }
+}
+
+/// "via JustWatch", beside provider logos.
+class _JustWatchCredit extends StatelessWidget {
+  const _JustWatchCredit();
+
+  @override
+  Widget build(BuildContext context) {
+    return Text('via JustWatch',
+        style: AppText.footnote.copyWith(color: AppColors.inkTertiary));
   }
 }
 

@@ -1,3 +1,4 @@
+import '../../core/utils/content_refusal.dart';
 import 'package:flutter/cupertino.dart'
     show CupertinoActivityIndicator, CupertinoIcons;
 import 'package:flutter/material.dart';
@@ -118,7 +119,7 @@ class _ExploreThreadState extends ConsumerState<ExploreThread> {
     setState(() => _sending = false);
 
     if (c == null) {
-      showGlassToast(context, "Couldn't post that reply. Try again.",
+      showGlassToast(context, refusalOr("Couldn't post that reply. Try again."),
           destructive: true);
       return;
     }

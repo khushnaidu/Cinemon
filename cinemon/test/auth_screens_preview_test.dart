@@ -21,6 +21,10 @@ import 'package:cinemon/models/notification_model.dart';
 import 'package:cinemon/providers/notification/notification_provider.dart';
 import 'package:cinemon/screens/notifications_screen.dart';
 import 'package:cinemon/screens/search_users_screen.dart';
+import 'package:cinemon/providers/auth/onboarding_provider.dart';
+import 'package:cinemon/screens/auth/agree_screen.dart';
+import 'package:cinemon/screens/help_screen.dart';
+import 'package:cinemon/screens/shell/first_run_tour.dart';
 import 'package:cinemon/screens/profile/profile_header.dart';
 import 'package:cinemon/screens/widgets/arch_profile_frame.dart';
 import 'package:flutter/material.dart';
@@ -126,6 +130,17 @@ void main() {
 
   final screens = <String, Widget Function()>{
     'activity': () => const NotificationsScreen(),
+    'agree': () => const AgreeScreen(),
+    'help': () => const HelpScreen(),
+    'tour_welcome': () => Scaffold(
+        backgroundColor: const Color(0xFF223344),
+        body: FirstRunTour(onDone: () {})),
+    'tour_post': () => Scaffold(
+        backgroundColor: const Color(0xFF223344),
+        body: FirstRunTour(onDone: () {})),
+    'tour_people': () => Scaffold(
+        backgroundColor: const Color(0xFF223344),
+        body: FirstRunTour(onDone: () {})),
     'find_people': () => const SearchUsersScreen(),
     'login': () => const LoginScreen(),
     'signup': () => const SignupScreen(),
@@ -215,6 +230,8 @@ void main() {
           userRepositoryProvider.overrideWithValue(_FreeNames(client)),
           currentUserProvider.overrideWithValue(user),
           currentUserProfileProvider.overrideWith((ref) async => profile),
+          termsStatusProvider.overrideWith((ref) async =>
+              const TermsStatus(accepted: false, ageKnown: false)),
           notificationsStreamProvider
               .overrideWith((ref) => Stream.value(notes)),
           followRequestCountProvider.overrideWith((ref) => Stream.value(1)),
@@ -248,6 +265,14 @@ void main() {
       await tester.runAsync(() => precacheImage(
           const AssetImage('assets/images/35mm_final_logo.png'),
           tester.element(find.byKey(key))));
+      if (entry.key == 'tour_post' || entry.key == 'tour_people') {
+        await tester.tap(find.text('Show me'));
+        await tester.pump();
+        if (entry.key == 'tour_people') {
+          await tester.tap(find.text('Next'));
+          await tester.pump();
+        }
+      }
       if (entry.key == 'find_people') {
         await tester.enterText(find.byType(EditableText), 'da');
         await tester.pump(const Duration(milliseconds: 500));

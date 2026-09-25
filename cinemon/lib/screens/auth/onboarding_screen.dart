@@ -1,3 +1,4 @@
+import '../../core/utils/content_refusal.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -15,6 +16,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/auth_errors.dart';
 import '../../core/utils/auth_rules.dart';
+import '../../providers/follow/follow_provider.dart' show isPrivateProvider;
 import '../../providers/auth/auth_provider.dart';
 import '../../providers/auth/onboarding_provider.dart';
 import '../../providers/feed/feed_provider.dart';
@@ -71,6 +73,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final user = ref.read(currentUserProvider);
     if (profile == null || user == null) return;
     _prefilled = true;
+    // Under 18s start private (migration 021): keep the switch in step.
+    ref.read(isPrivateProvider(user.id).future).then((p) {
+      if (mounted && p) setState(() => _private = true);
+    }).catchError((_) {});
     _name.text = profile.displayName ?? '';
     _existingPhotoUrl = profile.photoUrl;
     final suggestion =
@@ -170,7 +176,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       ref.invalidate(onboardedProvider);
     } on PostgrestException catch (e) {
       if (!mounted) return;
-      if (e.code == '23505' || e.code == '23514') {
+      if (e.message.contains('objectionable_content')) {
+        // The name or bio: the username was already checked.
+        showGlassToast(context, describeContentError(e, ''), destructive: true);
+      } else if (e.code == '23505' || e.code == '23514') {
         // Someone took it in the meantime, or it slipped past the rules.
         setState(() {
           _step = 0;
@@ -181,9 +190,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         showGlassToast(context, 'Couldn\'t save. Try again.',
             destructive: true);
       }
-    } catch (_) {
+    } catch (e) {
+      // A refused photo lands here too.
       if (mounted) {
-        showGlassToast(context, 'Couldn\'t save. Try again.',
+        showGlassToast(
+            context, describeContentError(e, 'Couldn\'t save. Try again.'),
             destructive: true);
       }
     } finally {

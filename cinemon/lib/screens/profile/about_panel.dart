@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
-import 'package:flutter/foundation.dart' show LicenseEntryWithLineBreaks, LicenseRegistry;
+import 'package:flutter/foundation.dart'
+    show LicenseEntryWithLineBreaks, LicenseRegistry;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:url_launcher/url_launcher.dart';
@@ -61,6 +62,14 @@ Future<void> showAboutPanel(BuildContext context) {
           title: 'Privacy Policy',
           chevron: true,
           onTap: () => _open('$_site/privacy'),
+        ),
+        const GlassMenuDivider(),
+        GlassMenuRow(
+          icon: CupertinoIcons.doc_on_doc,
+          title: 'Copyright',
+          subtitle: 'Reporting infringement, and credits',
+          chevron: true,
+          onTap: () => _open('$_site/copyright'),
         ),
         const GlassMenuDivider(),
         GlassMenuRow(
