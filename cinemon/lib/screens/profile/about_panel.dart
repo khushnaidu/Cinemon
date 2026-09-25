@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart'
     show LicenseEntryWithLineBreaks, LicenseRegistry;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -116,17 +117,7 @@ class _TmdbCredit extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: AppSpace.xl),
         child: Column(
           children: [
-            Image.asset(
-              'assets/images/tmdb_logo.png',
-              height: 14,
-              errorBuilder: (_, __, ___) => Text(
-                'TMDB',
-                style: AppText.headline.copyWith(
-                  color: const Color(0xFF01B4E4),
-                  letterSpacing: 1,
-                ),
-              ),
-            ),
+            const _TmdbLogo(),
             const SizedBox(height: AppSpace.sm),
             Text(
               'This product uses the TMDB API but is not endorsed or '
@@ -136,6 +127,32 @@ class _TmdbCredit extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// TMDB's own logo (assets/images/tmdb_logo.svg, "Alt short", unmodified).
+/// Its colour comes from a CSS class, which the SVG renderer ignores, so
+/// that one class is turned into the same fill as it loads. The file itself
+/// stays exactly as TMDB publishes it.
+class _TmdbLogo extends StatelessWidget {
+  const _TmdbLogo();
+
+  static Future<String> _load() async {
+    final raw = await rootBundle.loadString('assets/images/tmdb_logo.svg');
+    return raw.replaceAll('class="cls-1"', 'fill="url(#linear-gradient)"');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String>(
+      future: _load(),
+      builder: (context, snap) => SizedBox(
+        height: 12,
+        child: snap.hasData
+            ? SvgPicture.string(snap.data!, height: 12)
+            : const SizedBox.shrink(),
       ),
     );
   }
