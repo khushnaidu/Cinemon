@@ -281,21 +281,35 @@ class _TrailersScreenState extends ConsumerState<TrailersScreen>
     HapticFeedback.selectionClick();
     setState(() => _landscape = on);
     shellImmersive.value = on;
-    if (on) {
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    } else {
-      _restoreOrientation();
-    }
+    SystemChrome.setEnabledSystemUIMode(
+        on ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge);
   }
 
   static void _restoreOrientation() {
     shellImmersive.value = false;
-    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  }
+
+  /// Landscape without rotating the phone: the app stays portrait and the
+  /// trailers are drawn a quarter turn round, at the screen's long side. A
+  /// forced system rotation left touches landing in the wrong place on iOS,
+  /// so nothing could be tapped or swiped until the app restarted.
+  ///
+  /// The media query is turned to match, so the video, the notch margin and
+  /// the button rail lay out as if the phone were sideways.
+  static const _landscapeTurns = 3;
+
+  MediaQueryData _sideways(MediaQueryData mq) {
+    // Three quarter turns: the content's right edge is the screen's top
+    // (the notch), its left the screen's bottom (the home indicator).
+    final p = mq.padding;
+    final turned = EdgeInsets.only(left: p.bottom, right: p.top);
+    return mq.copyWith(
+      size: Size(mq.size.height, mq.size.width),
+      padding: turned,
+      viewPadding: turned,
+      viewInsets: EdgeInsets.zero,
+    );
   }
 
   void _setFeed(int index) {
@@ -424,7 +438,19 @@ class _TrailersScreenState extends ConsumerState<TrailersScreen>
       backgroundColor: AppColors.canvas,
       body: Stack(
         children: [
-          Positioned.fill(child: body),
+          // Always the same widgets, turned or not, so switching keeps the
+          // playing video rather than reloading it.
+          Positioned.fill(
+            child: RotatedBox(
+              quarterTurns: _landscape ? _landscapeTurns : 0,
+              child: MediaQuery(
+                data: _landscape
+                    ? _sideways(MediaQuery.of(context))
+                    : MediaQuery.of(context),
+                child: body,
+              ),
+            ),
+          ),
           if (!_landscape)
             Positioned(
               top: padding.top + 6,

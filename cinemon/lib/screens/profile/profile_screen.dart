@@ -1,3 +1,5 @@
+import '../../providers/library/library_provider.dart'
+    show libraryProvider, libraryCountProvider;
 import 'about_panel.dart';
 import 'dart:math' as math;
 
@@ -32,15 +34,16 @@ import '../../share/month_stats.dart' show monthInFilmProvider;
 import '../../share/share_entry.dart';
 import 'delete_account_panel.dart';
 import 'profile_header.dart';
-import 'recently_watched_section.dart';
 import 'tabs/badges_tab.dart';
 import 'tabs/favorites_tab.dart';
+import 'tabs/films_tab.dart';
 import 'tabs/lists_tab.dart';
 import 'tabs/posts_tab.dart';
 
-/// The four tabs under a profile's header (ADR 0001, 4.5).
+/// The tabs under a profile's header (ADR 0001, 4.5).
 enum ProfileTab {
   posts('Posts'),
+  films('Films'),
   lists('Lists'),
   favorites('Favorites'),
   badges('Badges');
@@ -215,8 +218,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                                 ],
                         ),
 
-                        // The header, then what they've watched: friend
-                        // activity lives here, not under a tab (D12).
+                        // The header. What they've watched is the Films
+                        // tab, newest first.
                         SliverToBoxAdapter(
                           child: Column(
                             key: _aboveTabs,
@@ -227,12 +230,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                               ),
                               if (isOwnProfile)
                                 MonthInFilmTile(userId: profile.uid),
-                              if (!locked)
-                                RecentlyWatchedSection(
-                                  userId: profile.uid,
-                                  isOwnProfile: isOwnProfile,
-                                  username: profile.username,
-                                ),
                               const SizedBox(height: AppSpace.md),
                             ],
                           ),
@@ -256,6 +253,10 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                         if (!locked)
                           switch (tab) {
                             ProfileTab.posts => PostsTab(
+                                userId: profile.uid,
+                                isOwnProfile: isOwnProfile,
+                              ),
+                            ProfileTab.films => FilmsTab(
                                 userId: profile.uid,
                                 isOwnProfile: isOwnProfile,
                               ),
@@ -332,7 +333,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       ref.invalidate(currentUserFavoriteShowsProvider);
       ref.invalidate(currentUserFavoriteActorsProvider);
       ref.invalidate(currentUserFavoriteDirectorsProvider);
-      ref.invalidate(currentUserRecentlyWatchedProvider);
       ref.invalidate(myWatchlistProvider);
       ref.invalidate(myBadgeProgressProvider);
       final now = DateTime.now();
@@ -340,10 +340,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           monthInFilmProvider((userId: uid, year: now.year, month: now.month)));
     } else {
       ref.invalidate(userProfileProvider(uid));
-      ref.invalidate(recentlyWatchedProvider(uid));
       ref.invalidate(watchlistProvider(uid));
     }
     ref.invalidate(userActivitiesProvider(uid));
+    ref.invalidate(libraryProvider(uid));
+    ref.invalidate(libraryCountProvider(uid));
     ref.invalidate(playlistsProvider(uid));
     ref.invalidate(userExploreFeedProvider);
     ref.invalidate(earnedBadgesProvider(uid));

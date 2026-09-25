@@ -1,3 +1,6 @@
+import '../../providers/library/library_provider.dart'
+    show libraryCountProvider;
+import 'profile_screen.dart' show ProfileTab, profileTabProvider;
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -89,8 +92,20 @@ class ProfileHeader extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildStatColumn(profile.reviewCount.toString(), 'Reviews'),
-              const SizedBox(width: 40),
+              _FilmsCount(
+                profile: profile,
+                isOwnProfile: isOwnProfile,
+                builder: (n) => _buildStatColumn(n.toString(), 'Films'),
+              ),
+              const SizedBox(width: 28),
+              // All their logs and reviews.
+              _ReviewsCount(
+                profile: profile,
+                isOwnProfile: isOwnProfile,
+                child: _buildStatColumn(
+                    profile.reviewCount.toString(), 'Reviews'),
+              ),
+              const SizedBox(width: 28),
               _FollowCount(
                 profile: profile,
                 isOwnProfile: isOwnProfile,
@@ -98,7 +113,7 @@ class ProfileHeader extends StatelessWidget {
                 child: _buildStatColumn(
                     profile.followerCount.toString(), 'Followers'),
               ),
-              const SizedBox(width: 40),
+              const SizedBox(width: 28),
               _FollowCount(
                 profile: profile,
                 isOwnProfile: isOwnProfile,
@@ -168,6 +183,63 @@ class _EditProfileButton extends StatelessWidget {
 
 /// A count that opens the list behind it, unless the account is private and
 /// you don't follow it: then there's nothing you're allowed to see.
+/// How many titles are in their library (migration 024). Tapping it opens
+/// the Films tab, unless the profile is private to you.
+class _FilmsCount extends ConsumerWidget {
+  const _FilmsCount({
+    required this.profile,
+    required this.isOwnProfile,
+    required this.builder,
+  });
+
+  final UserModel profile;
+  final bool isOwnProfile;
+  final Widget Function(int count) builder;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final count = ref.watch(libraryCountProvider(profile.uid)).valueOrNull ?? 0;
+    final locked =
+        !isOwnProfile && ref.watch(profileLockedProvider(profile.uid));
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: locked
+          ? null
+          : () => ref.read(profileTabProvider(profile.uid).notifier).state =
+              ProfileTab.films,
+      child: builder(count),
+    );
+  }
+}
+
+/// Opens everything they've logged and reviewed, unless the profile is
+/// private to you.
+class _ReviewsCount extends ConsumerWidget {
+  const _ReviewsCount({
+    required this.profile,
+    required this.isOwnProfile,
+    required this.child,
+  });
+
+  final UserModel profile;
+  final bool isOwnProfile;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final locked =
+        !isOwnProfile && ref.watch(profileLockedProvider(profile.uid));
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: locked
+          ? null
+          : () => context.push('/activity/${profile.uid}',
+              extra: profile.username),
+      child: child,
+    );
+  }
+}
+
 class _FollowCount extends ConsumerWidget {
   const _FollowCount({
     required this.profile,

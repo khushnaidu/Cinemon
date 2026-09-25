@@ -1,3 +1,4 @@
+import 'library/library_button.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
@@ -122,6 +123,7 @@ class _FilmDetailContent extends ConsumerWidget {
           ),
           actions: [
             AddToListButton(film: film),
+            LibraryButton(film: film),
             WatchlistButton(film: film),
           ],
           flexibleSpace: FlexibleSpaceBar(

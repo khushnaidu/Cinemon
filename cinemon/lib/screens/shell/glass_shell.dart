@@ -152,8 +152,8 @@ class _GlassShellState extends State<GlassShell> with RouteAware {
     tourRequests.addListener(_replayTour);
     final uid = SupabaseConfig.currentUserId;
     if (uid != null) {
-      tourDone(uid).then((done) {
-        if (mounted && !done) setState(() => _touring = true);
+      shouldShowTour(uid).then((show) {
+        if (mounted && show) setState(() => _touring = true);
       });
       WidgetsBinding.instance.addPostFrameCallback((_) => _checkAgeSignal());
     }

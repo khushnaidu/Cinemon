@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../models/activity_model.dart';
 import '../../models/film_model.dart';
 import '../../models/person_model.dart';
 import '../../repositories/movie_repository.dart';
@@ -200,38 +199,6 @@ final currentUserFavoriteDirectorsProvider =
 // =============================================================================
 // RECENTLY WATCHED
 // =============================================================================
-
-/// Provider for a user's recently watched films (from activities)
-/// Returns the most recent unique films they've posted about
-final recentlyWatchedProvider =
-    FutureProvider.family<List<ActivityModel>, String>((ref, userId) async {
-  final feedRepo = ref.watch(feedRepositoryProvider);
-  final activities =
-      await feedRepo.getUserActivities(userId: userId, limit: 20);
-
-  // Get unique films (most recent appearance of each film)
-  final seenFilmIds = <int>{};
-  final uniqueActivities = <ActivityModel>[];
-
-  for (final activity in activities) {
-    if (!seenFilmIds.contains(activity.filmId)) {
-      seenFilmIds.add(activity.filmId);
-      uniqueActivities.add(activity);
-      if (uniqueActivities.length >= 8) break; // Limit to 8 recent films
-    }
-  }
-
-  return uniqueActivities;
-});
-
-/// Provider for current user's recently watched films
-final currentUserRecentlyWatchedProvider =
-    FutureProvider<List<ActivityModel>>((ref) async {
-  final currentUser = ref.watch(currentUserProvider);
-  if (currentUser == null) return [];
-
-  return ref.watch(recentlyWatchedProvider(currentUser.uid).future);
-});
 
 // =============================================================================
 // FAVORITES MANAGEMENT NOTIFIER

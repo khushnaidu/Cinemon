@@ -9,8 +9,8 @@ import 'package:cinemon/screens/profile/about_panel.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Portrait everywhere. Info.plist allows landscape only so that Trailers
-  // can turn on its side when asked; it's the one screen that unlocks it.
+  // Portrait everywhere. Trailers' landscape turns its own view instead of
+  // the phone (trailers_screen.dart).
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
   registerFontLicences();

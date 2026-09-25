@@ -324,3 +324,6 @@ Every migration is tested first on the local Postgres 16 scratch cluster, with t
   - New Apple and Google accounts go through the agree screen (age and terms) and onboarding. Apple's name, given only on first sign-in, is saved to the profile.
   - Supabase providers: Apple with Client ID `com.cinemon.app`; Google with the web and iOS client IDs, the web secret, and nonce checks skipped.
   - Still to do for the App Store: revoke the Apple token when an account is deleted (5.1.1(v)), which needs a Sign in with Apple key from the developer portal.
+- **Library and profile tidy-up:** 2026-09-24.
+  - `024_library`: a `library` of everything someone has seen, added without posting (Films tab, Add films panel, the eye on film pages); logging a whole title adds it; watchlist strikes as with logging; visibility follows `can_see`. Recently Watched is gone from the profile: the Films tab, newest first, replaces it, and the Reviews count now opens `/activity/<user>` (the only way in the old section offered). This supersedes ADR 0001 D12's "friend activity stays behind Recently watched".
+  - `025_tour_seen`: the first-run tour is tracked on the account (`profiles.tour_seen_at`), so it shows once after sign-up rather than after every reinstall; accounts existing when it ran are marked as seen.

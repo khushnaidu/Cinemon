@@ -1,3 +1,5 @@
+import '../library/library_provider.dart'
+    show myLibraryKeysProvider, libraryProvider, libraryCountProvider;
 import 'dart:async';
 import 'dart:io';
 
@@ -290,6 +292,10 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
       _ref.invalidate(userFilmActivityProvider(film.id));
       // Logging strikes it off your watchlist (migration 008 trigger).
       _ref.read(watchlistActionsProvider).refresh();
+      // And puts it in your library (migration 024).
+      _ref.invalidate(myLibraryKeysProvider);
+      _ref.invalidate(libraryProvider);
+      _ref.invalidate(libraryCountProvider);
       _ref.invalidate(userEpisodeActivitiesProvider(film.id));
 
       return created;
@@ -401,6 +407,10 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
       _ref.invalidate(userFilmActivityProvider(film.id));
       // Logging strikes it off your watchlist (migration 008 trigger).
       _ref.read(watchlistActionsProvider).refresh();
+      // And puts it in your library (migration 024).
+      _ref.invalidate(myLibraryKeysProvider);
+      _ref.invalidate(libraryProvider);
+      _ref.invalidate(libraryCountProvider);
       _ref.invalidate(userEpisodeActivitiesProvider(film.id));
 
       return created;

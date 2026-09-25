@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/config/supabase_config.dart';
 import '../../core/theme/app_theme.dart';
 import '../widgets/glass_panel.dart';
 import '../widgets/liquid_glass.dart' show LiquidGlass;
@@ -12,22 +12,29 @@ import '../widgets/liquid_glass.dart' show LiquidGlass;
 /// Ask for the tour again (Help → Replay the tour).
 final ValueNotifier<int> tourRequests = ValueNotifier<int>(0);
 
-String _doneKey(String uid) => 'tour_done_$uid';
-
-/// Whether [uid] has finished or skipped the tour on this device.
-Future<bool> tourDone(String uid) async {
+/// Whether [uid] should see the tour: only an account that has never
+/// finished or skipped it (migration 025), so it shows once, after signing
+/// up, on whichever phone that is. Stored on the account, not the phone, so
+/// reinstalling doesn't bring it back. If the lookup fails, no tour.
+Future<bool> shouldShowTour(String uid) async {
   try {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_doneKey(uid)) ?? false;
+    final row = await SupabaseConfig.client
+        .from('profiles')
+        .select('tour_seen_at')
+        .eq('id', uid)
+        .maybeSingle();
+    return row != null && row['tour_seen_at'] == null;
   } catch (_) {
-    return true;
+    return false;
   }
 }
 
 Future<void> markTourDone(String uid) async {
   try {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_doneKey(uid), true);
+    await SupabaseConfig.client
+        .from('profiles')
+        .update({'tour_seen_at': DateTime.now().toUtc().toIso8601String()})
+        .eq('id', uid);
   } catch (_) {}
 }
 
