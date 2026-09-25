@@ -16,9 +16,9 @@ final libraryProvider = FutureProvider.autoDispose
 });
 
 /// How many titles are in someone's library, for the profile header.
-final libraryCountProvider =
-    FutureProvider.autoDispose.family<int, String>((ref, userId) {
-  return ref.watch(libraryRepositoryProvider).count(userId);
+final libraryCountProvider = FutureProvider.autoDispose
+    .family<({int films, int shows}), String>((ref, userId) {
+  return ref.watch(libraryRepositoryProvider).counts(userId);
 });
 
 /// What's in your own library, for the Watched buttons and the add panel.

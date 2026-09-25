@@ -24,7 +24,13 @@ enum _Sort {
   final String label;
 }
 
-enum _Kind { all, movies, shows }
+/// The Films tab's filter. Kept per profile so the header's Films and Shows
+/// counts can open the tab on the right one.
+enum LibraryKind { all, movies, shows }
+
+// Not auto-disposed: the header sets it before the tab is there to watch.
+final libraryKindProvider =
+    StateProvider.family<LibraryKind, String>((ref, _) => LibraryKind.all);
 
 /// A profile's Films tab: everything they've seen, posted about or not
 /// (migration 024), as a wall of posters. On your own, Add films opens a
@@ -45,7 +51,6 @@ class FilmsTab extends ConsumerStatefulWidget {
 
 class _FilmsTabState extends ConsumerState<FilmsTab> {
   _Sort _sort = _Sort.recent;
-  _Kind _kind = _Kind.all;
   final _search = TextEditingController();
   String _query = '';
 
@@ -58,11 +63,17 @@ class _FilmsTabState extends ConsumerState<FilmsTab> {
     super.dispose();
   }
 
+  LibraryKind get _kind => ref.watch(libraryKindProvider(widget.userId));
+
   List<LibraryEntry> _shown(List<LibraryEntry> all) {
     final q = _query.toLowerCase();
+    // No mix, no chips to change it back: show the lot.
+    final shows = all.where((e) => e.isTv).length;
+    final kind = shows == 0 || shows == all.length ? LibraryKind.all : _kind;
     final list = [
       for (final e in all)
-        if ((_kind == _Kind.all || (_kind == _Kind.shows) == e.isTv) &&
+        if ((kind == LibraryKind.all ||
+                (kind == LibraryKind.shows) == e.isTv) &&
             (q.isEmpty || e.title.toLowerCase().contains(q)))
           e,
     ];
@@ -146,15 +157,17 @@ class _FilmsTabState extends ConsumerState<FilmsTab> {
                   // Films and Shows only when there's a mix.
                   if (shows > 0 && shows < all.length) ...[
                     const SizedBox(width: AppSpace.sm),
-                    for (final k in _Kind.values) ...[
+                    for (final k in LibraryKind.values) ...[
                       GlassChip(
                         label: switch (k) {
-                          _Kind.all => 'All',
-                          _Kind.movies => 'Films',
-                          _Kind.shows => 'Shows',
+                          LibraryKind.all => 'All',
+                          LibraryKind.movies => 'Films',
+                          LibraryKind.shows => 'Shows',
                         },
                         selected: _kind == k,
-                        onTap: () => setState(() => _kind = k),
+                        onTap: () => ref
+                            .read(libraryKindProvider(widget.userId).notifier)
+                            .state = k,
                       ),
                       const SizedBox(width: AppSpace.sm),
                     ],

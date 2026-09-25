@@ -64,8 +64,9 @@ Future<void> shareMyProfile(
   }
 }
 
-/// This month, on your own profile: the month's posters and count, opening
-/// the full Month in film card (ADR 0003 §6).
+/// This month, on your own profile: one thin row, "September in review",
+/// opening the Month in film cards (ADR 0003 §6). Films and TV are
+/// separate cards in the panel, swiped between.
 class MonthInFilmTile extends ConsumerWidget {
   const MonthInFilmTile({super.key, required this.userId});
 
@@ -74,24 +75,35 @@ class MonthInFilmTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final now = DateTime.now();
-    final m = ref
+    final stats = ref
         .watch(monthInFilmProvider(
             (userId: userId, year: now.year, month: now.month)))
         .valueOrNull;
-    if (m == null || m.isEmpty) return const SizedBox.shrink();
-
-    final count = m.films > 0
-        ? '${m.films} ${m.films == 1 ? 'film' : 'films'}'
-        : '${m.episodes} ${m.episodes == 1 ? 'episode' : 'episodes'}';
-    final hours = m.hours >= 1 ? '  ·  ${m.hours.round()} h' : '';
+    if (stats == null || stats.isEmpty) return const SizedBox.shrink();
+    final f = stats.films;
+    final t = stats.shows;
+    final summary = [
+      if (!f.isEmpty) '${f.titles} ${f.titles == 1 ? 'film' : 'films'}',
+      if (t.episodes > 0)
+        '${t.episodes} ${t.episodes == 1 ? 'episode' : 'episodes'}'
+      else if (!t.isEmpty)
+        '${t.titles} ${t.titles == 1 ? 'show' : 'shows'}',
+    ].join('  ·  ');
+    final posters = [
+      ...f.posterPaths.take(2),
+      ...t.posterPaths.take(2),
+      ...f.posterPaths.skip(2),
+      ...t.posterPaths.skip(2),
+    ].take(3).toList();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
           AppSpace.lg, AppSpace.sm, AppSpace.lg, AppSpace.sm),
       child: GlassPressable(
-        onTap: () => _open(context, ref, m),
+        onTap: () => _open(context, ref, stats),
         child: Container(
-          padding: const EdgeInsets.all(AppSpace.md),
+          padding: const EdgeInsets.fromLTRB(
+              AppSpace.md, AppSpace.sm, AppSpace.md, AppSpace.sm),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.055),
             borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -100,23 +112,25 @@ class MonthInFilmTile extends ConsumerWidget {
           ),
           child: Row(
             children: [
-              _PosterFan(paths: m.posterPaths.take(3).toList()),
+              _PosterFan(paths: posters),
               const SizedBox(width: AppSpace.md),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${DateFormat('MMMM').format(m.month)} in film',
-                      style: AppText.headline.copyWith(color: AppColors.ink),
+                child: Text.rich(
+                  TextSpan(children: [
+                    TextSpan(
+                      text:
+                          '${DateFormat('MMMM').format(stats.month)} in review',
+                      style: AppText.label.copyWith(
+                          color: AppColors.ink, fontWeight: FontWeight.w600),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '$count$hours',
+                    TextSpan(
+                      text: '\n$summary',
                       style: AppText.caption
                           .copyWith(color: AppColors.inkSecondary),
                     ),
-                  ],
+                  ]),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               const Icon(CupertinoIcons.chevron_right,
@@ -128,62 +142,116 @@ class MonthInFilmTile extends ConsumerWidget {
     );
   }
 
-  void _open(BuildContext context, WidgetRef ref, MonthInFilm m) {
+  void _open(BuildContext context, WidgetRef ref, MonthStats stats) {
     showGlassPanel<void>(
       context,
       tall: true,
-      builder: (panel) => Consumer(
-        builder: (panel, ref, _) {
-          final me = ref.watch(currentUserProfileProvider).valueOrNull;
-          if (me == null) return const SizedBox.shrink();
-          return Column(
-            children: [
-              GlassPanelHeader(
-                title: '${DateFormat('MMMM').format(m.month)} in film',
-                subtitle: m.isCurrent ? 'So far this month' : null,
-                trailingLabel: 'Done',
-                onTrailing: () => Navigator.of(panel).pop(),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpace.xl, vertical: AppSpace.md),
-                  child: Center(
-                    child: AspectRatio(
-                      aspectRatio: kStoryWidth / kStoryHeight,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(14),
-                        child: FittedBox(
-                          child: MonthInFilmCard(
-                            user: me,
-                            month: m,
-                            look:
-                                const ShareLook(palette: PosterPalette.neutral),
-                          ),
-                        ),
+      // Shared from the profile, which outlives the panel.
+      builder: (panel) => _MonthPanel(
+        stats: stats,
+        onShare: (code) => shareMyProfile(context, ref, initialCode: code),
+      ),
+    );
+  }
+}
+
+/// The month's cards, films then TV, one page each.
+class _MonthPanel extends ConsumerStatefulWidget {
+  const _MonthPanel({required this.stats, required this.onShare});
+
+  final MonthStats stats;
+
+  /// Opens the share sheet on "P2" or "P2S", after the panel has closed.
+  final void Function(String code) onShare;
+
+  @override
+  ConsumerState<_MonthPanel> createState() => _MonthPanelState();
+}
+
+class _MonthPanelState extends ConsumerState<_MonthPanel> {
+  late final List<MonthInFilm> _sides = [
+    widget.stats.films,
+    widget.stats.shows,
+  ];
+
+  // Opens on whichever side has something, films first.
+  late final PageController _pages =
+      PageController(initialPage: widget.stats.films.isEmpty ? 1 : 0);
+  late int _page = _pages.initialPage;
+
+  @override
+  void dispose() {
+    _pages.dispose();
+    super.dispose();
+  }
+
+  void _go(int i) => _pages.animateToPage(i,
+      duration: const Duration(milliseconds: 320), curve: Curves.easeOutCubic);
+
+  @override
+  Widget build(BuildContext context) {
+    final me = ref.watch(currentUserProfileProvider).valueOrNull;
+    if (me == null) return const SizedBox.shrink();
+    final stats = widget.stats;
+    return Column(
+      children: [
+        GlassPanelHeader(
+          title: '${DateFormat('MMMM').format(stats.month)} in review',
+          subtitle: stats.isCurrent ? 'So far this month' : null,
+          trailingLabel: 'Done',
+          onTrailing: () => Navigator.of(context).pop(),
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            GlassChip(label: 'Film', selected: _page == 0, onTap: () => _go(0)),
+            const SizedBox(width: AppSpace.sm),
+            GlassChip(label: 'TV', selected: _page == 1, onTap: () => _go(1)),
+          ],
+        ),
+        Expanded(
+          child: PageView.builder(
+            controller: _pages,
+            itemCount: _sides.length,
+            onPageChanged: (i) => setState(() => _page = i),
+            itemBuilder: (_, i) => Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpace.xl, vertical: AppSpace.md),
+              child: Center(
+                child: AspectRatio(
+                  aspectRatio: kStoryWidth / kStoryHeight,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: FittedBox(
+                      child: MonthInFilmCard(
+                        user: me,
+                        month: _sides[i],
+                        tv: _sides[i].isTv,
+                        look: const ShareLook(palette: PosterPalette.neutral),
                       ),
                     ),
                   ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                    AppSpace.xl, 0, AppSpace.xl, AppSpace.xl),
-                child: GlassPillButton(
-                  label: 'Share',
-                  icon: CupertinoIcons.square_arrow_up,
-                  prominent: true,
-                  expand: true,
-                  onTap: () {
-                    Navigator.of(panel).pop();
-                    shareMyProfile(context, ref, initialCode: 'P2');
-                  },
-                ),
-              ),
-            ],
-          );
-        },
-      ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+              AppSpace.xl, 0, AppSpace.xl, AppSpace.xl),
+          child: GlassPillButton(
+            label: 'Share',
+            icon: CupertinoIcons.square_arrow_up,
+            prominent: true,
+            expand: true,
+            onTap: () {
+              final code = _page == 1 ? 'P2S' : 'P2';
+              Navigator.of(context).pop();
+              widget.onShare(code);
+            },
+          ),
+        ),
+      ],
     );
   }
 }

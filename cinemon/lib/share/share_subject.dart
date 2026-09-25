@@ -498,7 +498,7 @@ class Top3Share extends ShareSubject {
 // Profile and month
 // ─────────────────────────────────────────────────────────────
 
-/// Your profile (P1) and your month in film (P2).
+/// Your profile (P1) and your month in film (P2) and in TV (P2S).
 class ProfileShare extends ShareSubject {
   const ProfileShare({
     required this.user,
@@ -566,7 +566,11 @@ class ProfileShare extends ShareSubject {
   Future<List<String>> loadImages(WidgetRef ref) async {
     try {
       final m = await ref.read(monthInFilmProvider(monthKey).future);
-      return [...imageUrls, ...m.posterPaths.map(monthPosterUrl)];
+      return [
+        ...imageUrls,
+        ...m.films.posterPaths.map(monthPosterUrl),
+        ...m.shows.posterPaths.map(monthPosterUrl),
+      ];
     } catch (_) {
       return imageUrls;
     }
@@ -583,6 +587,12 @@ class ProfileShare extends ShareSubject {
           code: 'P2',
           name: 'Month in film',
           build: (look) => MonthInFilmStory(profile: this, look: look),
+        ),
+        ShareTemplate(
+          code: 'P2S',
+          name: 'Month in TV',
+          build: (look) =>
+              MonthInFilmStory(profile: this, look: look, tv: true),
         ),
         for (final t in _top3s)
           for (final template in t.templates)

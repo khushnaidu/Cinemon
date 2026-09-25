@@ -55,13 +55,29 @@ class LibraryRepository {
       .eq('film_id', filmId)
       .eq('media_type', mediaType);
 
-  /// How many titles [userId] has in their library.
-  Future<int> count(String userId) async {
-    final row = await _client
-        .from('profiles')
-        .select('library_count')
-        .eq('id', userId)
-        .maybeSingle();
-    return row?['library_count'] as int? ?? 0;
+  /// How many films and how many shows [userId] has in their library.
+  /// Kept on the profile (migration 031) so a private account's header
+  /// still has them; before that migration, counted from the library.
+  Future<({int films, int shows})> counts(String userId) async {
+    try {
+      final row = await _client
+          .from('profiles')
+          .select('library_film_count, library_show_count')
+          .eq('id', userId)
+          .maybeSingle();
+      return (
+        films: row?['library_film_count'] as int? ?? 0,
+        shows: row?['library_show_count'] as int? ?? 0,
+      );
+    } on PostgrestException {
+      Future<int> n(String type) => _table
+          .select('film_id')
+          .eq('user_id', userId)
+          .eq('media_type', type)
+          .count(CountOption.exact)
+          .then((r) => r.count);
+      final both = await Future.wait([n('movie'), n('tv')]);
+      return (films: both[0], shows: both[1]);
+    }
   }
 }

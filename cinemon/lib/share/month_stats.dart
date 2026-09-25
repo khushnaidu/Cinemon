@@ -10,13 +10,15 @@ import '../providers/feed/feed_provider.dart';
 import '../providers/movie/movie_provider.dart';
 import '../repositories/movie_repository.dart' show TitleFacts;
 
-/// One person's month of watching (ADR 0003, P2). Drawn as a share card and
-/// as a card on your own profile.
+/// One side of a person's month of watching (ADR 0003, P2): the films, or
+/// the shows. Kept apart so a month of Severance doesn't pass itself off as
+/// a month of cinema. Drawn as a share card and on your own profile.
 class MonthInFilm {
   const MonthInFilm({
     required this.month,
-    required this.films,
-    required this.episodes,
+    this.isTv = false,
+    required this.titles,
+    this.episodes = 0,
     required this.minutes,
     required this.posterPaths,
     this.topGenre,
@@ -31,13 +33,16 @@ class MonthInFilm {
   /// The first day of the month.
   final DateTime month;
 
-  /// Different films logged.
-  final int films;
+  /// Shows rather than films.
+  final bool isTv;
 
-  /// Episodes logged.
+  /// Different films, or different shows, logged.
+  final int titles;
+
+  /// Episodes logged; always 0 for films.
   final int episodes;
 
-  /// Films' runtimes plus episodes' typical runtime.
+  /// Films' runtimes, or episodes' typical runtime.
   final int minutes;
 
   /// Newest first, one per title, at most 12.
@@ -48,18 +53,18 @@ class MonthInFilm {
   /// Of the month's titles, the share in [topGenre], 0 to 1.
   final double topGenreShare;
 
-  /// The director or creator behind the most titles, when that's two or
-  /// more; one title each says nothing.
+  /// Films: the director behind the most of them. Shows: the one with the
+  /// most episodes. Only when that's two or more; one each says nothing.
   final String? mostWatched;
   final int mostWatchedCount;
 
   final String? highestRated;
   final double? highestRating;
 
-  /// Agreement on the month's most-voted hot take, 0 to 100.
+  /// Agreement on the month's most-voted hot take about this side, 0 to 100.
   final int? hottestTakeAgree;
 
-  bool get isEmpty => films == 0 && episodes == 0;
+  bool get isEmpty => titles == 0 && episodes == 0;
   double get hours => minutes / 60;
 
   /// Whether the month is still running, so the card says "so far".
@@ -67,6 +72,18 @@ class MonthInFilm {
     final now = DateTime.now();
     return now.year == month.year && now.month == month.month;
   }
+}
+
+/// A month, films and shows apart.
+class MonthStats {
+  const MonthStats({required this.films, required this.shows});
+
+  final MonthInFilm films;
+  final MonthInFilm shows;
+
+  DateTime get month => films.month;
+  bool get isEmpty => films.isEmpty && shows.isEmpty;
+  bool get isCurrent => films.isCurrent;
 }
 
 /// A title the month touched, keyed as 'movie:123' or 'tv:456'.
@@ -77,34 +94,66 @@ String _key(ActivityModel a) => '${a.mediaType}:${a.filmId}';
 /// A typical episode, when TMDB has no runtime for the show.
 const _episodeMinutes = 40;
 
+MapEntry<String, int>? _top(Map<String, int> counts) => counts.isEmpty
+    ? null
+    : (counts.entries.toList()
+          ..sort((a, b) =>
+              b.value != a.value ? b.value - a.value : a.key.compareTo(b.key)))
+        .first;
+
 /// Builds the month from what was logged, what TMDB says about those titles,
 /// and the month's hot takes. Pure, so it can be tested without a network.
-MonthInFilm buildMonthInFilm({
+MonthStats buildMonthInFilm({
   required DateTime month,
+  required List<ActivityModel> activities,
+  required Map<TitleKey, TitleFacts> facts,
+  required List<ExplorePost> takes,
+}) {
+  bool isTv(ActivityModel a) => a.mediaType == 'tv';
+  // A take about no title in particular counts toward the films.
+  bool takeIsTv(ExplorePost t) => t.subject?.mediaType == 'tv';
+  return MonthStats(
+    films: _side(
+      month: month,
+      tv: false,
+      activities: activities.where((a) => !isTv(a)).toList(),
+      facts: facts,
+      takes: takes.where((t) => !takeIsTv(t)).toList(),
+    ),
+    shows: _side(
+      month: month,
+      tv: true,
+      activities: activities.where(isTv).toList(),
+      facts: facts,
+      takes: takes.where(takeIsTv).toList(),
+    ),
+  );
+}
+
+MonthInFilm _side({
+  required DateTime month,
+  required bool tv,
   required List<ActivityModel> activities,
   required Map<TitleKey, TitleFacts> facts,
   required List<ExplorePost> takes,
 }) {
   // Newest first already; the first log of a title is its newest.
   final titles = <TitleKey, ActivityModel>{};
+  final episodeCounts = <TitleKey, int>{};
   for (final a in activities) {
     titles.putIfAbsent(_key(a), () => a);
+    if (a.isEpisode) {
+      episodeCounts[_key(a)] = (episodeCounts[_key(a)] ?? 0) + 1;
+    }
   }
-
-  final films = titles.values.where((a) => a.mediaType != 'tv').length;
-  final episodes = activities.where((a) => a.isEpisode).length;
+  final episodes = tv ? activities.where((a) => a.isEpisode).length : 0;
 
   var minutes = 0;
   for (final entry in titles.entries) {
-    final a = entry.value;
     final runtime = facts[entry.key]?.runtime;
-    if (a.mediaType == 'tv') {
-      final count =
-          activities.where((x) => _key(x) == entry.key && x.isEpisode).length;
-      minutes += count * (runtime ?? _episodeMinutes);
-    } else {
-      minutes += runtime ?? 0;
-    }
+    minutes += tv
+        ? (episodeCounts[entry.key] ?? 0) * (runtime ?? _episodeMinutes)
+        : runtime ?? 0;
   }
 
   final genreCounts = <String, int>{};
@@ -119,15 +168,14 @@ MonthInFilm buildMonthInFilm({
       makerCounts[m] = (makerCounts[m] ?? 0) + 1;
     }
   }
-  MapEntry<String, int>? top(Map<String, int> counts) => counts.isEmpty
-      ? null
-      : (counts.entries.toList()
-            ..sort((a, b) => b.value != a.value
-                ? b.value - a.value
-                : a.key.compareTo(b.key)))
-          .first;
-  final genre = top(genreCounts);
-  final maker = top(makerCounts);
+  final genre = _top(genreCounts);
+  // A show's most-watched is the show itself, by episodes.
+  final most = tv
+      ? _top({
+          for (final e in episodeCounts.entries)
+            titles[e.key]!.filmTitle: e.value,
+        })
+      : _top(makerCounts);
 
   ActivityModel? best;
   for (final a in activities) {
@@ -143,7 +191,8 @@ MonthInFilm buildMonthInFilm({
 
   return MonthInFilm(
     month: DateTime(month.year, month.month),
-    films: films,
+    isTv: tv,
+    titles: titles.length,
     episodes: episodes,
     minutes: minutes,
     posterPaths: [
@@ -153,9 +202,13 @@ MonthInFilm buildMonthInFilm({
     topGenre: genre?.key,
     topGenreShare:
         genre == null || titles.isEmpty ? 0 : genre.value / titles.length,
-    mostWatched: (maker?.value ?? 0) >= 2 ? maker!.key : null,
-    mostWatchedCount: maker?.value ?? 0,
-    highestRated: best?.displayTitle,
+    mostWatched: (most?.value ?? 0) >= 2 ? most!.key : null,
+    mostWatchedCount: most?.value ?? 0,
+    highestRated: best == null
+        ? null
+        : best.isEpisode
+            ? '${best.filmTitle} ${best.episodeCode}'
+            : best.filmTitle,
     highestRating: best?.rating,
     hottestTakeAgree:
         hottest == null ? null : (hottest.agreeShare! * 100).round(),
@@ -165,8 +218,7 @@ MonthInFilm buildMonthInFilm({
 /// A user's month. Six TMDB lookups at a time, each one cached for the
 /// session so the profile card and the share sheet share them.
 final monthInFilmProvider = FutureProvider.autoDispose
-    .family<MonthInFilm, ({String userId, int year, int month})>(
-        (ref, p) async {
+    .family<MonthStats, ({String userId, int year, int month})>((ref, p) async {
   // Kept ten minutes after the last reader, so opening the share sheet from
   // the profile card doesn't redo the lookups.
   final link = ref.keepAlive();

@@ -196,8 +196,7 @@ void main() {
   );
   final month = MonthInFilm(
     month: DateTime(2026, 9),
-    films: 23,
-    episodes: 6,
+    titles: 23,
     minutes: 2490,
     posterPaths: const [
       '/p_pastlives.jpg',
@@ -306,7 +305,20 @@ void main() {
         });
         await tester.pumpWidget(ProviderScope(
           overrides: [
-            monthInFilmProvider.overrideWith((ref, _) async => month),
+            monthInFilmProvider.overrideWith((ref, _) async => MonthStats(
+                films: month,
+                shows: MonthInFilm(
+                  month: DateTime(2026, 9),
+                  isTv: true,
+                  titles: 3,
+                  episodes: 38,
+                  minutes: 1710,
+                  posterPaths: month.posterPaths.take(3).toList(),
+                  topGenre: 'Drama',
+                  topGenreShare: 0.67,
+                  mostWatched: 'The Bear',
+                  mostWatchedCount: 22,
+                ))),
             filmStillsProvider.overrideWith((ref, _) async => [
                   '/s2_pastlives.jpg',
                   '/s3_pastlives.jpg',

@@ -42,33 +42,51 @@ ExplorePost _take(int agree, int disagree) => ExplorePost(
 void main() {
   final month = DateTime(2026, 9);
 
-  test('counts films once, episodes each, and adds up the runtime', () {
+  test('films and shows are counted apart', () {
     final m = buildMonthInFilm(
       month: month,
       activities: [
         _log(1, day: 20),
         _log(1, day: 12), // rewatch: still one film
         _log(2, day: 11),
+        _log(9, type: 'tv', season: 1, episode: 3, day: 9, rating: 5),
         _log(9, type: 'tv', season: 1, episode: 2, day: 9),
         _log(9, type: 'tv', season: 1, episode: 1, day: 8),
+        _log(7, type: 'tv', season: 2, episode: 1, day: 7),
       ],
       facts: const {
         'movie:1': TitleFacts(runtime: 120, genres: ['Drama'], makers: ['A']),
         'movie:2':
             TitleFacts(runtime: 90, genres: ['Drama', 'Crime'], makers: ['A']),
         'tv:9': TitleFacts(runtime: null, genres: ['Comedy'], makers: ['B']),
+        'tv:7': TitleFacts(runtime: 60, genres: ['Comedy'], makers: ['C']),
       },
       takes: const [],
     );
-    expect(m.films, 2);
-    expect(m.episodes, 2);
-    // 120 + 90 + two episodes at the 40-minute default.
-    expect(m.minutes, 290);
-    expect(m.topGenre, 'Drama');
-    expect(m.topGenreShare, closeTo(2 / 3, 0.001));
-    expect(m.mostWatched, 'A');
-    expect(m.mostWatchedCount, 2);
-    expect(m.posterPaths, ['/p1.jpg', '/p2.jpg', '/p9.jpg']);
+    final f = m.films;
+    expect(f.isTv, isFalse);
+    expect(f.titles, 2);
+    expect(f.episodes, 0);
+    expect(f.minutes, 210);
+    expect(f.topGenre, 'Drama');
+    expect(f.topGenreShare, 1);
+    expect(f.mostWatched, 'A');
+    expect(f.mostWatchedCount, 2);
+    expect(f.posterPaths, ['/p1.jpg', '/p2.jpg']);
+    expect(f.highestRated, isNull);
+
+    final s = m.shows;
+    expect(s.isTv, isTrue);
+    expect(s.titles, 2);
+    expect(s.episodes, 4);
+    // Three at the 40-minute default, one at 60.
+    expect(s.minutes, 180);
+    expect(s.topGenre, 'Comedy');
+    // The show with the most episodes, not its creator.
+    expect(s.mostWatched, 'Title 9');
+    expect(s.mostWatchedCount, 3);
+    expect(s.highestRated, 'Title 9 S1 E3');
+    expect(s.posterPaths, ['/p9.jpg', '/p7.jpg']);
   });
 
   test('one title per maker says nothing, so there is no most watched', () {
@@ -80,7 +98,7 @@ void main() {
         'movie:2': TitleFacts(runtime: 100, genres: [], makers: ['B']),
       },
       takes: const [],
-    );
+    ).films;
     expect(m.mostWatched, isNull);
     expect(m.topGenre, isNull);
   });
@@ -92,15 +110,18 @@ void main() {
       facts: const {},
       takes: [_take(1, 0), _take(71, 29), _take(0, 0)],
     );
-    expect(m.highestRated, 'Title 2');
-    expect(m.highestRating, 4.5);
-    expect(m.hottestTakeAgree, 71);
+    expect(m.films.highestRated, 'Title 2');
+    expect(m.films.highestRating, 4.5);
+    // Takes about no title count toward the films.
+    expect(m.films.hottestTakeAgree, 71);
+    expect(m.shows.hottestTakeAgree, isNull);
+    expect(m.shows.isEmpty, isTrue);
   });
 
   test('an empty month is empty', () {
     final m = buildMonthInFilm(
         month: month, activities: const [], facts: const {}, takes: const []);
     expect(m.isEmpty, isTrue);
-    expect(m.hottestTakeAgree, isNull);
+    expect(m.films.hottestTakeAgree, isNull);
   });
 }

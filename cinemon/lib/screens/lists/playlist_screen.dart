@@ -76,6 +76,15 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
   /// While reordering, the order on screen; the server catches up per move.
   List<ListItem>? _order;
 
+  /// How far the page has scrolled, for the banner to drift and darken.
+  final _scrolled = ValueNotifier<double>(0);
+
+  @override
+  void dispose() {
+    _scrolled.dispose();
+    super.dispose();
+  }
+
   FilmList get list => widget.list;
 
   Future<void> _edit(List<ListItem> items) async {
@@ -327,150 +336,176 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
       body: Stack(
         children: [
           // The cover the curator chose, across the top, fading to black.
+          // It drifts up at half speed and darkens away as the page scrolls,
+          // so the list never sits over a bright cover.
           Positioned(
             top: 0,
             left: 0,
             right: 0,
             height: _Banner.height,
-            child: _Banner(list: list, posters: posters, width: width),
+            child: ValueListenableBuilder<double>(
+              valueListenable: _scrolled,
+              builder: (context, y, child) {
+                final o = y.clamp(0.0, _Banner.height);
+                return Transform.translate(
+                  offset: Offset(0, -o * 0.5),
+                  child: Opacity(
+                    opacity: (1 - o / (_Banner.height * 0.55)).clamp(0.0, 1.0),
+                    child: child,
+                  ),
+                );
+              },
+              child: RepaintBoundary(
+                child: _Banner(list: list, posters: posters, width: width),
+              ),
+            ),
           ),
-          CustomScrollView(
-            slivers: [
-              SliverAppBar(
-                backgroundColor: Colors.transparent,
-                surfaceTintColor: Colors.transparent,
-                floating: true,
-                leading: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () => leaveList(context),
+          NotificationListener<ScrollUpdateNotification>(
+            onNotification: (n) {
+              if (n.depth == 0 && n.metrics.axis == Axis.vertical) {
+                _scrolled.value = n.metrics.pixels;
+              }
+              return false;
+            },
+            child: CustomScrollView(
+              slivers: [
+                SliverAppBar(
+                  backgroundColor: Colors.transparent,
+                  surfaceTintColor: Colors.transparent,
+                  floating: true,
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => leaveList(context),
+                  ),
                 ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  // The title sits over the foot of the banner.
-                  padding: const EdgeInsets.fromLTRB(
-                      AppSpace.lg,
-                      _Banner.height - kToolbarHeight - 150,
-                      AppSpace.lg,
-                      AppSpace.lg),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      header,
-                      const SizedBox(height: AppSpace.lg),
-                      actions,
-                      if (items.isNotEmpty) ...[
-                        const SizedBox(height: AppSpace.xl),
-                        Row(
-                          children: [
-                            SizedBox(
-                              width: 150,
-                              child: GlassSegmentedControl(
-                                labels: const ['Wall', 'List'],
-                                index: wall ? 0 : 1,
-                                onChanged: (i) => setState(() {
-                                  _wall = i == 0;
-                                  if (_wall) {
-                                    _reordering = false;
-                                    _order = null;
-                                  }
-                                }),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    // The title sits over the foot of the banner.
+                    padding: const EdgeInsets.fromLTRB(
+                        AppSpace.lg,
+                        _Banner.height - kToolbarHeight - 150,
+                        AppSpace.lg,
+                        AppSpace.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        header,
+                        const SizedBox(height: AppSpace.lg),
+                        actions,
+                        if (items.isNotEmpty) ...[
+                          const SizedBox(height: AppSpace.xl),
+                          Row(
+                            children: [
+                              SizedBox(
+                                width: 150,
+                                child: GlassSegmentedControl(
+                                  labels: const ['Wall', 'List'],
+                                  index: wall ? 0 : 1,
+                                  onChanged: (i) => setState(() {
+                                    _wall = i == 0;
+                                    if (_wall) {
+                                      _reordering = false;
+                                      _order = null;
+                                    }
+                                  }),
+                                ),
                               ),
-                            ),
-                            const Spacer(),
-                            if (me != null && seen > 0)
-                              Text(
-                                seen == items.length
-                                    ? 'You\'ve seen them all'
-                                    : 'You\'ve seen $seen',
-                                style: AppText.footnote
-                                    .copyWith(color: AppColors.inkSecondary),
-                              ),
-                          ],
-                        ),
+                              const Spacer(),
+                              if (me != null && seen > 0)
+                                Text(
+                                  seen == items.length
+                                      ? 'You\'ve seen them all'
+                                      : 'You\'ve seen $seen',
+                                  style: AppText.footnote
+                                      .copyWith(color: AppColors.inkSecondary),
+                                ),
+                            ],
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
-              ),
-              if (itemsAsync.isLoading && items.isEmpty)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (items.isEmpty)
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppSpace.xl),
-                      child: Text(
-                        isOwner
-                            ? 'Nothing here yet. Tap Add to find films and shows.'
-                            : 'Nothing on this playlist yet.',
-                        style: AppText.body
-                            .copyWith(color: AppColors.inkSecondary),
-                        textAlign: TextAlign.center,
+                if (itemsAsync.isLoading && items.isEmpty)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (items.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpace.xl),
+                        child: Text(
+                          isOwner
+                              ? 'Nothing here yet. Tap Add to find films and shows.'
+                              : 'Nothing on this playlist yet.',
+                          style: AppText.body
+                              .copyWith(color: AppColors.inkSecondary),
+                          textAlign: TextAlign.center,
+                        ),
                       ),
                     ),
-                  ),
-                )
-              else if (wall)
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
-                  sliver: SliverGrid.builder(
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: AppSpace.lg,
-                      // A 2:3 poster and its number underneath.
-                      childAspectRatio: 0.58,
+                  )
+                else if (wall)
+                  SliverPadding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: AppSpace.lg),
+                    sliver: SliverGrid.builder(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        crossAxisSpacing: 10,
+                        mainAxisSpacing: AppSpace.lg,
+                        // A 2:3 poster and its number underneath.
+                        childAspectRatio: 0.58,
+                      ),
+                      itemCount: items.length,
+                      itemBuilder: (_, i) => _WallTile(
+                        item: items[i],
+                        rank: i + 1,
+                        seen: seenKeys.contains(items[i].key),
+                      ),
                     ),
-                    itemCount: items.length,
-                    itemBuilder: (_, i) => _WallTile(
-                      item: items[i],
-                      rank: i + 1,
-                      seen: seenKeys.contains(items[i].key),
-                    ),
-                  ),
-                )
-              else if (_reordering)
-                SliverReorderableList(
-                  itemCount: shown.length,
-                  onReorder: _move,
-                  itemBuilder: (_, i) => ReorderableDelayedDragStartListener(
-                    key: ValueKey(shown[i].key),
-                    index: i,
-                    child: Material(
-                      type: MaterialType.transparency,
-                      child: _Row(item: shown[i], index: i, dragHandle: true),
-                    ),
-                  ),
-                )
-              else
-                SliverList.builder(
-                  itemCount: shown.length,
-                  itemBuilder: (_, i) {
-                    final row = _Row(item: shown[i], index: i);
-                    if (!isOwner) return row;
-                    return Dismissible(
+                  )
+                else if (_reordering)
+                  SliverReorderableList(
+                    itemCount: shown.length,
+                    onReorder: _move,
+                    itemBuilder: (_, i) => ReorderableDelayedDragStartListener(
                       key: ValueKey(shown[i].key),
-                      direction: DismissDirection.endToStart,
-                      onDismissed: (_) => _remove(shown[i]),
-                      background: Container(
-                        color: AppColors.destructive.withValues(alpha: 0.22),
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: const Icon(CupertinoIcons.trash,
-                            color: AppColors.destructive),
+                      index: i,
+                      child: Material(
+                        type: MaterialType.transparency,
+                        child: _Row(item: shown[i], index: i, dragHandle: true),
                       ),
-                      child: row,
-                    );
-                  },
-                ),
-              const SliverToBoxAdapter(child: SizedBox(height: 120)),
-            ],
+                    ),
+                  )
+                else
+                  SliverList.builder(
+                    itemCount: shown.length,
+                    itemBuilder: (_, i) {
+                      final row = _Row(item: shown[i], index: i);
+                      if (!isOwner) return row;
+                      return Dismissible(
+                        key: ValueKey(shown[i].key),
+                        direction: DismissDirection.endToStart,
+                        onDismissed: (_) => _remove(shown[i]),
+                        background: Container(
+                          color: AppColors.destructive.withValues(alpha: 0.22),
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: const Icon(CupertinoIcons.trash,
+                              color: AppColors.destructive),
+                        ),
+                        child: row,
+                      );
+                    },
+                  ),
+                const SliverToBoxAdapter(child: SizedBox(height: 120)),
+              ],
+            ),
           ),
         ],
       ),
