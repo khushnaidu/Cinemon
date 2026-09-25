@@ -292,6 +292,12 @@ Each phase is its own branch and ends with a TestFlight build, so testers see pr
     - Tapping a notification opens its subject: the review, the comment sheet, the Explore thread or the playlist. The avatar opens the person.
     - Activity has glass filter chips: All, Likes, Comments, Votes, Saves, Follows. Shares can't be counted, since sharing leaves no record.
     - Saved playlists show under **Saved** on your own Lists tab. They had no home before.
+- **Pre-submission audit:** 2026-09-24.
+  - `019_suspension_everywhere`: a suspended account can't create or edit playlists, add films to them, or change its name, username, bio or photo. It can still remove things, go private and delete the account. Tested with 8 checks and a rerun.
+  - Film pages: friends' reviews are filtered by media type and by who you follow on the server. They used to take everyone's latest 20 and filter on the phone, and could show a TV show's reviews on a film with the same id.
+  - Settings → About: Terms, Privacy, Help and contact, Licences (bundled font licences are registered), and the TMDB credit.
+  - `schema.sql` is marked baseline-only.
+  - **When `friendships` is dropped**, redefine `on_user_block` first: it still deletes from that table (017).
 
 Every migration is tested first on the local Postgres 16 scratch cluster, with the stub `auth` and `storage` schemas, acting as several users under `set role authenticated`.
 

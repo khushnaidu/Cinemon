@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import '../core/theme/app_theme.dart';
-import 'package:flutter/cupertino.dart' show CupertinoIcons;
+import 'package:flutter/cupertino.dart'
+    show CupertinoActivityIndicator, CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'widgets/glass_panel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,16 +9,19 @@ import 'package:go_router/go_router.dart';
 import '../core/constants/api_constants.dart';
 import '../models/notification_model.dart';
 import '../models/sticker_model.dart';
-import '../providers/follow/follow_provider.dart'
-    show followRequestCountProvider;
+import '../providers/follow/follow_provider.dart';
 import '../providers/explore/explore_provider.dart'
     show exploreRepositoryProvider;
 import '../providers/feed/feed_provider.dart' show feedRepositoryProvider;
 import '../providers/notification/notification_provider.dart';
 import 'explore/explore_thread.dart' show showExploreThread;
-import 'widgets/comments_sheet.dart' show showCommentsSheet;
+import 'widgets/comments_sheet.dart' show GlassHint, showCommentsSheet;
 import 'follow_list_screen.dart'
-    show FollowRequestsBanner, showFollowRequestsPanel;
+    show
+        FollowRequestsBanner,
+        PersonAvatar,
+        PersonFollowButton,
+        showFollowRequestsPanel;
 
 /// Activity/Notifications screen - Instagram-style activity feed
 class NotificationsScreen extends ConsumerStatefulWidget {
@@ -67,188 +71,150 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     final notificationsAsync = ref.watch(notificationsStreamProvider);
+    final requests = ref.watch(followRequestCountProvider).valueOrNull ?? 0;
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => context.pop(),
-        ),
-        title: const Text(
-          'Activity',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
+    final header = Padding(
+      padding:
+          const EdgeInsets.fromLTRB(AppSpace.xs, AppSpace.xs, AppSpace.lg, 0),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () => context.pop(),
+            icon: const Icon(CupertinoIcons.chevron_back, color: AppColors.ink),
+            tooltip: 'Back',
           ),
-        ),
-        centerTitle: true,
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
-            color: AppColors.surface,
-            onSelected: (value) {
-              if (value == 'clear') {
-                _showClearConfirmation();
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'clear',
-                child: Text(
-                  'Clear all',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
-          ),
+          const Expanded(child: Text('Activity', style: AppText.title)),
+          if (notificationsAsync.valueOrNull?.isNotEmpty ?? false)
+            GlassPillButton(
+              label: 'Clear',
+              compact: true,
+              onTap: _showClearConfirmation,
+            ),
         ],
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.black,
-              AppColors.canvas,
-            ],
-          ),
-        ),
-        child: notificationsAsync.when(
-          loading: () => const Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-            ),
-          ),
-          error: (error, _) => Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error_outline, size: 48, color: Colors.grey[600]),
-                const SizedBox(height: 16),
-                Text(
-                  'Could not load activity',
-                  style: TextStyle(color: Colors.grey[400]),
-                ),
-              ],
-            ),
-          ),
-          data: (all) {
-            final notifications = all.where(_filter.matches).toList();
-            // Requests to follow your private account sit above everything.
-            final requests =
-                ref.watch(followRequestCountProvider).valueOrNull ?? 0;
-            final lead = requests > 0 &&
-                    (_filter == _ActivityFilter.all ||
-                        _filter == _ActivityFilter.follows)
-                ? 1
-                : 0;
-            final chips = SizedBox(
-              height: 32 + AppSpace.md * 2,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpace.lg, vertical: AppSpace.md),
-                children: [
-                  for (final f in _ActivityFilter.values) ...[
-                    if (f != _ActivityFilter.all)
-                      const SizedBox(width: AppSpace.sm),
-                    GlassChip(
-                      label: f.label,
-                      selected: _filter == f,
-                      onTap: () => setState(() => _filter = f),
-                    ),
-                  ],
-                ],
-              ),
-            );
-            if (notifications.isEmpty && lead == 0) {
-              return Column(
-                children: [
-                  chips,
-                  Expanded(
-                    child: _filter == _ActivityFilter.all
-                        ? _buildEmptyState()
-                        : Center(
-                            child: Text(
-                              'No ${_filter.label.toLowerCase()} yet',
-                              style: AppText.body
-                                  .copyWith(color: AppColors.inkSecondary),
-                            ),
-                          ),
-                  ),
-                ],
-              );
-            }
+    );
 
-            return RefreshIndicator(
-              onRefresh: () async {
-                ref.invalidate(notificationsStreamProvider);
-              },
-              color: Colors.white,
-              backgroundColor: AppColors.surface,
-              child: ListView.builder(
-                padding: const EdgeInsets.only(bottom: 8),
-                itemCount: notifications.length + lead + 1,
-                itemBuilder: (context, index) {
-                  if (index == 0) return chips;
-                  index -= 1;
-                  if (index < lead) {
-                    return Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                          AppSpace.lg, AppSpace.xs, AppSpace.lg, AppSpace.sm),
-                      child: FollowRequestsBanner(count: requests),
-                    );
-                  }
-                  final n = notifications[index - lead];
-                  return _NotificationTile(
-                    notification: n,
-                    onTap: () => _handleNotificationTap(n),
-                    onDismiss: () => _handleDismiss(n),
-                  );
-                },
-              ),
-            );
-          },
+    final chips = SizedBox(
+      height: 32 + AppSpace.md * 2,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpace.lg, vertical: AppSpace.md),
+        children: [
+          for (final f in _ActivityFilter.values) ...[
+            if (f != _ActivityFilter.all) const SizedBox(width: AppSpace.sm),
+            GlassChip(
+              label: f.label,
+              selected: _filter == f,
+              onTap: () => setState(() => _filter = f),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    final Widget body = notificationsAsync.when(
+      loading: () => const Center(
+        child: CupertinoActivityIndicator(color: AppColors.inkSecondary),
+      ),
+      error: (_, __) => const GlassHint(
+        icon: CupertinoIcons.wifi_exclamationmark,
+        title: 'Couldn\'t load activity',
+        body: 'Check your connection and try again.',
+      ),
+      data: (all) {
+        final notifications = all.where(_filter.matches).toList();
+        // Requests to follow your private account sit above everything.
+        final lead = requests > 0 &&
+                (_filter == _ActivityFilter.all ||
+                    _filter == _ActivityFilter.follows)
+            ? 1
+            : 0;
+        if (notifications.isEmpty && lead == 0) {
+          return _filter == _ActivityFilter.all
+              ? const GlassHint(
+                  icon: CupertinoIcons.bell,
+                  title: 'No activity yet',
+                  body: 'When people follow you or interact with your posts, '
+                      'you\'ll see it here.',
+                )
+              : GlassHint(
+                  icon: CupertinoIcons.line_horizontal_3_decrease,
+                  title: 'No ${_filter.label.toLowerCase()} yet',
+                  body: '',
+                );
+        }
+
+        // Grouped the way iOS lists time: today, this week, earlier.
+        final rows = <Object>[];
+        String? section;
+        for (final n in notifications) {
+          final s = _sectionFor(n.createdAt);
+          if (s != section) {
+            rows.add(s);
+            section = s;
+          }
+          rows.add(n);
+        }
+
+        return RefreshIndicator(
+          onRefresh: () async => ref.invalidate(notificationsStreamProvider),
+          color: AppColors.ink,
+          backgroundColor: AppColors.surfaceElevated,
+          child: ListView.builder(
+            padding: EdgeInsets.only(
+                bottom: MediaQuery.paddingOf(context).bottom + AppSpace.lg),
+            itemCount: rows.length + lead,
+            itemBuilder: (context, index) {
+              if (index < lead) {
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                      AppSpace.lg, AppSpace.xs, AppSpace.lg, AppSpace.sm),
+                  child: FollowRequestsBanner(count: requests),
+                );
+              }
+              final row = rows[index - lead];
+              if (row is String) {
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                      AppSpace.lg, AppSpace.md, AppSpace.lg, AppSpace.xs),
+                  child: Text(row, style: AppText.headline),
+                );
+              }
+              final n = row as NotificationModel;
+              return _NotificationTile(
+                notification: n,
+                onTap: () => _handleNotificationTap(n),
+                onDismiss: () => _handleDismiss(n),
+              );
+            },
+          ),
+        );
+      },
+    );
+
+    return Scaffold(
+      backgroundColor: AppColors.canvas,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            header,
+            chips,
+            Expanded(child: body),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.notifications_none,
-            size: 80,
-            color: Colors.grey[700],
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'No activity yet',
-            style: TextStyle(
-              color: Colors.grey[400],
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'When people interact with your posts,\nyou\'ll see it here.',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 14,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
+  static String _sectionFor(DateTime at) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final local = at.toLocal();
+    if (!local.isBefore(today)) return 'Today';
+    if (today.difference(local).inDays < 7) return 'This week';
+    return 'Earlier';
   }
 
   /// A notification opens what it's about; its avatar opens who did it.
@@ -320,127 +286,18 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }
 }
 
-/// Individual notification tile
-class _NotificationTile extends StatelessWidget {
-  final NotificationModel notification;
-  final VoidCallback onTap;
-  final VoidCallback onDismiss;
-
+/// One row of Activity: who, what, when, and on the right what it's about
+/// or, for follows, what you can do back.
+class _NotificationTile extends ConsumerWidget {
   const _NotificationTile({
     required this.notification,
     required this.onTap,
     required this.onDismiss,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    return Dismissible(
-      key: Key(notification.id),
-      direction: DismissDirection.endToStart,
-      onDismissed: (_) => onDismiss(),
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        color: Colors.red.withOpacity(0.3),
-        child: const Icon(Icons.delete, color: Colors.white),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: notification.isRead
-                ? Colors.transparent
-                : Colors.white.withOpacity(0.05),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Actor avatar
-              GestureDetector(
-                onTap: () => context.push(_isCredit
-                    ? '/person/${notification.personId}'
-                    : '/profile/${notification.actorId}'),
-                child: CircleAvatar(
-                  radius: 24,
-                  backgroundColor: Colors.grey[800],
-                  backgroundImage: _avatarUrl != null
-                      ? CachedNetworkImageProvider(_avatarUrl!)
-                      : null,
-                  child: _avatarUrl == null
-                      ? const Icon(Icons.person, color: Colors.white54)
-                      : null,
-                ),
-              ),
-              const SizedBox(width: 12),
-
-              // Content
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    RichText(
-                      text: TextSpan(
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          height: 1.4,
-                        ),
-                        children: [
-                          TextSpan(
-                            text: _isCredit
-                                ? (notification.personName ??
-                                    'Someone you follow')
-                                : notification.actorUsername,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          TextSpan(
-                            text: ' ${notification.message}',
-                            style: const TextStyle(color: Colors.white70),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Comment preview, or for new work the role in it.
-                    if (notification.commentPreview != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        _isCredit
-                            ? notification.commentPreview!
-                            : '"${notification.commentPreview}"',
-                        style: TextStyle(
-                          color: Colors.grey[500],
-                          fontSize: 13,
-                          fontStyle: FontStyle.italic,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-
-                    const SizedBox(height: 4),
-                    Text(
-                      notification.relativeTime,
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(width: 12),
-
-              // Trailing icon/image
-              _buildTrailing(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  final NotificationModel notification;
+  final VoidCallback onTap;
+  final VoidCallback onDismiss;
 
   bool get _isCredit => notification.type == NotificationType.personNewCredit;
 
@@ -451,11 +308,200 @@ class _NotificationTile extends StatelessWidget {
     return url.isEmpty ? null : url;
   }
 
-  Widget _buildTrailing() {
-    // Show sticker for reaction notifications
-    if (notification.type == NotificationType.reaction &&
-        notification.stickerId != null) {
-      final sticker = StickerRegistry.getStickerById(notification.stickerId!);
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final n = notification;
+    final name =
+        _isCredit ? (n.personName ?? 'Someone you follow') : n.actorUsername;
+
+    return Dismissible(
+      key: Key(n.id),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) => onDismiss(),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: AppSpace.xl),
+        color: AppColors.destructive.withValues(alpha: 0.85),
+        child: const Icon(CupertinoIcons.trash, color: Colors.white, size: 20),
+      ),
+      child: GlassPressable(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppSpace.lg, vertical: AppSpace.sm + 2),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () => context.push(_isCredit
+                    ? '/person/${n.personId}'
+                    : '/profile/${n.actorId}'),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    PersonAvatar(photoUrl: _avatarUrl),
+                    Positioned(
+                      right: -2,
+                      bottom: -2,
+                      child: _TypeBadge(notification: n),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpace.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: name,
+                            style: AppText.body.copyWith(
+                                color: AppColors.ink,
+                                fontWeight: FontWeight.w600),
+                          ),
+                          TextSpan(text: ' ${n.message} '),
+                          TextSpan(
+                            text: n.relativeTime,
+                            style:
+                                const TextStyle(color: AppColors.inkTertiary),
+                          ),
+                        ],
+                      ),
+                      style:
+                          AppText.body.copyWith(color: AppColors.inkSecondary),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (n.commentPreview != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        _isCredit ? n.commentPreview! : '“${n.commentPreview}”',
+                        style: AppText.caption
+                            .copyWith(color: AppColors.inkTertiary),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpace.md),
+              _Trailing(notification: n),
+              if (!n.isRead) ...[
+                const SizedBox(width: AppSpace.sm),
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: const BoxDecoration(
+                    color: AppColors.info,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The small glyph on the avatar's corner: what kind of thing happened.
+class _TypeBadge extends StatelessWidget {
+  const _TypeBadge({required this.notification});
+
+  final NotificationModel notification;
+
+  @override
+  Widget build(BuildContext context) {
+    final (IconData icon, Color color) = switch (notification.type) {
+      NotificationType.like => (
+          CupertinoIcons.heart_fill,
+          AppColors.destructive
+        ),
+      NotificationType.reaction => (CupertinoIcons.smiley_fill, AppColors.gold),
+      NotificationType.comment ||
+      NotificationType.exploreComment ||
+      NotificationType.exploreReply =>
+        (CupertinoIcons.chat_bubble_fill, AppColors.info),
+      NotificationType.vote => notification.vote == -1
+          ? (CupertinoIcons.hand_thumbsdown_fill, AppColors.destructive)
+          : (CupertinoIcons.hand_thumbsup_fill, AppColors.success),
+      NotificationType.listSave => (
+          CupertinoIcons.bookmark_fill,
+          AppColors.gold
+        ),
+      NotificationType.follow || NotificationType.followRequest => (
+          CupertinoIcons.person_add_solid,
+          AppColors.info
+        ),
+      NotificationType.followAccepted => (
+          CupertinoIcons.checkmark_alt,
+          AppColors.success
+        ),
+      NotificationType.personNewCredit => (
+          CupertinoIcons.film_fill,
+          AppColors.info
+        ),
+    };
+    return Container(
+      width: 20,
+      height: 20,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.canvas, width: 2),
+      ),
+      child: Icon(icon, size: 10, color: Colors.white),
+    );
+  }
+}
+
+/// What sits on the right: follow actions for follows, the sticker for a
+/// reaction, otherwise the poster of what it's about.
+class _Trailing extends ConsumerWidget {
+  const _Trailing({required this.notification});
+
+  final NotificationModel notification;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final n = notification;
+    final actor = n.actorId;
+
+    switch (n.type) {
+      case NotificationType.followRequest when actor != null:
+        // The row only exists while the request is waiting (migration 017
+        // turns it into a follow, or deletes it).
+        final actions = ref.read(followActionsProvider);
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GlassPillButton(
+              label: 'Confirm',
+              prominent: true,
+              compact: true,
+              onTap: () => actions.accept(actor),
+            ),
+            const SizedBox(width: AppSpace.xs),
+            GlassPillButton(
+              label: 'Delete',
+              compact: true,
+              onTap: () => actions.removeFollower(actor),
+            ),
+          ],
+        );
+      case NotificationType.follow || NotificationType.followAccepted
+          when actor != null:
+        return PersonFollowButton(userId: actor, username: n.actorUsername);
+      default:
+        break;
+    }
+
+    if (n.type == NotificationType.reaction && n.stickerId != null) {
+      final sticker = StickerRegistry.getStickerById(n.stickerId!);
       if (sticker != null) {
         return SizedBox(
           width: 40,
@@ -463,99 +509,31 @@ class _NotificationTile extends StatelessWidget {
           child: Image.asset(
             sticker.assetPath,
             fit: BoxFit.contain,
-            errorBuilder: (context, error, stack) => Text(
-              sticker.emoji,
-              style: const TextStyle(fontSize: 28),
-            ),
+            errorBuilder: (_, __, ___) =>
+                Text(sticker.emoji, style: const TextStyle(fontSize: 28)),
           ),
         );
       }
     }
 
-    // Show film poster for activity notifications
-    if (notification.filmPosterPath != null) {
+    if (n.filmPosterPath != null) {
       final posterUrl = ApiConstants.getPosterUrl(
-        notification.filmPosterPath,
+        n.filmPosterPath,
         size: ApiConstants.posterSizeSmall,
       );
+      const placeholder = ColoredBox(color: AppColors.surfaceElevated);
       return ClipRRect(
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(6),
         child: CachedNetworkImage(
           imageUrl: posterUrl,
-          width: 40,
-          height: 56,
+          width: 38,
+          height: 54,
           fit: BoxFit.cover,
-          placeholder: (context, url) => Container(
-            width: 40,
-            height: 56,
-            color: Colors.grey[800],
-          ),
-          errorWidget: (context, url, error) => Container(
-            width: 40,
-            height: 56,
-            color: Colors.grey[800],
-            child: const Icon(Icons.movie, color: Colors.white24, size: 20),
-          ),
+          placeholder: (_, __) => placeholder,
+          errorWidget: (_, __, ___) => placeholder,
         ),
       );
     }
-
-    // Show icon based on notification type
-    IconData icon;
-    Color color;
-    switch (notification.type) {
-      case NotificationType.like:
-        icon = Icons.favorite;
-        color = AppColors.destructive;
-        break;
-      case NotificationType.comment:
-        icon = Icons.chat_bubble;
-        color = AppColors.info;
-        break;
-      case NotificationType.reaction:
-        icon = Icons.add_reaction;
-        color = AppColors.gold;
-        break;
-      case NotificationType.follow:
-        icon = Icons.person_add_alt_1;
-        color = AppColors.info;
-        break;
-      case NotificationType.vote:
-        icon = notification.vote == -1 ? Icons.thumb_down : Icons.thumb_up;
-        color =
-            notification.vote == -1 ? AppColors.destructive : AppColors.success;
-        break;
-      case NotificationType.exploreComment:
-      case NotificationType.exploreReply:
-        icon = Icons.forum;
-        color = AppColors.info;
-        break;
-      case NotificationType.listSave:
-        icon = Icons.bookmark;
-        color = AppColors.gold;
-        break;
-      case NotificationType.followRequest:
-        icon = Icons.person_add;
-        color = AppColors.gold;
-        break;
-      case NotificationType.followAccepted:
-        icon = Icons.how_to_reg;
-        color = AppColors.success;
-        break;
-      case NotificationType.personNewCredit:
-        icon = Icons.movie_filter;
-        color = AppColors.info;
-        break;
-    }
-
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Icon(icon, color: color, size: 20),
-    );
+    return const SizedBox.shrink();
   }
 }

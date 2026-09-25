@@ -243,13 +243,22 @@ class FeedRepository {
     return res.count;
   }
 
-  /// Activities for a specific film.
+  /// Activities for one title, newest first, optionally only by [userIds].
+  /// Filtered on the server, so a busy title can't push them out of the
+  /// page.
   Future<List<ActivityModel>> getFilmActivities({
     required int filmId,
-    int limit = 20,
+    required String mediaType,
+    List<String>? userIds,
+    int limit = 50,
     DateTime? before,
   }) async {
-    var query = _client.from(_view).select().eq('film_id', filmId);
+    var query = _client
+        .from(_view)
+        .select()
+        .eq('film_id', filmId)
+        .eq('media_type', mediaType);
+    if (userIds != null) query = query.inFilter('user_id', userIds);
     if (before != null) {
       query = query.lt('created_at', before.toIso8601String());
     }

@@ -3,7 +3,6 @@
 class ApiConstants {
   ApiConstants._();
 
-  // TODO: Replace with your TMDB API key
   static const String tmdbApiKey = '9b0096cbe7fa89cf7eabcba8c5ba5a91';
 
   // Base URLs

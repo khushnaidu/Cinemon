@@ -49,7 +49,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>35mm uses your camera for profile pictures and for the photos you attach to a review.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>35mm needs access to your photo library to set your profile picture.</string>
+	<string>35mm uses your photo library for your profile picture and for the photos you attach to a review.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>35mm saves the share cards you make to your photo library.</string>
 	<key>LSApplicationQueriesSchemes</key>
@@ -69,6 +69,8 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>

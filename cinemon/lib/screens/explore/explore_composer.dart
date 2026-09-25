@@ -501,8 +501,9 @@ Future<bool> confirmListRepost(
   );
 }
 
-/// Your public playlists, to share one. Private and friends-only ones can't
-/// go on Explore, so they aren't offered.
+/// Your public playlists, to share one. Private and followers-only ones
+/// can't go on Explore, and empty ones would be a blank card, so neither is
+/// offered.
 Future<ExploreListRef?> showPublicPlaylistPicker(BuildContext context) {
   return showGlassPanel<ExploreListRef>(
     context,
@@ -517,7 +518,7 @@ Future<ExploreListRef?> showPublicPlaylistPicker(BuildContext context) {
           children: [
             GlassPanelHeader(
               title: 'Share a playlist',
-              subtitle: 'Only public playlists can go on Explore',
+              subtitle: 'Public playlists with films in them',
               trailingLabel: 'Cancel',
               onTrailing: () => Navigator.of(panelContext).pop(),
             ),
@@ -534,16 +535,23 @@ Future<ExploreListRef?> showPublicPlaylistPicker(BuildContext context) {
                 ),
                 data: (all) {
                   final public = all
-                      .where((p) => p.list.visibility.name == 'public')
+                      .where((p) =>
+                          p.list.visibility.name == 'public' &&
+                          p.list.itemCount > 0)
                       .toList();
+                  final anyPublic =
+                      all.any((p) => p.list.visibility.name == 'public');
                   if (public.isEmpty) {
                     return Padding(
                       padding: const EdgeInsets.all(AppSpace.xl),
                       child: Text(
                         all.isEmpty
                             ? 'Make a playlist first, from any film\'s Add to… button.'
-                            : 'None of your playlists are public. Change one\'s '
-                                'visibility from its Edit screen to share it.',
+                            : anyPublic
+                                ? 'Your public playlists are empty. Add a film '
+                                    'to one to share it.'
+                                : 'None of your playlists are public. Change one\'s '
+                                    'visibility from its Edit screen to share it.',
                         textAlign: TextAlign.center,
                         style: AppText.body
                             .copyWith(color: AppColors.inkSecondary),

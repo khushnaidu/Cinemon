@@ -150,13 +150,6 @@ final userActivitiesProvider =
   return feedRepo.getUserActivities(userId: userId, limit: 100);
 });
 
-/// Provider for activities about a specific film
-final filmActivitiesProvider =
-    FutureProvider.family<List<ActivityModel>, int>((ref, filmId) async {
-  final feedRepo = ref.watch(feedRepositoryProvider);
-  return feedRepo.getFilmActivities(filmId: filmId);
-});
-
 /// Provider to get current user's activity for a specific film
 /// Returns null if user hasn't posted about this film
 final userFilmActivityProvider =
@@ -203,23 +196,25 @@ final userEpisodeActivitiesProvider =
   return map;
 });
 
-/// Reviews of a film by the people you follow, for its page.
-final friendsFilmActivitiesProvider =
-    FutureProvider.family<List<ActivityModel>, int>((ref, filmId) async {
+/// Reviews of a title by the people you follow, for its page. Keyed by
+/// media type too: TMDB numbers movies and shows separately, so the same id
+/// can be both.
+final friendsFilmActivitiesProvider = FutureProvider.family<List<ActivityModel>,
+    ({int filmId, String mediaType})>((ref, key) async {
   final currentUser = ref.watch(currentUserProvider);
   if (currentUser == null) return [];
 
-  final followingIds = await ref.watch(followingIdsProvider.future);
+  // The people you follow, not you.
+  final followingIds = (await ref.watch(followingIdsProvider.future))
+      .where((id) => id != currentUser.uid)
+      .toList();
   if (followingIds.isEmpty) return [];
 
-  final feedRepo = ref.watch(feedRepositoryProvider);
-  final allActivities = await feedRepo.getFilmActivities(filmId: filmId);
-
-  // The people you follow, not you.
-  return allActivities
-      .where(
-          (a) => followingIds.contains(a.userId) && a.userId != currentUser.uid)
-      .toList();
+  return ref.watch(feedRepositoryProvider).getFilmActivities(
+        filmId: key.filmId,
+        mediaType: key.mediaType,
+        userIds: followingIds,
+      );
 });
 
 /// State notifier for creating new activities
@@ -459,7 +454,7 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
       if (filmId != null) {
         _ref.invalidate(userFilmActivityProvider(filmId));
         _ref.invalidate(userEpisodeActivitiesProvider(filmId));
-        _ref.invalidate(friendsFilmActivitiesProvider(filmId));
+        _ref.invalidate(friendsFilmActivitiesProvider);
       }
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -577,7 +572,7 @@ class CreateActivityNotifier extends StateNotifier<AsyncValue<void>> {
       _ref.invalidate(userActivitiesProvider(currentUser.uid));
       _ref.invalidate(userFilmActivityProvider(activity.filmId));
       _ref.invalidate(userEpisodeActivitiesProvider(activity.filmId));
-      _ref.invalidate(friendsFilmActivitiesProvider(activity.filmId));
+      _ref.invalidate(friendsFilmActivitiesProvider);
 
       return true;
     } catch (e, st) {

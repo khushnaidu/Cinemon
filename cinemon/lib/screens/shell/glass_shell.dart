@@ -29,6 +29,10 @@ final RouteObserver<ModalRoute<void>> shellRouteObserver =
 /// differently — see [shellRouteObserver] and the branch observers below.
 final ValueNotifier<bool> shellChromeVisible = ValueNotifier<bool>(true);
 
+/// A tab playing full screen (Trailers on its side) hides the tab bar
+/// without counting as covered: the tab is still the one on screen.
+final ValueNotifier<bool> shellImmersive = ValueNotifier<bool>(false);
+
 /// Which tab is showing. The Trailers tab watches it to stop its player as
 /// soon as you leave, since the indexed stack keeps it alive offstage.
 final ValueNotifier<int> shellBranchIndex = ValueNotifier<int>(0);
@@ -155,6 +159,7 @@ class _GlassShellState extends State<GlassShell> with RouteAware {
   static void _resetChrome() {
     _rootCovered = false;
     _branchDepth = 0;
+    shellImmersive.value = false;
     _publishChrome();
   }
 
@@ -222,10 +227,13 @@ class _GlassShellState extends State<GlassShell> with RouteAware {
               bottom: MediaQuery.of(context).padding.bottom + 6,
               // Unmounted, not hidden: Offstage would keep the platform view
               // alive and it would keep compositing above Flutter's content.
-              child: ValueListenableBuilder<bool>(
-                valueListenable: shellChromeVisible,
-                builder: (context, visible, _) {
-                  if (!visible) return const SizedBox.shrink();
+              child: ListenableBuilder(
+                listenable:
+                    Listenable.merge([shellChromeVisible, shellImmersive]),
+                builder: (context, _) {
+                  if (!shellChromeVisible.value || shellImmersive.value) {
+                    return const SizedBox.shrink();
+                  }
                   return NativeGlassTabBar(
                     currentIndex: widget.navigationShell.currentIndex,
                     onTap: _onTap,

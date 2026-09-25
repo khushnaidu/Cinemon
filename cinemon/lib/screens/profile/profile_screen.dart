@@ -1,3 +1,4 @@
+import 'about_panel.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart' show CupertinoIcons, CupertinoSwitch;
@@ -457,6 +458,17 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             onTap: () {
               Navigator.of(panelContext).pop();
               showBlockedAccountsPanel(context);
+            },
+          ),
+          const GlassMenuDivider(),
+          GlassMenuRow(
+            icon: CupertinoIcons.info_circle,
+            title: 'About',
+            subtitle: 'Terms, privacy, help and contact',
+            chevron: true,
+            onTap: () {
+              Navigator.of(panelContext).pop();
+              showAboutPanel(context);
             },
           ),
           const GlassMenuDivider(),

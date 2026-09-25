@@ -276,7 +276,8 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
             compact: true,
             onTap: () => _share(buttonContext),
           ),
-          if (isOwner && !_reordering)
+          // Nothing to show on Explore until it has films.
+          if (isOwner && !_reordering && items.isNotEmpty)
             GlassPillButton(
               label: 'Post',
               icon: CupertinoIcons.globe,

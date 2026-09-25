@@ -79,6 +79,12 @@ class _PlaylistEditorState extends ConsumerState<_PlaylistEditor> {
   bool _shareToExplore = true;
 
   bool get _isNew => widget.editing == null;
+
+  /// Only a new public playlist that already has a film in it: an empty one
+  /// would post a blank card. Empty ones can be posted from their own screen
+  /// once they have films.
+  bool get _canShare =>
+      _isNew && widget.first != null && _visibility == ListVisibility.public;
   String get _titleText => _title.text.trim();
 
   @override
@@ -119,7 +125,7 @@ class _PlaylistEditorState extends ConsumerState<_PlaylistEditor> {
           destructive: true);
       return;
     }
-    if (_isNew && _shareToExplore && _visibility == ListVisibility.public) {
+    if (_canShare && _shareToExplore) {
       // Best effort: the playlist exists either way, and it can be posted
       // from its own screen later.
       await ref.read(exploreActionsProvider).createPost(
@@ -240,7 +246,7 @@ class _PlaylistEditorState extends ConsumerState<_PlaylistEditor> {
                 style: AppText.footnote.copyWith(color: AppColors.inkTertiary),
                 textAlign: TextAlign.center,
               ),
-              if (_isNew && _visibility == ListVisibility.public) ...[
+              if (_canShare) ...[
                 const SizedBox(height: AppSpace.lg),
                 Container(
                   padding: const EdgeInsets.fromLTRB(

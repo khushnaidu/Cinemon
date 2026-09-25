@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart'
     show CupertinoActivityIndicator, CupertinoIcons;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -162,7 +163,7 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
                       itemCount: shown.length,
                       separatorBuilder: (_, __) =>
                           const SizedBox(height: AppSpace.xs),
-                      itemBuilder: (_, i) => _PersonRow(
+                      itemBuilder: (_, i) => PersonRow(
                         user: shown[i],
                         trailing: own
                             ? _OwnListAction(user: shown[i], kind: _kind)
@@ -180,8 +181,9 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
   }
 }
 
-class _PersonRow extends StatelessWidget {
-  const _PersonRow({required this.user, this.trailing});
+/// A person in a list: avatar, username, name, and an optional action.
+class PersonRow extends StatelessWidget {
+  const PersonRow({super.key, required this.user, this.trailing});
 
   final UserModel user;
   final Widget? trailing;
@@ -425,5 +427,48 @@ class _RequestList extends ConsumerWidget {
         );
       },
     );
+  }
+}
+
+/// Follow, Follow back, Requested, Following or Friends: where you stand
+/// with someone, and the one tap that changes it. On Activity rows and in
+/// Find people.
+class PersonFollowButton extends ConsumerWidget {
+  const PersonFollowButton(
+      {super.key, required this.userId, required this.username});
+
+  final String userId;
+  final String username;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final relation = ref.watch(followRelationProvider(userId)).valueOrNull;
+    if (relation == null) return const SizedBox(width: 30);
+    final actions = ref.read(followActionsProvider);
+    return switch (relation.outgoing) {
+      FollowState.none => GlassPillButton(
+          label: relation.followsYou ? 'Follow back' : 'Follow',
+          prominent: true,
+          compact: true,
+          onTap: () {
+            HapticFeedback.lightImpact();
+            actions.follow(userId);
+          },
+        ),
+      FollowState.requested => GlassPillButton(
+          label: 'Requested',
+          compact: true,
+          onTap: () => actions.unfollow(userId),
+        ),
+      FollowState.following => GlassPillButton(
+          label: relation.followsYou ? 'Friends' : 'Following',
+          icon: relation.followsYou ? CupertinoIcons.person_2_fill : null,
+          compact: true,
+          onTap: () async {
+            final ok = await confirmUnfollow(context, username);
+            if (ok) await actions.unfollow(userId);
+          },
+        ),
+    };
   }
 }

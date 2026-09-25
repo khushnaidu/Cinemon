@@ -21,6 +21,7 @@ import '../film/film_extras_sections.dart';
 import '../lists/watchlist_button.dart';
 import '../shell/glass_shell.dart';
 import '../widgets/glass_panel.dart';
+import '../widgets/liquid_glass.dart' show LiquidGlass;
 import '../widgets/poster_ambience.dart';
 
 /// This tab's index in the shell.
@@ -33,6 +34,10 @@ const _kTrailersTab = 3;
 /// player; every other page is its thumbnail. The player is created when a
 /// page settles and closed when you move on, leave the tab, or something
 /// covers it, so there is never more than one WKWebView alive.
+///
+/// It's also the one screen that turns on its side: Landscape fills the
+/// screen with the video and hides the tab bar, and you keep swiping up for
+/// the next one. Leaving the tab, or anything covering it, turns it back.
 class TrailersScreen extends ConsumerStatefulWidget {
   const TrailersScreen({super.key});
 
@@ -53,6 +58,9 @@ class _TrailersScreenState extends ConsumerState<TrailersScreen>
 
   /// Muted until you ask for sound, then it stays on from page to page.
   bool _muted = true;
+
+  /// On its side, full screen.
+  bool _landscape = false;
 
   /// Where a trailer was when its player was closed for a sheet or another
   /// tab, so coming back carries on rather than starting over.
@@ -115,6 +123,7 @@ class _TrailersScreenState extends ConsumerState<TrailersScreen>
 
   @override
   void dispose() {
+    if (_landscape) _restoreOrientation();
     WidgetsBinding.instance.removeObserver(this);
     shellBranchIndex.removeListener(_sync);
     shellChromeVisible.removeListener(_sync);
@@ -137,6 +146,13 @@ class _TrailersScreenState extends ConsumerState<TrailersScreen>
   /// otherwise.
   void _sync() {
     if (!mounted) return;
+    // Landscape belongs to this tab only: going to another tab or opening
+    // anything on top turns the app back upright.
+    if (_landscape &&
+        (shellBranchIndex.value != _kTrailersTab ||
+            !shellChromeVisible.value)) {
+      _setLandscape(false);
+    }
     if (_active) {
       _attach(_page);
     } else {
@@ -169,7 +185,9 @@ class _TrailersScreenState extends ConsumerState<TrailersScreen>
         mute: _muted,
         playsInline: true,
         showControls: true,
-        showFullscreenButton: true,
+        // Our Landscape replaces YouTube's full screen, which would stop
+        // the swiping.
+        showFullscreenButton: false,
         strictRelatedVideos: true,
       ),
     );
@@ -258,6 +276,28 @@ class _TrailersScreenState extends ConsumerState<TrailersScreen>
     _muted ? player.mute() : player.unMute();
   }
 
+  void _setLandscape(bool on) {
+    if (on == _landscape) return;
+    HapticFeedback.selectionClick();
+    setState(() => _landscape = on);
+    shellImmersive.value = on;
+    if (on) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    } else {
+      _restoreOrientation();
+    }
+  }
+
+  static void _restoreOrientation() {
+    shellImmersive.value = false;
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  }
+
   void _setFeed(int index) {
     final feed = TrailerFeed.values[index];
     if (feed == _feed) return;
@@ -331,7 +371,7 @@ class _TrailersScreenState extends ConsumerState<TrailersScreen>
               }
               return RefreshIndicator(
                 onRefresh: _refresh,
-                edgeOffset: headerHeight,
+                edgeOffset: _landscape ? 0 : headerHeight,
                 color: AppColors.ink,
                 backgroundColor: AppColors.surfaceElevated,
                 child: NotificationListener<ScrollNotification>(
@@ -368,7 +408,9 @@ class _TrailersScreenState extends ConsumerState<TrailersScreen>
                               )
                             : null,
                         muted: _muted,
+                        landscape: _landscape,
                         onToggleMute: _toggleMute,
+                        onLandscape: () => _setLandscape(!_landscape),
                         onPlay: () => _attach(i),
                       );
                     },
@@ -383,21 +425,22 @@ class _TrailersScreenState extends ConsumerState<TrailersScreen>
       body: Stack(
         children: [
           Positioned.fill(child: body),
-          Positioned(
-            top: padding.top + 6,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: SizedBox(
-                width: 220,
-                child: GlassSegmentedControl(
-                  labels: const ['Trending', 'New'],
-                  index: _feed.index,
-                  onChanged: _setFeed,
+          if (!_landscape)
+            Positioned(
+              top: padding.top + 6,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: SizedBox(
+                  width: 220,
+                  child: GlassSegmentedControl(
+                    labels: const ['Trending', 'New'],
+                    index: _feed.index,
+                    onChanged: _setFeed,
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -412,7 +455,9 @@ class _TrailerPage extends StatelessWidget {
     required this.current,
     required this.player,
     required this.muted,
+    required this.landscape,
     required this.onToggleMute,
+    required this.onLandscape,
     required this.onPlay,
   });
 
@@ -420,8 +465,13 @@ class _TrailerPage extends StatelessWidget {
   final bool current;
   final Widget? player;
   final bool muted;
+  final bool landscape;
   final VoidCallback onToggleMute;
+  final VoidCallback onLandscape;
   final VoidCallback onPlay;
+
+  /// Width of the button column beside the video on its side.
+  static const _sideRail = 56.0;
 
   @override
   Widget build(BuildContext context) {
@@ -429,14 +479,27 @@ class _TrailerPage extends StatelessWidget {
     final poster = ApiConstants.getPosterUrl(item.posterPath);
 
     return LayoutBuilder(builder: (context, c) {
-      final top = padding.top + kFloatingHeaderInset;
-      final bottom = padding.bottom + kFloatingTabBarInset;
-      final band = c.maxHeight - top - bottom;
-      final videoHeight = c.maxWidth * 9 / 16;
-      // A little above centre, so the title and buttons fit beneath it.
-      final videoTop = top + (band * 0.2).clamp(AppSpace.lg, double.infinity);
-      final videoRect = Rect.fromLTWH(0, videoTop, c.maxWidth, videoHeight);
+      final Rect videoRect;
+      if (landscape) {
+        // As big as fits beside the buttons, clear of the notch.
+        final left = padding.left;
+        final width = c.maxWidth - padding.left - padding.right - _sideRail;
+        final w = width.clamp(0.0, c.maxHeight * 16 / 9);
+        final h = w * 9 / 16;
+        videoRect =
+            Rect.fromLTWH(left + (width - w) / 2, (c.maxHeight - h) / 2, w, h);
+      } else {
+        final top = padding.top + kFloatingHeaderInset;
+        final bottom = padding.bottom + kFloatingTabBarInset;
+        final band = c.maxHeight - top - bottom;
+        final videoHeight = c.maxWidth * 9 / 16;
+        // A little above centre, so the title and buttons fit beneath it.
+        final videoTop = top + (band * 0.2).clamp(AppSpace.lg, double.infinity);
+        videoRect = Rect.fromLTWH(0, videoTop, c.maxWidth, videoHeight);
+      }
 
+      // The same children in the same order either way, so turning the
+      // phone resizes the playing video rather than reloading it.
       return Stack(
         children: [
           if (poster.isNotEmpty)
@@ -471,20 +534,81 @@ class _TrailerPage extends StatelessWidget {
               ],
             ),
           ),
-          Positioned(
-            top: videoRect.bottom + AppSpace.lg,
-            left: AppSpace.lg,
-            right: AppSpace.lg,
-            child: _Info(
-              item: item,
-              current: current,
-              muted: muted,
-              onToggleMute: onToggleMute,
+          if (landscape)
+            Positioned(
+              top: 0,
+              bottom: 0,
+              right: padding.right,
+              width: _sideRail,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _RoundGlassButton(
+                    icon: CupertinoIcons.fullscreen_exit,
+                    label: 'Back to portrait',
+                    onTap: onLandscape,
+                  ),
+                  const SizedBox(height: AppSpace.md),
+                  _RoundGlassButton(
+                    icon: muted
+                        ? CupertinoIcons.speaker_slash_fill
+                        : CupertinoIcons.speaker_2_fill,
+                    label: muted ? 'Sound off' : 'Sound on',
+                    onTap: onToggleMute,
+                  ),
+                ],
+              ),
+            )
+          else
+            Positioned(
+              top: videoRect.bottom + AppSpace.lg,
+              left: AppSpace.lg,
+              right: AppSpace.lg,
+              child: _Info(
+                item: item,
+                current: current,
+                muted: muted,
+                onToggleMute: onToggleMute,
+                onLandscape: onLandscape,
+              ),
             ),
-          ),
         ],
       );
     });
+  }
+}
+
+/// A round glass icon button, for the rail beside the video on its side.
+class _RoundGlassButton extends StatelessWidget {
+  const _RoundGlassButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: GlassPressable(
+        onTap: onTap,
+        child: LiquidGlass(
+          borderRadius: BorderRadius.circular(22),
+          blur: 16,
+          tint: 0.18,
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: Icon(icon, size: 18, color: AppColors.ink),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -494,12 +618,14 @@ class _Info extends StatelessWidget {
     required this.current,
     required this.muted,
     required this.onToggleMute,
+    required this.onLandscape,
   });
 
   final TrailerItem item;
   final bool current;
   final bool muted;
   final VoidCallback onToggleMute;
+  final VoidCallback onLandscape;
 
   @override
   Widget build(BuildContext context) {
@@ -552,13 +678,18 @@ class _Info extends StatelessWidget {
             WatchlistButton(film: film),
             AddToListButton(film: film),
             const Spacer(),
-            GlassPillButton(
-              label: muted ? 'Sound off' : 'Sound on',
+            _SmallGlassIcon(
               icon: muted
                   ? CupertinoIcons.speaker_slash_fill
                   : CupertinoIcons.speaker_2_fill,
-              compact: true,
+              label: muted ? 'Sound off' : 'Sound on',
               onTap: onToggleMute,
+            ),
+            const SizedBox(width: AppSpace.sm),
+            _SmallGlassIcon(
+              icon: CupertinoIcons.device_phone_landscape,
+              label: 'Landscape',
+              onTap: onLandscape,
             ),
             const SizedBox(width: AppSpace.sm),
             GlassPillButton(
@@ -577,6 +708,41 @@ class _Info extends StatelessWidget {
     HapticFeedback.lightImpact();
     context.push(
         '/film/${item.tmdbId}/${item.mediaType == MediaType.tv ? 'tv' : 'movie'}');
+  }
+}
+
+/// A compact round glass button the height of the compact pills beside it.
+class _SmallGlassIcon extends StatelessWidget {
+  const _SmallGlassIcon({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: GlassPressable(
+        onTap: onTap,
+        child: LiquidGlass(
+          borderRadius: BorderRadius.circular(15),
+          blur: 16,
+          tint: 0.18,
+          shadow: false,
+          child: SizedBox(
+            width: 30,
+            height: 30,
+            child: Icon(icon, size: 15, color: AppColors.ink),
+          ),
+        ),
+      ),
+    );
   }
 }
 

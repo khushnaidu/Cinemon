@@ -372,7 +372,8 @@ class _FilmDetailContent extends ConsumerWidget {
 
                   // Friends' reviews section - loaded separately to avoid blocking
                   const SizedBox(height: 24),
-                  _FriendsReviewsSection(filmId: filmId),
+                  _FriendsReviewsSection(
+                      filmId: filmId, mediaType: film.isTv ? 'tv' : 'movie'),
 
                   const SizedBox(height: 40),
                 ],
@@ -606,8 +607,8 @@ class _FriendReviewCard extends ConsumerWidget {
                     targetId: activity.id,
                     authorId: activity.userId,
                     authorUsername: activity.username,
-                    onReported: () => ref.invalidate(
-                        friendsFilmActivitiesProvider(activity.filmId)),
+                    onReported: () =>
+                        ref.invalidate(friendsFilmActivitiesProvider),
                   ),
                   behavior: HitTestBehavior.opaque,
                   child: const Padding(
@@ -644,12 +645,14 @@ class _FriendReviewCard extends ConsumerWidget {
 class _FriendsReviewsSection extends ConsumerWidget {
   final int filmId;
 
-  const _FriendsReviewsSection({required this.filmId});
+  final String mediaType;
+
+  const _FriendsReviewsSection({required this.filmId, required this.mediaType});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final friendsActivitiesAsync =
-        ref.watch(friendsFilmActivitiesProvider(filmId));
+    final friendsActivitiesAsync = ref.watch(friendsFilmActivitiesProvider(
+        (filmId: filmId, mediaType: mediaType == 'tv' ? 'tv' : 'movie')));
 
     return friendsActivitiesAsync.when(
       loading: () => Column(

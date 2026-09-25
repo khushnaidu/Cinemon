@@ -1,14 +1,18 @@
 import 'dart:async';
-import 'package:flutter/cupertino.dart' show CupertinoIcons;
+
+import 'package:flutter/cupertino.dart'
+    show CupertinoActivityIndicator, CupertinoIcons;
 import 'package:flutter/material.dart';
-import 'widgets/app_search_field.dart';
-import '../core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+
+import '../core/theme/app_theme.dart';
 import '../models/user_model.dart';
-import '../providers/feed/feed_provider.dart';
 import '../providers/auth/auth_provider.dart';
+import '../providers/feed/feed_provider.dart';
+import 'follow_list_screen.dart' show PersonFollowButton, PersonRow;
+import 'widgets/app_search_field.dart';
+import 'widgets/comments_sheet.dart' show GlassHint;
 
 /// Provider for user search results
 final userSearchProvider =
@@ -19,7 +23,8 @@ final userSearchProvider =
   return userRepo.searchUsers(query.trim());
 });
 
-/// Screen for searching and discovering users
+/// Find people by username. Laid out like Followers and Following, with the
+/// follow button on each row.
 class SearchUsersScreen extends ConsumerStatefulWidget {
   const SearchUsersScreen({super.key});
 
@@ -42,229 +47,98 @@ class _SearchUsersScreenState extends ConsumerState<SearchUsersScreen> {
   void _onSearchChanged(String value) {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 400), () {
-      setState(() {
-        _searchQuery = value.trim();
-      });
+      if (mounted) setState(() => _searchQuery = value.trim());
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = ref.watch(currentUserProvider);
+    final me = ref.watch(currentUserProvider)?.uid;
 
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.black,
-              AppColors.canvas,
-            ],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Header with back button and search
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon:
-                          const Icon(CupertinoIcons.back, color: AppColors.ink),
-                      onPressed: () => context.pop(),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: AppSearchField(
-                        controller: _searchController,
-                        onChanged: _onSearchChanged,
-                        placeholder: 'Search users',
-                        autofocus: true,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Search Results
-              Expanded(
-                child: _searchQuery.isEmpty
-                    ? _buildEmptyState()
-                    : _buildSearchResults(currentUser?.uid),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.person_search,
-            size: 80,
-            color: Colors.white.withOpacity(0.3),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Find people',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Search by username to find people',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.4),
-              fontSize: 14,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSearchResults(String? currentUserId) {
-    final searchResults = ref.watch(userSearchProvider(_searchQuery));
-
-    return searchResults.when(
-      data: (users) {
-        // Filter out current user from results
-        final filteredUsers =
-            users.where((u) => u.uid != currentUserId).toList();
-
-        if (filteredUsers.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.search_off,
-                  size: 64,
-                  color: Colors.white.withOpacity(0.3),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'No users found',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.5),
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Try a different search term',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.3),
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        return RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(userSearchProvider(_searchQuery));
-            await Future.delayed(const Duration(milliseconds: 500));
-          },
-          color: Colors.white,
-          backgroundColor: AppColors.surface,
-          child: ListView.builder(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: filteredUsers.length,
-            itemBuilder: (context, index) {
-              final user = filteredUsers[index];
-              return _UserListTile(user: user);
-            },
-          ),
-        );
-      },
-      loading: () => const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-        ),
-      ),
-      error: (error, _) => Center(
+      backgroundColor: AppColors.canvas,
+      body: SafeArea(
+        bottom: false,
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, color: Colors.red, size: 48),
-            const SizedBox(height: 16),
-            Text(
-              'Error searching users',
-              style: TextStyle(color: Colors.red[300]),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpace.xs, AppSpace.xs, AppSpace.lg, 0),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => context.pop(),
+                    icon: const Icon(CupertinoIcons.chevron_back,
+                        color: AppColors.ink),
+                    tooltip: 'Back',
+                  ),
+                  const Expanded(
+                    child: Text('Find people', style: AppText.title),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () => ref.invalidate(userSearchProvider(_searchQuery)),
-              child: const Text('Retry'),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpace.lg, AppSpace.md, AppSpace.lg, AppSpace.sm),
+              child: AppSearchField(
+                controller: _searchController,
+                onChanged: _onSearchChanged,
+                placeholder: 'Search by username',
+                autofocus: true,
+              ),
+            ),
+            Expanded(
+              child: _searchQuery.isEmpty
+                  ? const GlassHint(
+                      icon: CupertinoIcons.person_crop_circle_badge_plus,
+                      title: 'Find people',
+                      body: 'Search by username to find people you know.',
+                    )
+                  : _buildSearchResults(me),
             ),
           ],
         ),
       ),
     );
   }
-}
 
-/// Individual user list tile
-class _UserListTile extends StatelessWidget {
-  final UserModel user;
+  Widget _buildSearchResults(String? me) {
+    final searchResults = ref.watch(userSearchProvider(_searchQuery));
 
-  const _UserListTile({required this.user});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      onTap: () => context.push('/profile/${user.uid}'),
-      contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-      leading: CircleAvatar(
-        radius: 28,
-        backgroundColor: Colors.white24,
-        backgroundImage: user.photoUrl != null
-            ? CachedNetworkImageProvider(user.photoUrl!)
-            : null,
-        child: user.photoUrl == null
-            ? const Icon(Icons.person, color: Colors.white54, size: 28)
-            : null,
+    return searchResults.when(
+      loading: () => const Center(
+        child: CupertinoActivityIndicator(color: AppColors.inkSecondary),
       ),
-      title: Text(
-        '@${user.username}',
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-        ),
+      error: (_, __) => const GlassHint(
+        icon: CupertinoIcons.wifi_exclamationmark,
+        title: 'Couldn\'t search',
+        body: 'Check your connection and try again.',
       ),
-      subtitle: user.bio != null && user.bio!.isNotEmpty
-          ? Text(
-              user.bio!,
-              style: const TextStyle(color: Colors.white54),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            )
-          : Text(
-              '${user.reviewCount} reviews',
-              style: const TextStyle(color: Colors.white38, fontSize: 12),
+      data: (users) {
+        final found = users.where((u) => u.uid != me).toList();
+        if (found.isEmpty) {
+          return const GlassHint(
+            icon: CupertinoIcons.search,
+            title: 'No one matches',
+            body: 'Try a different username.',
+          );
+        }
+        return ListView.separated(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.fromLTRB(AppSpace.lg, AppSpace.sm, AppSpace.lg,
+              MediaQuery.paddingOf(context).bottom + AppSpace.lg),
+          itemCount: found.length,
+          separatorBuilder: (_, __) => const SizedBox(height: AppSpace.xs),
+          itemBuilder: (_, i) => PersonRow(
+            user: found[i],
+            trailing: PersonFollowButton(
+              userId: found[i].uid,
+              username: found[i].username,
             ),
-      trailing: const Icon(
-        Icons.chevron_right,
-        color: Colors.white38,
-      ),
+          ),
+        );
+      },
     );
   }
 }

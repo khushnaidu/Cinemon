@@ -1,6 +1,9 @@
 -- Cinemon / 35mm — Supabase schema
--- Paste this whole file into the Supabase SQL Editor and hit Run.
--- Safe to re-run: everything is idempotent.
+-- BASELINE ONLY. This is the starting schema for a brand-new, empty
+-- project: run it once, then every file in migrations/ in order. Never
+-- re-run it on the live database. The migrations have since replaced parts
+-- of it (friendships became one-way follows in 017, for one), and running it
+-- again would put the old versions back.
 
 -- ─────────────────────────────────────────────────────────────
 -- 1. PROFILES  (was Firestore `users`)

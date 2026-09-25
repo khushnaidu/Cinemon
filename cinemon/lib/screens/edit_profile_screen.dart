@@ -165,13 +165,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             );
 
     if (success && mounted) {
-      // Refresh the profile data
+      // Posts read your name and photo live, so only the profile needs
+      // refreshing.
       ref.invalidate(currentUserProfileProvider);
-
-      // Sync user data to all existing activities (updates old posts)
-      ref.invalidate(syncUserDataProvider(null));
-      await ref.read(syncUserDataProvider(null).future);
-
       showGlassToast(context, 'Profile updated');
       context.pop();
     }

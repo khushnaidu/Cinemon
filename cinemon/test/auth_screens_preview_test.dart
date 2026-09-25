@@ -17,6 +17,10 @@ import 'package:cinemon/screens/auth/onboarding_screen.dart';
 import 'package:cinemon/screens/auth/password_reset_screens.dart';
 import 'package:cinemon/screens/auth/signup_screen.dart';
 import 'package:cinemon/screens/auth/verify_code_screen.dart';
+import 'package:cinemon/models/notification_model.dart';
+import 'package:cinemon/providers/notification/notification_provider.dart';
+import 'package:cinemon/screens/notifications_screen.dart';
+import 'package:cinemon/screens/search_users_screen.dart';
 import 'package:cinemon/screens/profile/profile_header.dart';
 import 'package:cinemon/screens/widgets/arch_profile_frame.dart';
 import 'package:flutter/material.dart';
@@ -85,7 +89,44 @@ void main() {
     createdAt: DateTime(2026, 9, 24),
   );
 
+  final now = DateTime.now();
+  NotificationModel note(String id, NotificationType type, String actor,
+          Duration ago,
+          {String? poster, String? preview, int? vote, bool read = true}) =>
+      NotificationModel(
+        id: id,
+        recipientId: 'u1',
+        actorId: actor,
+        actorUsername: actor,
+        type: type,
+        filmTitle: poster == null ? null : 'Past Lives',
+        filmPosterPath: poster,
+        commentPreview: preview,
+        vote: vote,
+        isRead: read,
+        createdAt: now.subtract(ago),
+      );
+  final notes = [
+    note('1', NotificationType.followRequest, 'asker', const Duration(minutes: 3),
+        read: false),
+    note('2', NotificationType.follow, 'fan', const Duration(hours: 1),
+        read: false),
+    note('3', NotificationType.follow, 'pal', const Duration(hours: 5)),
+    note('4', NotificationType.like, 'pal', const Duration(hours: 7),
+        poster: '/x.jpg'),
+    note('5', NotificationType.vote, 'fan', const Duration(days: 2),
+        vote: -1, preview: 'Nolan peaked with The Prestige'),
+    note('6', NotificationType.exploreComment, 'dave',
+        const Duration(days: 3),
+        poster: '/x.jpg', preview: 'hard agree, the last scene wrecked me'),
+    note('7', NotificationType.listSave, 'bob', const Duration(days: 12)),
+    note('8', NotificationType.followAccepted, 'stranger',
+        const Duration(days: 20)),
+  ];
+
   final screens = <String, Widget Function()>{
+    'activity': () => const NotificationsScreen(),
+    'find_people': () => const SearchUsersScreen(),
     'login': () => const LoginScreen(),
     'signup': () => const SignupScreen(),
     'verify': () => const VerifyCodeScreen(
@@ -174,6 +215,14 @@ void main() {
           userRepositoryProvider.overrideWithValue(_FreeNames(client)),
           currentUserProvider.overrideWithValue(user),
           currentUserProfileProvider.overrideWith((ref) async => profile),
+          notificationsStreamProvider
+              .overrideWith((ref) => Stream.value(notes)),
+          followRequestCountProvider.overrideWith((ref) => Stream.value(1)),
+          userSearchProvider.overrideWith((ref, q) async => [
+                profile.copyWith(uid: 'pal', username: 'dave', displayName: 'Dave Ruiz'),
+                profile.copyWith(uid: 'fan', username: 'bob', displayName: 'Bob'),
+                profile.copyWith(uid: 'stranger', username: 'daria', displayName: 'Daria M'),
+              ]),
           isPrivateProvider.overrideWith((ref, id) async => false),
           followRelationProvider.overrideWith((ref, id) async => id == 'pal'
               ? const FollowRelation(
@@ -199,6 +248,10 @@ void main() {
       await tester.runAsync(() => precacheImage(
           const AssetImage('assets/images/35mm_final_logo.png'),
           tester.element(find.byKey(key))));
+      if (entry.key == 'find_people') {
+        await tester.enterText(find.byType(EditableText), 'da');
+        await tester.pump(const Duration(milliseconds: 500));
+      }
       // Let the onboarding prefill and its availability check land.
       for (var i = 0; i < 6; i++) {
         await tester.pump(const Duration(milliseconds: 200));

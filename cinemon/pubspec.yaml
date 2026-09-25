@@ -57,7 +57,6 @@ dependencies:
   # UI Enhancements
   flutter_animate: ^4.3.0
   shimmer: ^3.0.0
-  google_fonts: ^6.1.0
   gif: ^2.3.0
 
   # Data Models (annotations)
@@ -113,6 +112,13 @@ flutter:
     - assets/top3elements/
     - assets/badges/
     - assets/share/
+    # Font licences, shown on Settings → About → Licences.
+    - assets/fonts/OFL-3disometric.txt
+    - assets/fonts/share/OFL-ibmplexmono.txt
+    - assets/fonts/share/OFL-instrumentserif.txt
+    - assets/fonts/share/OFL-bigshouldersdisplay.txt
+    - assets/fonts/share/OFL-reeniebeanie.txt
+    - assets/fonts/username/1001fonts-brafesuit-eula.txt
 
   # Custom fonts
   fonts:
