@@ -45,7 +45,9 @@ class _AgreeScreenState extends ConsumerState<AgreeScreen> {
     final age = askAge ? ageOn(birth!, DateTime.now()) : null;
 
     setState(() => _busy = true);
-    if (age != null && age < kMinimumAge) {
+    // Already turned away on this device: a different date now doesn't count.
+    final blocked = askAge && await ageGateBlocked();
+    if (blocked || (age != null && age < kMinimumAge)) {
       await _closeUnderage();
       return;
     }

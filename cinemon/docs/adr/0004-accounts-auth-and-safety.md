@@ -318,3 +318,9 @@ Every migration is tested first on the local Postgres 16 scratch cluster, with t
 - **The Supabase org is on the Free plan.** That means a limited email rate, no leaked-password check, and the project pauses after a week of inactivity. Pro is recommended before launch.
 - **RLS cost.** `can_see()` runs per row. It's one indexed lookup on `follows (follower_id, followee_id)` plus the profile's `is_private`, which is cheap at our size. Recheck the Explore and Home query plans after Phase 4.
 - **Apple token revocation** is rarely checked by App Review but is in the guidelines. It is built rather than deferred.
+
+- **Phase 3:** built 2026-09-24, shipped in 1.1.1 (6).
+  - Sign in with Apple (`sign_in_with_apple`, nonce-checked) and Google (`google_sign_in` 7, iOS and web client IDs in `lib/core/config/social_auth.dart` and Info.plist), both through Supabase `signInWithIdToken`. Buttons on login and sign-up, Apple's first (`social_sign_in.dart`).
+  - New Apple and Google accounts go through the agree screen (age and terms) and onboarding. Apple's name, given only on first sign-in, is saved to the profile.
+  - Supabase providers: Apple with Client ID `com.cinemon.app`; Google with the web and iOS client IDs, the web secret, and nonce checks skipped.
+  - Still to do for the App Store: revoke the Apple token when an account is deleted (5.1.1(v)), which needs a Sign in with Apple key from the developer portal.

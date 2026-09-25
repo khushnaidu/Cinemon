@@ -13,6 +13,7 @@ import '../../providers/follow/follow_provider.dart';
 import '../widgets/glass_panel.dart';
 import '../widgets/glass_text_field.dart';
 import 'auth_scaffold.dart';
+import 'social_sign_in.dart';
 
 /// Log in with email and password (ADR 0004 D8).
 ///
@@ -155,6 +156,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               busy: busy,
               onTap: _logIn,
             ),
+            const SizedBox(height: AppSpace.lg),
+            const SocialSignInButtons(),
             const SizedBox(height: AppSpace.lg),
             AuthLinkRow(
               prompt: 'New to 35mm?',

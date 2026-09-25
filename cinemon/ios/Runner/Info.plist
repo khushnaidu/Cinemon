@@ -14,6 +14,10 @@
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>GIDClientID</key>
+	<string>742855162897-1ka401bbm0siprp3llvkp4482c9n21u5.apps.googleusercontent.com</string>
+	<key>GIDServerClientID</key>
+	<string>742855162897-kvgmv7l4ge1n2j2l3rv2945tan6bntln.apps.googleusercontent.com</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -27,6 +31,18 @@
 				     confirmation, password reset, magic links). Must match
 				     the Redirect URLs configured in the Supabase dashboard. -->
 				<string>cinemon</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>google-sign-in</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- Google sign-in returns here: the iOS client ID, reversed
+				     (lib/core/config/social_auth.dart). -->
+				<string>com.googleusercontent.apps.742855162897-1ka401bbm0siprp3llvkp4482c9n21u5</string>
 			</array>
 		</dict>
 	</array>

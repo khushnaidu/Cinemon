@@ -12,6 +12,7 @@ import '../widgets/glass_panel.dart';
 import '../widgets/glass_text_field.dart';
 import 'age_gate.dart';
 import 'auth_scaffold.dart';
+import 'social_sign_in.dart';
 
 /// Create an account: email and password only (ADR 0004 D4, D5, D7).
 ///
@@ -199,6 +200,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 busy: _busy,
                 onTap: _create,
               ),
+              const SizedBox(height: AppSpace.lg),
+              // Apple and Google ask for age and terms on the agree screen.
+              const SocialSignInButtons(),
               const SizedBox(height: AppSpace.lg),
               AuthLinkRow(
                 prompt: 'Have an account?',
