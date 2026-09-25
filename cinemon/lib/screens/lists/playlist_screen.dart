@@ -94,8 +94,8 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
         message: list.visibility == ListVisibility.private
             ? 'This playlist is private, so the link will only work for you. '
                 'Make it public in Edit to share it.'
-            : 'This playlist is friends only, so the link will only work for '
-                'people you follow each other with.',
+            : 'This playlist is for your followers, so the link will only '
+                'work for people who follow you.',
         confirmLabel: 'Share anyway',
       );
       if (!go || !buttonContext.mounted) return;

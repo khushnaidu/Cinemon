@@ -62,6 +62,15 @@ mixin _$NotificationModel {
   int? get filmId => throw _privateConstructorUsedError;
   String? get mediaType => throw _privateConstructorUsedError;
 
+  /// The Explore post a vote or reply was on (migration 018).
+  String? get explorePostId => throw _privateConstructorUsedError;
+
+  /// The playlist that was saved (migration 018).
+  String? get listId => throw _privateConstructorUsedError;
+
+  /// For [NotificationType.vote]: 1 agreed, -1 disagreed.
+  int? get vote => throw _privateConstructorUsedError;
+
   /// Whether the notification has been read
   bool get isRead => throw _privateConstructorUsedError;
 
@@ -97,6 +106,9 @@ abstract class $NotificationModelCopyWith<$Res> {
       String? personProfilePath,
       int? filmId,
       String? mediaType,
+      String? explorePostId,
+      String? listId,
+      int? vote,
       bool isRead,
       DateTime createdAt});
 }
@@ -130,6 +142,9 @@ class _$NotificationModelCopyWithImpl<$Res, $Val extends NotificationModel>
     Object? personProfilePath = freezed,
     Object? filmId = freezed,
     Object? mediaType = freezed,
+    Object? explorePostId = freezed,
+    Object? listId = freezed,
+    Object? vote = freezed,
     Object? isRead = null,
     Object? createdAt = null,
   }) {
@@ -198,6 +213,18 @@ class _$NotificationModelCopyWithImpl<$Res, $Val extends NotificationModel>
           ? _value.mediaType
           : mediaType // ignore: cast_nullable_to_non_nullable
               as String?,
+      explorePostId: freezed == explorePostId
+          ? _value.explorePostId
+          : explorePostId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      listId: freezed == listId
+          ? _value.listId
+          : listId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      vote: freezed == vote
+          ? _value.vote
+          : vote // ignore: cast_nullable_to_non_nullable
+              as int?,
       isRead: null == isRead
           ? _value.isRead
           : isRead // ignore: cast_nullable_to_non_nullable
@@ -235,6 +262,9 @@ abstract class _$$NotificationModelImplCopyWith<$Res>
       String? personProfilePath,
       int? filmId,
       String? mediaType,
+      String? explorePostId,
+      String? listId,
+      int? vote,
       bool isRead,
       DateTime createdAt});
 }
@@ -266,6 +296,9 @@ class __$$NotificationModelImplCopyWithImpl<$Res>
     Object? personProfilePath = freezed,
     Object? filmId = freezed,
     Object? mediaType = freezed,
+    Object? explorePostId = freezed,
+    Object? listId = freezed,
+    Object? vote = freezed,
     Object? isRead = null,
     Object? createdAt = null,
   }) {
@@ -334,6 +367,18 @@ class __$$NotificationModelImplCopyWithImpl<$Res>
           ? _value.mediaType
           : mediaType // ignore: cast_nullable_to_non_nullable
               as String?,
+      explorePostId: freezed == explorePostId
+          ? _value.explorePostId
+          : explorePostId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      listId: freezed == listId
+          ? _value.listId
+          : listId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      vote: freezed == vote
+          ? _value.vote
+          : vote // ignore: cast_nullable_to_non_nullable
+              as int?,
       isRead: null == isRead
           ? _value.isRead
           : isRead // ignore: cast_nullable_to_non_nullable
@@ -367,6 +412,9 @@ class _$NotificationModelImpl extends _NotificationModel {
       this.personProfilePath,
       this.filmId,
       this.mediaType,
+      this.explorePostId,
+      this.listId,
+      this.vote,
       this.isRead = false,
       required this.createdAt})
       : super._();
@@ -433,6 +481,18 @@ class _$NotificationModelImpl extends _NotificationModel {
   @override
   final String? mediaType;
 
+  /// The Explore post a vote or reply was on (migration 018).
+  @override
+  final String? explorePostId;
+
+  /// The playlist that was saved (migration 018).
+  @override
+  final String? listId;
+
+  /// For [NotificationType.vote]: 1 agreed, -1 disagreed.
+  @override
+  final int? vote;
+
   /// Whether the notification has been read
   @override
   @JsonKey()
@@ -444,7 +504,7 @@ class _$NotificationModelImpl extends _NotificationModel {
 
   @override
   String toString() {
-    return 'NotificationModel(id: $id, recipientId: $recipientId, actorId: $actorId, actorUsername: $actorUsername, actorPhotoUrl: $actorPhotoUrl, type: $type, activityId: $activityId, filmTitle: $filmTitle, filmPosterPath: $filmPosterPath, commentPreview: $commentPreview, stickerId: $stickerId, personId: $personId, personName: $personName, personProfilePath: $personProfilePath, filmId: $filmId, mediaType: $mediaType, isRead: $isRead, createdAt: $createdAt)';
+    return 'NotificationModel(id: $id, recipientId: $recipientId, actorId: $actorId, actorUsername: $actorUsername, actorPhotoUrl: $actorPhotoUrl, type: $type, activityId: $activityId, filmTitle: $filmTitle, filmPosterPath: $filmPosterPath, commentPreview: $commentPreview, stickerId: $stickerId, personId: $personId, personName: $personName, personProfilePath: $personProfilePath, filmId: $filmId, mediaType: $mediaType, explorePostId: $explorePostId, listId: $listId, vote: $vote, isRead: $isRead, createdAt: $createdAt)';
   }
 
   @override
@@ -480,6 +540,10 @@ class _$NotificationModelImpl extends _NotificationModel {
             (identical(other.filmId, filmId) || other.filmId == filmId) &&
             (identical(other.mediaType, mediaType) ||
                 other.mediaType == mediaType) &&
+            (identical(other.explorePostId, explorePostId) ||
+                other.explorePostId == explorePostId) &&
+            (identical(other.listId, listId) || other.listId == listId) &&
+            (identical(other.vote, vote) || other.vote == vote) &&
             (identical(other.isRead, isRead) || other.isRead == isRead) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt));
@@ -487,26 +551,30 @@ class _$NotificationModelImpl extends _NotificationModel {
 
   @JsonKey(ignore: true)
   @override
-  int get hashCode => Object.hash(
-      runtimeType,
-      id,
-      recipientId,
-      actorId,
-      actorUsername,
-      actorPhotoUrl,
-      type,
-      activityId,
-      filmTitle,
-      filmPosterPath,
-      commentPreview,
-      stickerId,
-      personId,
-      personName,
-      personProfilePath,
-      filmId,
-      mediaType,
-      isRead,
-      createdAt);
+  int get hashCode => Object.hashAll([
+        runtimeType,
+        id,
+        recipientId,
+        actorId,
+        actorUsername,
+        actorPhotoUrl,
+        type,
+        activityId,
+        filmTitle,
+        filmPosterPath,
+        commentPreview,
+        stickerId,
+        personId,
+        personName,
+        personProfilePath,
+        filmId,
+        mediaType,
+        explorePostId,
+        listId,
+        vote,
+        isRead,
+        createdAt
+      ]);
 
   @JsonKey(ignore: true)
   @override
@@ -541,6 +609,9 @@ abstract class _NotificationModel extends NotificationModel {
       final String? personProfilePath,
       final int? filmId,
       final String? mediaType,
+      final String? explorePostId,
+      final String? listId,
+      final int? vote,
       final bool isRead,
       required final DateTime createdAt}) = _$NotificationModelImpl;
   const _NotificationModel._() : super._();
@@ -606,6 +677,18 @@ abstract class _NotificationModel extends NotificationModel {
   int? get filmId;
   @override
   String? get mediaType;
+  @override
+
+  /// The Explore post a vote or reply was on (migration 018).
+  String? get explorePostId;
+  @override
+
+  /// The playlist that was saved (migration 018).
+  String? get listId;
+  @override
+
+  /// For [NotificationType.vote]: 1 agreed, -1 disagreed.
+  int? get vote;
   @override
 
   /// Whether the notification has been read

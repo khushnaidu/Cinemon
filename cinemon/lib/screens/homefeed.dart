@@ -182,7 +182,7 @@ class _HomeFeedPageState extends ConsumerState<HomeFeedPage> {
                   children: [
                     NativeGlassButton(
                       symbol: 'person.2',
-                      label: 'Friends',
+                      label: 'People',
                       fallbackIcon: CupertinoIcons.person_2,
                       onTap: () => context.push('/friends'),
                     ),
@@ -1081,7 +1081,7 @@ class _EmptyFeedView extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Add some friends or post your first watch to get started!',
+              'Follow some people or post your first watch to get started!',
               style: TextStyle(
                 color: Colors.grey[600],
                 fontSize: 14,

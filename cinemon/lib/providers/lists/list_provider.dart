@@ -147,6 +147,37 @@ final playlistsProvider = FutureProvider.autoDispose
 });
 
 /// Whether you've saved someone else's playlist.
+/// A playlist someone else made that you saved, for your Lists tab.
+class SavedPlaylist {
+  const SavedPlaylist({
+    required this.list,
+    required this.posters,
+    this.ownerUsername,
+  });
+
+  final FilmList list;
+  final List<String?> posters;
+  final String? ownerUsername;
+}
+
+/// Your saved playlists, most recently saved first.
+final savedPlaylistsProvider =
+    FutureProvider.autoDispose<List<SavedPlaylist>>((ref) async {
+  final me = ref.watch(currentUserProvider);
+  if (me == null) return [];
+  final repo = ref.watch(listRepositoryProvider);
+  final saved = await repo.getSavedPlaylists(me.uid);
+  final covers = await repo.getCoverPosters([for (final s in saved) s.$1.id]);
+  return [
+    for (final (list, owner) in saved)
+      SavedPlaylist(
+        list: list,
+        posters: covers[list.id] ?? const [],
+        ownerUsername: owner,
+      ),
+  ];
+});
+
 final listSavedProvider =
     FutureProvider.autoDispose.family<bool, String>((ref, listId) async {
   final me = ref.watch(currentUserProvider);
@@ -297,6 +328,7 @@ class PlaylistActions {
     }
     _ref.invalidate(listSavedProvider(listId));
     _ref.invalidate(listProvider(listId));
+    _ref.invalidate(savedPlaylistsProvider);
     return true;
   }
 

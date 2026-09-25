@@ -14,8 +14,24 @@ enum NotificationType {
   /// Someone reacted to your post with a sticker
   reaction,
 
+  /// Someone started following you (a public account, or a request you
+  /// accepted). Migration 017.
+  follow,
+
   /// Someone requested to follow you
   followRequest,
+
+  /// Someone agreed or disagreed with your Explore post ([vote]). 018.
+  vote,
+
+  /// Someone replied to your Explore post. 018.
+  exploreComment,
+
+  /// Someone answered your reply on Explore. 018.
+  exploreReply,
+
+  /// Someone saved your playlist ([listId]). 018.
+  listSave,
 
   /// Someone accepted your follow request
   followAccepted,
@@ -76,6 +92,15 @@ class NotificationModel with _$NotificationModel {
     int? filmId,
     String? mediaType,
 
+    /// The Explore post a vote or reply was on (migration 018).
+    String? explorePostId,
+
+    /// The playlist that was saved (migration 018).
+    String? listId,
+
+    /// For [NotificationType.vote]: 1 agreed, -1 disagreed.
+    int? vote,
+
     /// Whether the notification has been read
     @Default(false) bool isRead,
 
@@ -107,8 +132,18 @@ class NotificationModel with _$NotificationModel {
         return 'commented on your post${filmTitle != null ? ' on $filmTitle' : ''}';
       case NotificationType.reaction:
         return 'reacted to your post${filmTitle != null ? ' on $filmTitle' : ''}';
+      case NotificationType.follow:
+        return 'started following you';
       case NotificationType.followRequest:
         return 'requested to follow you';
+      case NotificationType.vote:
+        return '${vote == -1 ? 'disagreed' : 'agreed'} with your post';
+      case NotificationType.exploreComment:
+        return 'replied to your post${filmTitle != null ? ' on $filmTitle' : ''}';
+      case NotificationType.exploreReply:
+        return 'replied to you${filmTitle != null ? ' on $filmTitle' : ''}';
+      case NotificationType.listSave:
+        return 'saved your playlist${filmTitle != null ? ' "$filmTitle"' : ''}';
       case NotificationType.followAccepted:
         return 'accepted your follow request';
       case NotificationType.personNewCredit:

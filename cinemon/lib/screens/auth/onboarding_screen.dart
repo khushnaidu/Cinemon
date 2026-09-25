@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart'
-    show CupertinoActivityIndicator, CupertinoIcons;
+    show CupertinoActivityIndicator, CupertinoIcons, CupertinoSwitch;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -50,6 +50,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   File? _photo;
   String? _existingPhotoUrl;
+
+  /// Public by default (ADR 0004 D3).
+  bool _private = false;
 
   @override
   void dispose() {
@@ -159,6 +162,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         'display_name': name.isEmpty ? null : name,
         'bio': bio.isEmpty ? null : bio,
         'photo_url': photoUrl,
+        'is_private': _private,
         'onboarded_at': DateTime.now().toUtc().toIso8601String(),
       });
       ref.invalidate(currentUserProfileProvider);
@@ -342,6 +346,24 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           maxLength: 150,
           minLines: 3,
           maxLines: 5,
+        ),
+        const SizedBox(height: AppSpace.md),
+        Container(
+          decoration: glassWellDecoration(),
+          child: GlassMenuRow(
+            icon:
+                _private ? CupertinoIcons.lock_fill : CupertinoIcons.lock_open,
+            title: 'Private account',
+            subtitle: _private
+                ? 'Only people you approve see your posts'
+                : 'Anyone can see your posts and follow you',
+            trailing: CupertinoSwitch(
+              value: _private,
+              activeTrackColor: AppColors.success,
+              onChanged: (v) => setState(() => _private = v),
+            ),
+            onTap: () => setState(() => _private = !_private),
+          ),
         ),
         const SizedBox(height: AppSpace.xl),
         GlassPillButton(

@@ -5,10 +5,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../models/user_model.dart';
-import '../../providers/auth/auth_provider.dart';
-import '../../providers/feed/feed_provider.dart'
-    show currentUserProfileProvider, userProfileProvider;
-import '../../providers/friendship/friendship_provider.dart';
+import '../../providers/follow/follow_provider.dart';
+import '../follow_list_screen.dart' show confirmUnfollow;
 import '../widgets/arch_profile_frame.dart';
 import '../widgets/glass_panel.dart';
 
@@ -93,19 +91,31 @@ class ProfileHeader extends StatelessWidget {
             children: [
               _buildStatColumn(profile.reviewCount.toString(), 'Reviews'),
               const SizedBox(width: 40),
-              _buildStatColumn(profile.followerCount.toString(), 'Followers'),
+              _FollowCount(
+                profile: profile,
+                isOwnProfile: isOwnProfile,
+                kind: FollowListKind.followers,
+                child: _buildStatColumn(
+                    profile.followerCount.toString(), 'Followers'),
+              ),
               const SizedBox(width: 40),
-              _buildStatColumn(profile.followingCount.toString(), 'Following'),
+              _FollowCount(
+                profile: profile,
+                isOwnProfile: isOwnProfile,
+                kind: FollowListKind.following,
+                child: _buildStatColumn(
+                    profile.followingCount.toString(), 'Following'),
+              ),
             ],
           ),
 
           const SizedBox(height: 20),
 
-          // Action Button (Edit Profile or Follow/Unfollow)
+          // Edit, or Follow and anything waiting between you.
           if (isOwnProfile)
             const _EditProfileButton()
           else
-            _FollowButton(targetUserId: profile.uid, targetProfile: profile),
+            _FollowControls(profile: profile),
 
           const SizedBox(height: 24),
         ],
@@ -156,212 +166,164 @@ class _EditProfileButton extends StatelessWidget {
   }
 }
 
-/// Follow/Unfollow button for other users' profiles
-class _FollowButton extends ConsumerWidget {
-  final String targetUserId;
-  final UserModel targetProfile;
-
-  const _FollowButton({
-    required this.targetUserId,
-    required this.targetProfile,
+/// A count that opens the list behind it, unless the account is private and
+/// you don't follow it: then there's nothing you're allowed to see.
+class _FollowCount extends ConsumerWidget {
+  const _FollowCount({
+    required this.profile,
+    required this.isOwnProfile,
+    required this.kind,
+    required this.child,
   });
+
+  final UserModel profile;
+  final bool isOwnProfile;
+  final FollowListKind kind;
+  final Widget child;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final friendshipAsync = ref.watch(friendshipStatusProvider(targetUserId));
-    final friendshipNotifier = ref.watch(friendshipNotifierProvider);
-    final currentProfile = ref.watch(currentUserProfileProvider).value;
-
-    return friendshipAsync.when(
-      data: (friendship) {
-        final isLoading = friendshipNotifier.isLoading;
-
-        // Determine button state based on friendship status
-        if (friendship == null) {
-          // No relationship - show Follow button
-          return _buildButton(
-            label: 'Follow',
-            isLoading: isLoading,
-            isPrimary: true,
-            onPressed: () async {
-              await ref
-                  .read(friendshipNotifierProvider.notifier)
-                  .sendFriendRequest(
-                    receiverId: targetUserId,
-                    senderUsername: currentProfile?.username,
-                    senderPhotoUrl: currentProfile?.photoUrl,
-                    receiverUsername: targetProfile.username,
-                    receiverPhotoUrl: targetProfile.photoUrl,
-                  );
-              // Refresh the status
-              ref.invalidate(friendshipStatusProvider(targetUserId));
-            },
-          );
-        }
-
-        if (friendship.isPending) {
-          final currentUser = ref.read(currentUserProvider);
-          final isSender = friendship.senderId == currentUser?.uid;
-
-          if (isSender) {
-            // Current user sent the request - show Requested
-            return _buildButton(
-              label: 'Requested',
-              isLoading: isLoading,
-              isPrimary: false,
-              onPressed: () async {
-                // Cancel the request
-                await ref
-                    .read(friendshipNotifierProvider.notifier)
-                    .unfriend(targetUserId);
-                ref.invalidate(friendshipStatusProvider(targetUserId));
-              },
-            );
-          } else {
-            // Current user received the request - show Accept/Decline
-            return Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildButton(
-                  label: 'Accept',
-                  isLoading: isLoading,
-                  isPrimary: true,
-                  width: 130,
-                  onPressed: () async {
-                    await ref
-                        .read(friendshipNotifierProvider.notifier)
-                        .acceptFriendRequest(
-                          friendship.id,
-                          senderId: friendship.senderId,
-                          senderUsername: friendship.senderUsername,
-                          senderPhotoUrl: friendship.senderPhotoUrl,
-                          receiverUsername: friendship.receiverUsername,
-                          receiverPhotoUrl: friendship.receiverPhotoUrl,
-                        );
-                    ref.invalidate(friendshipStatusProvider(targetUserId));
-                    ref.invalidate(currentUserProfileProvider);
-                    ref.invalidate(userProfileProvider(targetUserId));
-                  },
-                ),
-                const SizedBox(width: 12),
-                _buildButton(
-                  label: 'Decline',
-                  isLoading: isLoading,
-                  isPrimary: false,
-                  width: 130,
-                  onPressed: () async {
-                    await ref
-                        .read(friendshipNotifierProvider.notifier)
-                        .declineFriendRequest(friendship.id);
-                    ref.invalidate(friendshipStatusProvider(targetUserId));
-                  },
-                ),
-              ],
-            );
-          }
-        }
-
-        if (friendship.isAccepted) {
-          // Already friends - show Following
-          return _buildButton(
-            label: 'Following',
-            isLoading: isLoading,
-            isPrimary: false,
-            onPressed: () {
-              // Show confirmation dialog before unfollowing
-              _showUnfollowDialog(
-                  context, ref, targetUserId, targetProfile.username);
-            },
-          );
-        }
-
-        // Declined - show Follow button again
-        return _buildButton(
-          label: 'Follow',
-          isLoading: isLoading,
-          isPrimary: true,
-          onPressed: () async {
-            await ref
-                .read(friendshipNotifierProvider.notifier)
-                .sendFriendRequest(
-                  receiverId: targetUserId,
-                  senderUsername: currentProfile?.username,
-                  senderPhotoUrl: currentProfile?.photoUrl,
-                  receiverUsername: targetProfile.username,
-                  receiverPhotoUrl: targetProfile.photoUrl,
-                );
-            ref.invalidate(friendshipStatusProvider(targetUserId));
-          },
-        );
-      },
-      loading: () => _buildButton(
-        label: 'Follow',
-        isLoading: true,
-        isPrimary: false,
-        onPressed: null,
-      ),
-      error: (_, __) => _buildButton(
-        label: 'Follow',
-        isLoading: false,
-        isPrimary: true,
-        onPressed: () async {
-          await ref.read(friendshipNotifierProvider.notifier).sendFriendRequest(
-                receiverId: targetUserId,
-                senderUsername: currentProfile?.username,
-                senderPhotoUrl: currentProfile?.photoUrl,
-                receiverUsername: targetProfile.username,
-                receiverPhotoUrl: targetProfile.photoUrl,
-              );
-          ref.invalidate(friendshipStatusProvider(targetUserId));
-        },
-      ),
+    final locked =
+        !isOwnProfile && ref.watch(profileLockedProvider(profile.uid));
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: locked
+          ? null
+          : () => context.push(
+              '/follows/${profile.uid}?tab=${kind == FollowListKind.followers ? 'followers' : 'following'}'),
+      child: child,
     );
   }
+}
 
-  /// Glass, like every other control (ADR 0004 D8): Follow and Accept are
-  /// the bright lens, everything else the darker pill. Never solid white.
-  Widget _buildButton({
-    required String label,
-    required bool isLoading,
-    required bool isPrimary,
-    VoidCallback? onPressed,
-    double width = 200,
-  }) {
-    final icon = switch (label) {
-      'Follow' => CupertinoIcons.person_add,
-      'Following' => CupertinoIcons.person_crop_circle_badge_checkmark,
-      'Requested' => CupertinoIcons.clock,
-      'Accept' => CupertinoIcons.checkmark_alt,
-      'Decline' => CupertinoIcons.xmark,
-      _ => null,
+/// Whether [userId]'s profile is private to you: private, and you don't
+/// follow it. The profile shows only its header then (ADR 0004 D3).
+final profileLockedProvider =
+    Provider.autoDispose.family<bool, String>((ref, userId) {
+  final private = ref.watch(isPrivateProvider(userId)).valueOrNull ?? false;
+  if (!private) return false;
+  final rel = ref.watch(followRelationProvider(userId)).valueOrNull;
+  return rel?.outgoing != FollowState.following;
+});
+
+/// Someone else's profile: a request they've sent you, and the Follow button
+/// (ADR 0004 D8): Follow, Follow back, Requested, Following, or Friends when
+/// you follow each other.
+class _FollowControls extends ConsumerWidget {
+  const _FollowControls({required this.profile});
+
+  final UserModel profile;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rel = ref.watch(followRelationProvider(profile.uid)).valueOrNull ??
+        FollowRelation.nothing;
+    final actions = ref.read(followActionsProvider);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (rel.incoming == FollowState.requested) ...[
+          Container(
+            padding: const EdgeInsets.fromLTRB(
+                AppSpace.lg, AppSpace.md, AppSpace.md, AppSpace.md),
+            decoration: glassWellDecoration(),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '@${profile.username} wants to follow you',
+                    style: AppText.body.copyWith(fontSize: 15),
+                  ),
+                ),
+                GlassPillButton(
+                  label: 'Confirm',
+                  prominent: true,
+                  compact: true,
+                  onTap: () => actions.accept(profile.uid),
+                ),
+                const SizedBox(width: AppSpace.sm),
+                GlassPillButton(
+                  label: 'Delete',
+                  compact: true,
+                  onTap: () => actions.removeFollower(profile.uid),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpace.md),
+        ],
+        _FollowButton(profile: profile, relation: rel),
+      ],
+    );
+  }
+}
+
+class _FollowButton extends ConsumerStatefulWidget {
+  const _FollowButton({required this.profile, required this.relation});
+
+  final UserModel profile;
+  final FollowRelation relation;
+
+  @override
+  ConsumerState<_FollowButton> createState() => _FollowButtonState();
+}
+
+class _FollowButtonState extends ConsumerState<_FollowButton> {
+  bool _busy = false;
+
+  Future<void> _run(Future<Object?> Function() op) async {
+    setState(() => _busy = true);
+    final result = await op();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (result == null || result == false) {
+      showGlassToast(context, 'Something went wrong. Try again.',
+          destructive: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final actions = ref.read(followActionsProvider);
+    final username = widget.profile.username;
+    final (label, icon, primary, onTap) = switch (widget.relation.outgoing) {
+      FollowState.none => (
+          widget.relation.followsYou ? 'Follow back' : 'Follow',
+          CupertinoIcons.person_add,
+          true,
+          () => _run(() => actions.follow(widget.profile.uid)),
+        ),
+      FollowState.requested => (
+          'Requested',
+          CupertinoIcons.clock,
+          false,
+          () => _run(() => actions.unfollow(widget.profile.uid)),
+        ),
+      // Following each other reads as friends; one way, as following.
+      FollowState.following => (
+          widget.relation.followsYou ? 'Friends' : 'Following',
+          widget.relation.followsYou
+              ? CupertinoIcons.person_2_fill
+              : CupertinoIcons.person_crop_circle_badge_checkmark,
+          false,
+          () async {
+            if (await confirmUnfollow(context, username)) {
+              await _run(() => actions.unfollow(widget.profile.uid));
+            }
+          },
+        ),
     };
     return SizedBox(
-      width: width,
+      width: 200,
       child: GlassPillButton(
         label: label,
         icon: icon,
-        prominent: isPrimary,
+        prominent: primary,
         expand: true,
-        busy: isLoading,
-        onTap: onPressed,
+        busy: _busy,
+        onTap: onTap,
       ),
     );
-  }
-
-  Future<void> _showUnfollowDialog(BuildContext context, WidgetRef ref,
-      String userId, String username) async {
-    final confirmed = await showGlassConfirm(
-      context,
-      title: 'Unfollow @$username?',
-      message:
-          'You\'ll stop seeing each other\'s posts until you follow again.',
-      confirmLabel: 'Unfollow',
-      destructive: true,
-    );
-    if (!confirmed) return;
-    await ref.read(friendshipNotifierProvider.notifier).unfriend(userId);
-    ref.invalidate(friendshipStatusProvider(userId));
-    ref.invalidate(currentUserProfileProvider);
-    ref.invalidate(userProfileProvider(userId));
   }
 }

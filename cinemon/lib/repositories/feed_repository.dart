@@ -171,7 +171,7 @@ class FeedRepository {
   }
 
   /// One page of Home: activities and Explore posts by you and the people
-  /// you follow each other with, newest first, as references.
+  /// you follow, newest first, as references.
   ///
   /// Keyset-paged on (created_at, id): rows arriving in either table while
   /// someone scrolls can't shift a page the way an offset would.

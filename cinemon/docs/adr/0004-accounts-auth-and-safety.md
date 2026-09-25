@@ -1,6 +1,6 @@
 # ADR 0004 — Accounts: reporting everything, real auth, public and private profiles
 
-- **Status:** Accepted 2026-09-24. Phases 1 and 2 built 2026-09-24; Phases 3–4 open.
+- **Status:** Accepted 2026-09-24. Phases 1, 2 and 4 built 2026-09-24; Phase 3 (Apple and Google) waits on the Apple account.
 - **Date:** 2026-09-24
 - **Scope:**
   - Making every piece of user content reportable.
@@ -107,11 +107,11 @@ Owner's decision, 2026-09-24.
   - A new `follow` type ("started following you") for public accounts.
   - `followRequest` for private accounts.
   - `followAccepted` when a request is approved.
-  - The enum value goes in its own migration (`016a`), as with `011a`.
+  - The enum value goes in its own migration (`016_notification_types`), run before `017`, as with `011a`.
 
-**Moving existing data** (migration `016_follows`)
+**Moving existing data** (migration `017_follows`)
 - Every accepted friendship becomes **two accepted follows**, so nobody loses anyone.
-- Every pending friendship becomes one pending follow from the sender to the receiver.
+- Every pending friendship becomes an accepted follow from the sender, and its notification becomes "started following you": everyone starts public, and public accounts don't take requests (amended while building).
 - Declined friendships are dropped.
 - `friendships` stays in place, unused, until every TestFlight tester is on the new build. A later migration drops it.
 
@@ -234,7 +234,7 @@ Each phase is its own branch and ends with a TestFlight build, so testers see pr
 | **1. Report everything** | D1: migration `014`, `showReportSheet`, menus on all content, moderation queue across kinds. Also locks the iPhone app to portrait. | Paste `014` into the SQL editor |
 | **2. Auth core and restyle** | D4, D5, D7, D8 (`GlassTextField`, login, sign-up, code screen, forgot password, onboarding). Migration `015_onboarding`. | Dashboard settings in D4 and D5. Resend and SMTP (can come later; codes work with the built-in sender at low volume) |
 | **3. Apple and Google** | D6, including the `apple-token` Edge Function and revoke-on-delete | Apple: enable the capability on the App ID, create a Services ID and a `.p8` key. Google: Cloud project with iOS and Web OAuth clients. Supabase: enable both providers. Step-by-step instructions come with the phase. |
-| **4. Follows and private accounts** | D2, D3, and the D8 Follow button, requests, locked profile, Followers/Following tabs. Migrations `016`, `016a`. | Paste the migrations, **at the same time as the build goes out** (older builds read `friendships`) |
+| **4. Follows and private accounts** | D2, D3, and the D8 Follow button, requests, locked profile, Followers/Following tabs. Migrations `016_notification_types`, `017_follows`, `018_explore_notifications`. | Paste the migrations, **at the same time as the build goes out** (older builds read `friendships`) |
 | **Then** | Update the website's privacy page (Apple and Google sign-in, private accounts, the reporting scope) and check the `/p/` and `/u/` fallbacks. Resume the App Store checklist. | — |
 
 **Progress:**
@@ -270,6 +270,28 @@ Each phase is its own branch and ends with a TestFlight build, so testers see pr
   - The rules are shared with Edit Profile (`lib/core/utils/auth_rules.dart`, unit-tested).
   - The email templates are in `supabase/templates/`.
   - The website gains `/terms` (zero tolerance for objectionable content, as Guideline 1.2 expects), linked from sign-up.
+- **Phase 4:** built 2026-09-24.
+  - `016_notification_types` and `017_follows`, tested on the scratch cluster:
+    - Seeded with accepted, pending and declined friendships, then 20 behaviour checks across six users.
+    - Also covered: account deletion, and a rerun of the file.
+    - One amendment from testing: a follow row is visible only when you can see both people, so a private account's followers can't be listed through its public followers.
+  - The app:
+    - `FollowRepository` and `follow_provider.dart` replace the friendship code.
+    - The Follow button: Follow, Follow back, Requested, Following.
+    - A "Follows you" tag, and a "wants to follow you" row with Confirm and Delete.
+    - A locked profile when private.
+    - Settings → Private account, and a private switch in onboarding.
+    - People (`/friends`) and anyone's `/follows/<id>`: Followers and Following, with Remove and unfollow on your own.
+    - Follow requests at the top of Notifications and People.
+    - The `follow` notification type.
+    - Playlist visibility "Friends" is now "Followers".
+  - Website privacy and support pages updated.
+  - Follow-ups from the owner, same day:
+    - Mutual follows show **Friends** on the button, and the separate "Follows you" tag is gone.
+    - `018_explore_notifications` notifies on votes on your posts (one per voter; a changed vote updates it, a withdrawn one removes it), on replies to your posts and replies, and on saves of your playlists.
+    - Tapping a notification opens its subject: the review, the comment sheet, the Explore thread or the playlist. The avatar opens the person.
+    - Activity has glass filter chips: All, Likes, Comments, Votes, Saves, Follows. Shares can't be counted, since sharing leaves no record.
+    - Saved playlists show under **Saved** on your own Lists tab. They had no home before.
 
 Every migration is tested first on the local Postgres 16 scratch cluster, with the stub `auth` and `storage` schemas, acting as several users under `set role authenticated`.
 

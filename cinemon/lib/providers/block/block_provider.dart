@@ -5,7 +5,7 @@ import '../auth/auth_provider.dart';
 import '../explore/explore_provider.dart';
 import '../feed/feed_provider.dart'
     show homeFeedProvider, userProfileProvider, userActivitiesProvider;
-import '../friendship/friendship_provider.dart';
+import '../follow/follow_provider.dart';
 
 final blockRepositoryProvider =
     Provider<BlockRepository>((ref) => BlockRepository());
@@ -54,10 +54,10 @@ class BlockActions {
   void _refresh(String userId) {
     _ref.invalidate(blockedAccountsProvider);
     _ref.invalidate(homeFeedProvider);
-    _ref.invalidate(friendIdsProvider);
+    _ref.invalidate(followingIdsProvider);
     _ref.invalidate(userProfileProvider(userId));
     _ref.invalidate(userActivitiesProvider(userId));
-    _ref.invalidate(friendshipStatusProvider(userId));
+    _ref.invalidate(followRelationProvider(userId));
   }
 }
 

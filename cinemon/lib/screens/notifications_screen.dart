@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import '../core/theme/app_theme.dart';
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'widgets/glass_panel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +8,16 @@ import 'package:go_router/go_router.dart';
 import '../core/constants/api_constants.dart';
 import '../models/notification_model.dart';
 import '../models/sticker_model.dart';
+import '../providers/follow/follow_provider.dart'
+    show followRequestCountProvider;
+import '../providers/explore/explore_provider.dart'
+    show exploreRepositoryProvider;
+import '../providers/feed/feed_provider.dart' show feedRepositoryProvider;
 import '../providers/notification/notification_provider.dart';
+import 'explore/explore_thread.dart' show showExploreThread;
+import 'widgets/comments_sheet.dart' show showCommentsSheet;
+import 'follow_list_screen.dart'
+    show FollowRequestsBanner, showFollowRequestsPanel;
 
 /// Activity/Notifications screen - Instagram-style activity feed
 class NotificationsScreen extends ConsumerStatefulWidget {
@@ -18,7 +28,33 @@ class NotificationsScreen extends ConsumerStatefulWidget {
       _NotificationsScreenState();
 }
 
+/// The Activity filter chips.
+enum _ActivityFilter {
+  all('All', {}),
+  likes('Likes', {NotificationType.like, NotificationType.reaction}),
+  comments('Comments', {
+    NotificationType.comment,
+    NotificationType.exploreComment,
+    NotificationType.exploreReply,
+  }),
+  votes('Votes', {NotificationType.vote}),
+  saves('Saves', {NotificationType.listSave}),
+  follows('Follows', {
+    NotificationType.follow,
+    NotificationType.followRequest,
+    NotificationType.followAccepted,
+  });
+
+  const _ActivityFilter(this.label, this.types);
+
+  final String label;
+  final Set<NotificationType> types;
+
+  bool matches(NotificationModel n) => types.isEmpty || types.contains(n.type);
+}
+
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
+  _ActivityFilter _filter = _ActivityFilter.all;
   @override
   void initState() {
     super.initState();
@@ -100,9 +136,52 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               ],
             ),
           ),
-          data: (notifications) {
-            if (notifications.isEmpty) {
-              return _buildEmptyState();
+          data: (all) {
+            final notifications = all.where(_filter.matches).toList();
+            // Requests to follow your private account sit above everything.
+            final requests =
+                ref.watch(followRequestCountProvider).valueOrNull ?? 0;
+            final lead = requests > 0 &&
+                    (_filter == _ActivityFilter.all ||
+                        _filter == _ActivityFilter.follows)
+                ? 1
+                : 0;
+            final chips = SizedBox(
+              height: 32 + AppSpace.md * 2,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpace.lg, vertical: AppSpace.md),
+                children: [
+                  for (final f in _ActivityFilter.values) ...[
+                    if (f != _ActivityFilter.all)
+                      const SizedBox(width: AppSpace.sm),
+                    GlassChip(
+                      label: f.label,
+                      selected: _filter == f,
+                      onTap: () => setState(() => _filter = f),
+                    ),
+                  ],
+                ],
+              ),
+            );
+            if (notifications.isEmpty && lead == 0) {
+              return Column(
+                children: [
+                  chips,
+                  Expanded(
+                    child: _filter == _ActivityFilter.all
+                        ? _buildEmptyState()
+                        : Center(
+                            child: Text(
+                              'No ${_filter.label.toLowerCase()} yet',
+                              style: AppText.body
+                                  .copyWith(color: AppColors.inkSecondary),
+                            ),
+                          ),
+                  ),
+                ],
+              );
             }
 
             return RefreshIndicator(
@@ -112,13 +191,23 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               color: Colors.white,
               backgroundColor: AppColors.surface,
               child: ListView.builder(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: notifications.length,
+                padding: const EdgeInsets.only(bottom: 8),
+                itemCount: notifications.length + lead + 1,
                 itemBuilder: (context, index) {
+                  if (index == 0) return chips;
+                  index -= 1;
+                  if (index < lead) {
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                          AppSpace.lg, AppSpace.xs, AppSpace.lg, AppSpace.sm),
+                      child: FollowRequestsBanner(count: requests),
+                    );
+                  }
+                  final n = notifications[index - lead];
                   return _NotificationTile(
-                    notification: notifications[index],
-                    onTap: () => _handleNotificationTap(notifications[index]),
-                    onDismiss: () => _handleDismiss(notifications[index]),
+                    notification: n,
+                    onTap: () => _handleNotificationTap(n),
+                    onDismiss: () => _handleDismiss(n),
                   );
                 },
               ),
@@ -162,25 +251,55 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     );
   }
 
-  void _handleNotificationTap(NotificationModel notification) {
-    // New work from someone you follow opens the title itself.
-    if (notification.type == NotificationType.personNewCredit) {
-      if (notification.filmId != null) {
-        context.push(
-            '/film/${notification.filmId}/${notification.mediaType ?? 'movie'}');
-      }
-      return;
-    }
-    // Navigate based on notification type
-    if (notification.type == NotificationType.followRequest ||
-        notification.type == NotificationType.followAccepted) {
-      context.push('/profile/${notification.actorId}');
-    } else if (notification.activityId != null) {
-      // For now, navigate to the actor's profile
-      // Could be enhanced to navigate to the specific activity
-      context.push('/profile/${notification.actorId}');
+  /// A notification opens what it's about; its avatar opens who did it.
+  Future<void> _handleNotificationTap(NotificationModel n) async {
+    switch (n.type) {
+      case NotificationType.personNewCredit:
+        if (n.filmId != null) {
+          context.push('/film/${n.filmId}/${n.mediaType ?? 'movie'}');
+        }
+      case NotificationType.followRequest:
+        showFollowRequestsPanel(context);
+      case NotificationType.follow || NotificationType.followAccepted:
+        context.push('/profile/${n.actorId}');
+      case NotificationType.listSave:
+        if (n.listId != null) context.push('/lists/${n.listId}');
+      case NotificationType.vote ||
+            NotificationType.exploreComment ||
+            NotificationType.exploreReply:
+        final id = n.explorePostId;
+        if (id == null) return;
+        final post = await ref.read(exploreRepositoryProvider).getPost(id);
+        if (!mounted) return;
+        if (post == null) return _gone();
+        showExploreThread(context, post);
+      case NotificationType.like ||
+            NotificationType.reaction ||
+            NotificationType.comment:
+        final id = n.activityId;
+        if (id == null) return;
+        final activity = await ref.read(feedRepositoryProvider).getActivity(id);
+        if (!mounted) return;
+        if (activity == null) return _gone();
+        if (n.type == NotificationType.comment) {
+          // Straight to the conversation.
+          showCommentsSheet(
+            context,
+            activityId: activity.id,
+            filmTitle: activity.displayTitle,
+            activityOwnerId: activity.userId,
+            filmPosterPath: activity.filmPosterPath,
+          );
+        } else {
+          final type =
+              activity.mediaType.isNotEmpty ? activity.mediaType : 'movie';
+          context.push('/film/${activity.filmId}/$type', extra: activity);
+        }
     }
   }
+
+  void _gone() => showGlassToast(context, 'That\'s been deleted.',
+      icon: CupertinoIcons.trash);
 
   void _handleDismiss(NotificationModel notification) {
     ref
@@ -395,6 +514,24 @@ class _NotificationTile extends StatelessWidget {
         break;
       case NotificationType.reaction:
         icon = Icons.add_reaction;
+        color = AppColors.gold;
+        break;
+      case NotificationType.follow:
+        icon = Icons.person_add_alt_1;
+        color = AppColors.info;
+        break;
+      case NotificationType.vote:
+        icon = notification.vote == -1 ? Icons.thumb_down : Icons.thumb_up;
+        color =
+            notification.vote == -1 ? AppColors.destructive : AppColors.success;
+        break;
+      case NotificationType.exploreComment:
+      case NotificationType.exploreReply:
+        icon = Icons.forum;
+        color = AppColors.info;
+        break;
+      case NotificationType.listSave:
+        icon = Icons.bookmark;
         color = AppColors.gold;
         break;
       case NotificationType.followRequest:

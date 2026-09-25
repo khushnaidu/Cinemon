@@ -2,7 +2,9 @@
 /// Plain read-only classes; writes go through `ListRepository` as maps.
 enum ListVisibility {
   public('Public', 'Anyone on 35mm'),
-  friends('Friends', 'People you follow each other with'),
+  // Stored as 'friends'; since one-way follows (ADR 0004) it means your
+  // approved followers.
+  friends('Followers', 'People who follow you'),
   private('Only you', 'Nobody else can see it');
 
   const ListVisibility(this.label, this.detail);

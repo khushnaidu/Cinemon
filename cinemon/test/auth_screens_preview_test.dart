@@ -9,6 +9,7 @@ import 'package:cinemon/core/theme/app_theme.dart';
 import 'package:cinemon/models/user_model.dart';
 import 'package:cinemon/providers/auth/auth_provider.dart';
 import 'package:cinemon/providers/feed/feed_provider.dart';
+import 'package:cinemon/providers/follow/follow_provider.dart';
 import 'package:cinemon/repositories/auth_repository.dart';
 import 'package:cinemon/repositories/user_repository.dart';
 import 'package:cinemon/screens/auth/login_screen.dart';
@@ -92,6 +93,36 @@ void main() {
     'forgot': () => const ForgotPasswordScreen(),
     'new_password': () => const NewPasswordScreen(),
     'onboarding': () => const OnboardingScreen(),
+    // Someone who follows you and has asked to (a private account's view).
+    'profile_other_request': () => Scaffold(
+          backgroundColor: Colors.black,
+          body: SafeArea(
+            child: ProfileHeader(
+              profile: profile.copyWith(uid: 'asker', username: 'carol'),
+              isOwnProfile: false,
+            ),
+          ),
+        ),
+    // You follow each other.
+    'profile_other_friends': () => Scaffold(
+          backgroundColor: Colors.black,
+          body: SafeArea(
+            child: ProfileHeader(
+              profile: profile.copyWith(uid: 'pal', username: 'dave'),
+              isOwnProfile: false,
+            ),
+          ),
+        ),
+    // Someone who follows you, whom you don't follow yet.
+    'profile_other_followback': () => Scaffold(
+          backgroundColor: Colors.black,
+          body: SafeArea(
+            child: ProfileHeader(
+              profile: profile.copyWith(uid: 'fan', username: 'bob'),
+              isOwnProfile: false,
+            ),
+          ),
+        ),
     // The top of your own profile: brush name, grey @name, then the rest.
     'profile_header': () => Scaffold(
           backgroundColor: Colors.black,
@@ -143,6 +174,18 @@ void main() {
           userRepositoryProvider.overrideWithValue(_FreeNames(client)),
           currentUserProvider.overrideWithValue(user),
           currentUserProfileProvider.overrideWith((ref) async => profile),
+          isPrivateProvider.overrideWith((ref, id) async => false),
+          followRelationProvider.overrideWith((ref, id) async => id == 'pal'
+              ? const FollowRelation(
+                  outgoing: FollowState.following,
+                  incoming: FollowState.following)
+              : id == 'asker'
+                  ? const FollowRelation(
+                      outgoing: FollowState.none,
+                      incoming: FollowState.requested)
+                  : const FollowRelation(
+                      outgoing: FollowState.none,
+                      incoming: FollowState.following)),
         ],
         child: RepaintBoundary(
           key: key,

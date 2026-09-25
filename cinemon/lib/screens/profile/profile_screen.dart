@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:flutter/cupertino.dart' show CupertinoIcons;
+import 'package:flutter/cupertino.dart' show CupertinoIcons, CupertinoSwitch;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -19,7 +19,7 @@ import '../../providers/feed/feed_provider.dart'
         syncReviewCountProvider,
         earnedBadgesProvider,
         myBadgeProgressProvider;
-import '../../providers/friendship/friendship_provider.dart';
+import '../../providers/follow/follow_provider.dart';
 import '../../providers/lists/list_provider.dart'
     show myWatchlistProvider, playlistsProvider, watchlistProvider;
 import '../../providers/user/favorites_provider.dart';
@@ -125,6 +125,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final userId = widget.userId;
     final currentUser = ref.watch(currentUserProvider);
     final isOwnProfile = userId == null || userId == currentUser?.uid;
+    final locked = !isOwnProfile && ref.watch(profileLockedProvider(userId));
 
     // Watch the appropriate profile based on whether it's own or other user
     final profileAsync = isOwnProfile
@@ -225,44 +226,52 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                               ),
                               if (isOwnProfile)
                                 MonthInFilmTile(userId: profile.uid),
-                              RecentlyWatchedSection(
-                                userId: profile.uid,
-                                isOwnProfile: isOwnProfile,
-                                username: profile.username,
-                              ),
+                              if (!locked)
+                                RecentlyWatchedSection(
+                                  userId: profile.uid,
+                                  isOwnProfile: isOwnProfile,
+                                  username: profile.username,
+                                ),
                               const SizedBox(height: AppSpace.md),
                             ],
                           ),
                         ),
 
-                        SliverPersistentHeader(
-                          pinned: true,
-                          delegate: _TabBarDelegate(
-                            height: _tabBarHeight,
-                            tab: tab,
-                            onSelect: (t) => _select(profile.uid, t),
-                          ),
-                        ),
+                        // Private and you don't follow them: the header is
+                        // all there is (ADR 0004 D3).
+                        if (locked)
+                          const SliverToBoxAdapter(child: _PrivateNotice()),
 
-                        switch (tab) {
-                          ProfileTab.posts => PostsTab(
-                              userId: profile.uid,
-                              isOwnProfile: isOwnProfile,
+                        if (!locked)
+                          SliverPersistentHeader(
+                            pinned: true,
+                            delegate: _TabBarDelegate(
+                              height: _tabBarHeight,
+                              tab: tab,
+                              onSelect: (t) => _select(profile.uid, t),
                             ),
-                          ProfileTab.lists => ListsTab(
-                              userId: profile.uid,
-                              isOwnProfile: isOwnProfile,
-                            ),
-                          ProfileTab.favorites => FavoritesTab(
-                              profile: profile,
-                              isOwnProfile: isOwnProfile,
-                            ),
-                          ProfileTab.badges => BadgesTab(
-                              userId: profile.uid,
-                              isOwnProfile: isOwnProfile,
-                              fallbackIds: profile.badgeIds,
-                            ),
-                        },
+                          ),
+
+                        if (!locked)
+                          switch (tab) {
+                            ProfileTab.posts => PostsTab(
+                                userId: profile.uid,
+                                isOwnProfile: isOwnProfile,
+                              ),
+                            ProfileTab.lists => ListsTab(
+                                userId: profile.uid,
+                                isOwnProfile: isOwnProfile,
+                              ),
+                            ProfileTab.favorites => FavoritesTab(
+                                profile: profile,
+                                isOwnProfile: isOwnProfile,
+                              ),
+                            ProfileTab.badges => BadgesTab(
+                                userId: profile.uid,
+                                isOwnProfile: isOwnProfile,
+                                fallbackIds: profile.badgeIds,
+                              ),
+                          },
 
                         // Clear of the floating tab bar, and tall enough that
                         // a short tab can still scroll the header away.
@@ -439,6 +448,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             },
           ),
           const GlassMenuDivider(),
+          const _PrivateAccountRow(),
+          const GlassMenuDivider(),
           GlassMenuRow(
             icon: CupertinoIcons.hand_raised,
             title: 'Blocked accounts',
@@ -458,7 +469,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               // Drop cached user data so the next account doesn't inherit it.
               ref.invalidate(currentUserProfileProvider);
               ref.invalidate(homeFeedProvider);
-              ref.invalidate(friendIdsProvider);
+              ref.invalidate(followingIdsProvider);
               await ref.read(authControllerProvider.notifier).signOut();
               router.go('/login');
             },
@@ -482,7 +493,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               if (!deleted) return;
               ref.invalidate(currentUserProfileProvider);
               ref.invalidate(homeFeedProvider);
-              ref.invalidate(friendIdsProvider);
+              ref.invalidate(followingIdsProvider);
               await ref.read(authControllerProvider.notifier).signOut();
               router.go('/login');
               if (context.mounted) {
@@ -547,4 +558,82 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(_TabBarDelegate old) =>
       old.tab != tab || old.height != height || old.onSelect != onSelect;
+}
+
+/// In place of the tabs on a private profile you don't follow.
+class _PrivateNotice extends StatelessWidget {
+  const _PrivateNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          AppSpace.xl, AppSpace.md, AppSpace.xl, AppSpace.xl),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpace.xl),
+        decoration: glassWellDecoration(radius: 26),
+        child: Column(
+          children: [
+            const Icon(CupertinoIcons.lock_fill,
+                size: 30, color: AppColors.inkSecondary),
+            const SizedBox(height: AppSpace.md),
+            Text('This account is private', style: AppText.headline),
+            const SizedBox(height: AppSpace.xs),
+            Text(
+              'Follow to see their reviews, posts and lists.',
+              textAlign: TextAlign.center,
+              style: AppText.body.copyWith(color: AppColors.inkSecondary),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Settings → Private account (ADR 0004 D3).
+class _PrivateAccountRow extends ConsumerWidget {
+  const _PrivateAccountRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final me = ref.watch(currentUserProvider)?.uid;
+    if (me == null) return const SizedBox.shrink();
+    final private = ref.watch(isPrivateProvider(me)).valueOrNull ?? false;
+
+    Future<void> set(bool value) async {
+      if (!value) {
+        final requests = ref.read(followRequestsProvider).valueOrNull ?? [];
+        if (requests.isNotEmpty) {
+          final ok = await showGlassConfirm(
+            context,
+            title: 'Make your account public?',
+            message: 'Anyone can see your posts, and the '
+                '${requests.length} people waiting will start following you.',
+            confirmLabel: 'Make public',
+          );
+          if (!ok) return;
+        }
+      }
+      final done = await ref.read(followActionsProvider).setPrivate(value);
+      if (!done && context.mounted) {
+        showGlassToast(context, 'Couldn\'t change that. Try again.',
+            destructive: true);
+      }
+    }
+
+    return GlassMenuRow(
+      icon: private ? CupertinoIcons.lock_fill : CupertinoIcons.lock_open,
+      title: 'Private account',
+      subtitle: private
+          ? 'Only people you approve see your posts'
+          : 'Anyone can see your posts and follow you',
+      trailing: CupertinoSwitch(
+        value: private,
+        activeTrackColor: AppColors.success,
+        onChanged: set,
+      ),
+      onTap: () => set(!private),
+    );
+  }
 }

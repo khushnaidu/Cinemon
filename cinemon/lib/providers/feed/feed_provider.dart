@@ -15,7 +15,7 @@ import '../../repositories/feed_repository.dart';
 import '../../repositories/user_repository.dart';
 import '../auth/auth_provider.dart';
 import '../explore/explore_provider.dart' show exploreRepositoryProvider;
-import '../friendship/friendship_provider.dart';
+import '../follow/follow_provider.dart' show followingIdsProvider;
 import '../lists/list_provider.dart' show watchlistActionsProvider;
 import '../movie/movie_provider.dart' show personPageProvider;
 
@@ -60,7 +60,7 @@ final userProfileProvider =
   return userRepo.getUser(userId);
 });
 
-/// Home: your and your friends' logs, and their Explore posts, in one
+/// Home: your logs and those of people you follow, and their Explore posts, in one
 /// timeline (ADR 0001, 4.6). Each page is a list of references from the
 /// `home_feed` view, then two batch reads to fill them in.
 class HomeFeedNotifier extends AsyncNotifier<HomeFeed> {
@@ -72,9 +72,9 @@ class HomeFeedNotifier extends AsyncNotifier<HomeFeed> {
     if (currentUser == null) {
       throw Exception('Not logged in');
     }
-    // The view works out who your friends are itself; this only rebuilds
+    // The view works out who you follow itself; this only rebuilds
     // Home when that changes.
-    await ref.watch(friendIdsProvider.future);
+    await ref.watch(followingIdsProvider.future);
     try {
       return await _page(null, const []);
     } catch (e) {
@@ -203,21 +203,22 @@ final userEpisodeActivitiesProvider =
   return map;
 });
 
-/// Provider to get friends' activities for a specific film
+/// Reviews of a film by the people you follow, for its page.
 final friendsFilmActivitiesProvider =
     FutureProvider.family<List<ActivityModel>, int>((ref, filmId) async {
   final currentUser = ref.watch(currentUserProvider);
   if (currentUser == null) return [];
 
-  final friendIds = await ref.watch(friendIdsProvider.future);
-  if (friendIds.isEmpty) return [];
+  final followingIds = await ref.watch(followingIdsProvider.future);
+  if (followingIds.isEmpty) return [];
 
   final feedRepo = ref.watch(feedRepositoryProvider);
   final allActivities = await feedRepo.getFilmActivities(filmId: filmId);
 
-  // Filter to only include friends' activities (exclude own)
+  // The people you follow, not you.
   return allActivities
-      .where((a) => friendIds.contains(a.userId) && a.userId != currentUser.uid)
+      .where(
+          (a) => followingIds.contains(a.userId) && a.userId != currentUser.uid)
       .toList();
 });
 

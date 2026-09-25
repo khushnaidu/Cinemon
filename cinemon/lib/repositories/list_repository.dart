@@ -92,6 +92,26 @@ class ListRepository {
     return rows.map(FilmList.fromRow).toList();
   }
 
+  /// Other people's playlists you've saved, most recently saved first, with
+  /// each owner's username. A list you can no longer see (made private, or
+  /// its owner blocked you) drops out.
+  Future<List<(FilmList, String?)>> getSavedPlaylists(String userId) async {
+    final rows = await _client
+        .from('list_saves')
+        .select('created_at, '
+            'list:lists(*, owner:profiles!lists_user_id_fkey(username))')
+        .eq('user_id', userId)
+        .order('created_at', ascending: false);
+    return [
+      for (final r in rows)
+        if (r['list'] != null)
+          (
+            FilmList.fromRow(r['list'] as Map<String, dynamic>),
+            ((r['list'] as Map)['owner'] as Map?)?['username'] as String?,
+          ),
+    ];
+  }
+
   /// The first four posters of each list, for covers. One query for a whole
   /// rail of lists.
   Future<Map<String, List<String?>>> getCoverPosters(

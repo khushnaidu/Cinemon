@@ -107,6 +107,55 @@ class ListsTab extends ConsumerWidget {
               },
             ),
           ),
+        // Other people's playlists you've saved. Only on your own profile:
+        // what you save is yours to know.
+        if (isOwnProfile) const _SavedPlaylists(),
+      ],
+    );
+  }
+}
+
+class _SavedPlaylists extends ConsumerWidget {
+  const _SavedPlaylists();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final saved = ref.watch(savedPlaylistsProvider).valueOrNull ?? const [];
+    if (saved.isEmpty)
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    return SliverMainAxisGroup(
+      slivers: [
+        const SliverPadding(
+          padding: EdgeInsets.fromLTRB(
+              AppSpace.xl, AppSpace.xl, AppSpace.xl, AppSpace.md),
+          sliver: SliverToBoxAdapter(child: GlassSectionLabel('Saved')),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          sliver: SliverGrid.builder(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: AppSpace.lg,
+              crossAxisSpacing: AppSpace.md,
+              childAspectRatio: 0.78,
+            ),
+            itemCount: saved.length,
+            itemBuilder: (context, i) {
+              final p = saved[i];
+              return _Tile(
+                cover: LayoutBuilder(
+                  builder: (_, c) => PlaylistCover(
+                      posters: p.posters, size: c.maxWidth, radius: 14),
+                ),
+                title: p.list.displayTitle,
+                subtitle: p.ownerUsername != null
+                    ? 'by @${p.ownerUsername}'
+                    : '${p.list.itemCount} titles',
+                onTap: () => context.push('/lists/${p.list.id}'),
+              );
+            },
+          ),
+        ),
       ],
     );
   }

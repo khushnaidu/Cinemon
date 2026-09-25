@@ -260,7 +260,7 @@ class _PlaylistEditorState extends ConsumerState<_PlaylistEditor> {
                                     .copyWith(color: AppColors.ink)),
                             const SizedBox(height: 1),
                             Text(
-                              'Your friends see it on Home too.',
+                              'Your followers see it on Home too.',
                               style: AppText.caption.copyWith(
                                   fontSize: 12, color: AppColors.inkTertiary),
                             ),

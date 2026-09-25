@@ -656,7 +656,7 @@ class _FriendsReviewsSection extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Friends\' Reviews',
+            'From people you follow',
             style: TextStyle(
               color: Colors.white,
               fontSize: 18,
@@ -689,7 +689,7 @@ class _FriendsReviewsSection extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Friends\' Reviews (${activities.length})',
+              'From people you follow (${activities.length})',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 18,

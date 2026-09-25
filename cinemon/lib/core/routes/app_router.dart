@@ -17,7 +17,8 @@ import '../../screens/explore/explore_screen.dart';
 import '../../screens/profile/profile_screen.dart';
 import '../../screens/edit_profile_screen.dart';
 import '../../screens/search_users_screen.dart';
-import '../../screens/friends_list_screen.dart';
+import '../../providers/follow/follow_provider.dart' show FollowListKind;
+import '../../screens/follow_list_screen.dart';
 import '../../screens/film_detail_screen.dart';
 import '../../screens/profile/user_activity_screen.dart';
 import '../../screens/notifications_screen.dart';
@@ -210,10 +211,21 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         name: 'edit-profile',
         builder: (context, state) => const EditProfileScreen(),
       ),
+      // Your people: requests, followers, following.
       GoRoute(
         path: '/friends',
         name: 'friends',
-        builder: (context, state) => const FriendsListScreen(),
+        builder: (context, state) => const FollowListScreen(),
+      ),
+      // Anyone's followers or following: /follows/<id>?tab=followers
+      GoRoute(
+        path: '/follows/:userId',
+        builder: (context, state) => FollowListScreen(
+          userId: state.pathParameters['userId'],
+          initial: state.uri.queryParameters['tab'] == 'followers'
+              ? FollowListKind.followers
+              : FollowListKind.following,
+        ),
       ),
       GoRoute(
         path: '/search-users',

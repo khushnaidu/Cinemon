@@ -116,7 +116,7 @@ class _SearchUsersScreenState extends ConsumerState<SearchUsersScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Find friends',
+            'Find people',
             style: TextStyle(
               color: Colors.white.withOpacity(0.7),
               fontSize: 18,

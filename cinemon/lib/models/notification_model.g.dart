@@ -25,6 +25,9 @@ _$NotificationModelImpl _$$NotificationModelImplFromJson(
       personProfilePath: json['person_profile_path'] as String?,
       filmId: (json['film_id'] as num?)?.toInt(),
       mediaType: json['media_type'] as String?,
+      explorePostId: json['explore_post_id'] as String?,
+      listId: json['list_id'] as String?,
+      vote: (json['vote'] as num?)?.toInt(),
       isRead: json['is_read'] as bool? ?? false,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
@@ -48,6 +51,9 @@ Map<String, dynamic> _$$NotificationModelImplToJson(
       'person_profile_path': instance.personProfilePath,
       'film_id': instance.filmId,
       'media_type': instance.mediaType,
+      'explore_post_id': instance.explorePostId,
+      'list_id': instance.listId,
+      'vote': instance.vote,
       'is_read': instance.isRead,
       'created_at': instance.createdAt.toIso8601String(),
     };
@@ -56,7 +62,12 @@ const _$NotificationTypeEnumMap = {
   NotificationType.like: 'like',
   NotificationType.comment: 'comment',
   NotificationType.reaction: 'reaction',
+  NotificationType.follow: 'follow',
   NotificationType.followRequest: 'followRequest',
+  NotificationType.vote: 'vote',
+  NotificationType.exploreComment: 'exploreComment',
+  NotificationType.exploreReply: 'exploreReply',
+  NotificationType.listSave: 'listSave',
   NotificationType.followAccepted: 'followAccepted',
   NotificationType.personNewCredit: 'personNewCredit',
 };

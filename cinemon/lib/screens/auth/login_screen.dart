@@ -9,7 +9,7 @@ import '../../core/utils/auth_errors.dart';
 import '../../providers/auth/auth_provider.dart';
 import '../../providers/auth/onboarding_provider.dart';
 import '../../providers/feed/feed_provider.dart';
-import '../../providers/friendship/friendship_provider.dart';
+import '../../providers/follow/follow_provider.dart';
 import '../widgets/glass_panel.dart';
 import '../widgets/glass_text_field.dart';
 import 'auth_scaffold.dart';
@@ -87,7 +87,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     // Nothing from the last account carries over.
     ref.invalidate(currentUserProfileProvider);
     ref.invalidate(homeFeedProvider);
-    ref.invalidate(friendIdsProvider);
+    ref.invalidate(followingIdsProvider);
     ref.invalidate(onboardedProvider);
 
     // The splash plays its GIF, then moves on to /login, which the router
