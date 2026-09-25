@@ -1,9 +1,10 @@
-import '../core/utils/image_check.dart';
 import 'dart:io';
 
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/config/supabase_config.dart';
+import '../core/utils/image_check.dart';
 import '../models/badge_model.dart';
 import '../models/user_model.dart';
 
@@ -112,7 +113,35 @@ class UserRepository {
   /// be retried. `delete_my_account` (migration 006) then deletes the auth
   /// user, which cascades through `profiles` to every row the account owns.
   /// The caller signs out afterwards.
+  /// If the account uses Sign in with Apple, revoke it with Apple first
+  /// (App Review 5.1.1(v)). The token kept at sign-in is used; an account
+  /// from before tokens were kept shows Apple's sheet once for a fresh
+  /// code. Best effort: deletion goes ahead either way, since it must never
+  /// be blocked.
+  Future<void> _revokeAppleSignIn() async {
+    final user = _client.auth.currentUser;
+    final providers = (user?.appMetadata['providers'] as List?) ?? const [];
+    final usesApple = providers.contains('apple') ||
+        (user?.identities ?? const []).any((i) => i.provider == 'apple');
+    if (!usesApple) return;
+    try {
+      final res = await _client.functions
+          .invoke('apple-revoke', body: {'action': 'revoke'});
+      final data = res.data;
+      if (data is Map && data['needCode'] == true) {
+        final credential = await SignInWithApple.getAppleIDCredential(
+          scopes: const [],
+        );
+        await _client.functions.invoke('apple-revoke', body: {
+          'action': 'revoke',
+          'code': credential.authorizationCode,
+        });
+      }
+    } catch (_) {}
+  }
+
   Future<void> deleteAccount(String uid) async {
+    await _revokeAppleSignIn();
     await _removeFolder('avatars', uid);
     await _removeFolder('review-media', uid);
     await _client.rpc('delete_my_account');

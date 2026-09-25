@@ -60,6 +60,15 @@ class AuthRepository {
       idToken: token,
       nonce: rawNonce,
     );
+    // Keep Apple's refresh token on the server, so deleting the account can
+    // revoke this sign-in (App Review 5.1.1(v); functions/apple-revoke).
+    // Best effort: Delete account asks Apple again if it's missing.
+    try {
+      await _client.functions.invoke('apple-revoke', body: {
+        'action': 'store',
+        'code': credential.authorizationCode,
+      });
+    } catch (_) {}
     // Apple gives the name only the first time someone signs in, and not in
     // the token: keep it, so onboarding can fill it in (Apple asks that
     // apps don't ask for it again).
