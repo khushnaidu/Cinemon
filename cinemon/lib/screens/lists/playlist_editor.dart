@@ -30,11 +30,13 @@ class PlaylistDeleted extends PlaylistEditResult {
 /// Create a playlist, or edit one when [editing] is given.
 ///
 /// [first] is a title to put on a new playlist straight away (from Add to…);
-/// [posters] are an existing list's first posters, for the preview.
+/// [posters] are an existing list's first posters, for the preview, and
+/// [items] its films, to pick a one-film cover from.
 Future<PlaylistEditResult?> showPlaylistEditor(
   BuildContext context, {
   FilmList? editing,
   List<String?> posters = const [],
+  List<ListItem> items = const [],
   FilmModel? first,
 }) {
   return showGlassPanel<PlaylistEditResult>(
@@ -47,6 +49,7 @@ Future<PlaylistEditResult?> showPlaylistEditor(
         if (first != null) first.posterPath,
         ...posters,
       ],
+      items: items,
       first: first,
     ),
   );
@@ -56,11 +59,13 @@ class _PlaylistEditor extends ConsumerStatefulWidget {
   const _PlaylistEditor({
     required this.editing,
     required this.posters,
+    required this.items,
     required this.first,
   });
 
   final FilmList? editing;
   final List<String?> posters;
+  final List<ListItem> items;
   final FilmModel? first;
 
   @override
@@ -74,6 +79,19 @@ class _PlaylistEditorState extends ConsumerState<_PlaylistEditor> {
   late ListVisibility _visibility =
       widget.editing?.visibility ?? ListVisibility.public;
   bool _busy = false;
+
+  /// Six-strip or one film. Our artwork on a Select is kept as it is: it
+  /// isn't offered here, and only changes if another style is picked.
+  late ListCoverStyle _coverStyle =
+      widget.editing?.coverStyle ?? ListCoverStyle.strip;
+  late String? _coverPath = widget.editing?.coverPath;
+  late final Set<ListMood> _moods = {...?widget.editing?.moods};
+
+  /// Films with a poster, to pick a cover from.
+  List<ListItem> get _coverChoices => [
+        for (final i in widget.items)
+          if (i.posterPath != null) i
+      ];
 
   /// New public playlists go on Explore unless this is switched off. The
   /// card's cover follows the list, so it fills in as films are added.
@@ -108,14 +126,28 @@ class _PlaylistEditorState extends ConsumerState<_PlaylistEditor> {
         title: _titleText,
         description: description,
         visibility: _visibility,
+        moods: [for (final m in ListMood.values) if (_moods.contains(m)) m],
         first: widget.first,
       );
     } else {
+      final keepArtwork = _coverStyle == ListCoverStyle.artwork;
       final ok = await actions.update(
         widget.editing!,
         title: _titleText,
         description: description,
         visibility: _visibility,
+        cover: keepArtwork
+            ? null
+            : (
+                style: _coverStyle == ListCoverStyle.film && _coverPath != null
+                    ? ListCoverStyle.film
+                    : ListCoverStyle.strip,
+                path: _coverStyle == ListCoverStyle.film ? _coverPath : null,
+              ),
+        moods: [
+          for (final m in ListMood.values)
+            if (_moods.contains(m)) m
+        ],
       );
       saved = ok ? widget.editing : null;
     }
@@ -185,7 +217,13 @@ class _PlaylistEditorState extends ConsumerState<_PlaylistEditor> {
             children: [
               // The live preview: the fun moment.
               Center(
-                child: PlaylistCover(posters: widget.posters, size: 150),
+                child: PlaylistCover(
+                  posters: widget.posters,
+                  size: 150,
+                  style: _coverStyle,
+                  coverPath: _coverPath,
+                  coverUrl: widget.editing?.coverUrl,
+                ),
               ),
               const SizedBox(height: AppSpace.md),
               ListenableBuilder(
@@ -246,6 +284,109 @@ class _PlaylistEditorState extends ConsumerState<_PlaylistEditor> {
                 _visibility.detail,
                 style: AppText.footnote.copyWith(color: AppColors.inkTertiary),
                 textAlign: TextAlign.center,
+              ),
+              if (!_isNew &&
+                  _coverChoices.isNotEmpty &&
+                  _coverStyle != ListCoverStyle.artwork) ...[
+                const SizedBox(height: AppSpace.xl),
+                const GlassSectionLabel('Cover'),
+                const SizedBox(height: AppSpace.sm),
+                GlassSegmentedControl(
+                  labels: const ['Six-strip', 'One film'],
+                  index: _coverStyle == ListCoverStyle.film ? 1 : 0,
+                  onChanged: (i) => setState(() {
+                    _coverStyle =
+                        i == 1 ? ListCoverStyle.film : ListCoverStyle.strip;
+                    if (i == 1) {
+                      _coverPath ??= _coverChoices.first.posterPath;
+                    }
+                  }),
+                ),
+                if (_coverStyle == ListCoverStyle.film) ...[
+                  const SizedBox(height: AppSpace.md),
+                  SizedBox(
+                    height: 96,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _coverChoices.length,
+                      separatorBuilder: (_, __) =>
+                          const SizedBox(width: AppSpace.sm),
+                      itemBuilder: (_, i) {
+                        final item = _coverChoices[i];
+                        final on = item.posterPath == _coverPath;
+                        return GestureDetector(
+                          onTap: () =>
+                              setState(() => _coverPath = item.posterPath),
+                          child: Semantics(
+                            button: true,
+                            selected: on,
+                            label: 'Cover: ${item.title}',
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 160),
+                              width: 64,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: on
+                                      ? Colors.white
+                                      : Colors.white.withValues(alpha: 0.12),
+                                  width: on ? 2 : 0.8,
+                                ),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(5),
+                                child: PlaylistCover(
+                                  posters: [item.posterPath],
+                                  size: 64,
+                                  height: 96,
+                                  radius: 0,
+                                  style: ListCoverStyle.film,
+                                  coverPath: item.posterPath,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ],
+              const SizedBox(height: AppSpace.xl),
+              GlassSectionLabel(
+                'Moods',
+                trailing: Text(
+                  '${_moods.length} of ${ListMood.maxPerList}',
+                  style:
+                      AppText.footnote.copyWith(color: AppColors.inkTertiary),
+                ),
+              ),
+              const SizedBox(height: AppSpace.sm),
+              Wrap(
+                spacing: AppSpace.sm,
+                runSpacing: AppSpace.sm,
+                children: [
+                  for (final m in ListMood.values)
+                    GlassChip(
+                      label: m.label,
+                      selected: _moods.contains(m),
+                      onTap: () => setState(() {
+                        if (_moods.contains(m)) {
+                          _moods.remove(m);
+                        } else if (_moods.length < ListMood.maxPerList) {
+                          _moods.add(m);
+                        } else {
+                          showGlassToast(
+                              context, 'Up to three moods per playlist.');
+                        }
+                      }),
+                    ),
+                ],
+              ),
+              const SizedBox(height: AppSpace.xs),
+              Text(
+                'Public playlists show up under these in Explore.',
+                style: AppText.footnote.copyWith(color: AppColors.inkTertiary),
               ),
               if (_canShare) ...[
                 const SizedBox(height: AppSpace.lg),

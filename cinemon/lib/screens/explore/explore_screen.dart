@@ -26,7 +26,11 @@ import '../../providers/person/person_follow_provider.dart'
     show newFromFollowedProvider;
 import '../person/follow_rails.dart' show NewFromFollowedRail;
 import '../widgets/native_glass_button.dart';
+import '../../providers/lists/list_provider.dart'
+    show selectsProvider, exploreListsProvider, moodCountsProvider;
+import '../../providers/user/verified_provider.dart';
 import 'explore_composer.dart';
+import 'explore_lists.dart';
 import 'explore_post_card.dart';
 import 'explore_thread.dart';
 import 'subject_picker.dart' show MediaResultRow;
@@ -125,6 +129,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   Widget build(BuildContext context) {
     final pad = MediaQuery.of(context).padding;
     final filter = ref.watch(exploreFilterProvider);
+    final showLists = ref.watch(exploreShowsListsProvider);
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
@@ -132,7 +137,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
         children: [
           NotificationListener<ScrollNotification>(
             onNotification: (n) {
-              if (!_searching && n.metrics.extentAfter < 700) {
+              if (!_searching && !showLists && n.metrics.extentAfter < 700) {
                 ref.read(exploreFeedProvider.notifier).loadMore();
               }
               return false;
@@ -163,7 +168,17 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                         extent - pad.top,
                       ),
                     ),
-                    onRefresh: () {
+                    onRefresh: () async {
+                      ref.invalidate(verifiedUsersProvider);
+                      if (showLists) {
+                        ref.invalidate(selectsProvider);
+                        ref.invalidate(exploreListsProvider);
+                        ref.invalidate(moodCountsProvider);
+                        try {
+                          await ref.read(exploreListsProvider(null).future);
+                        } catch (_) {}
+                        return;
+                      }
                       ref.invalidate(newFromFollowedProvider);
                       return ref.read(exploreFeedProvider.notifier).refresh();
                     },
@@ -185,128 +200,157 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                   ),
                 ),
 
-                // Search, with the iOS Cancel beside it while active.
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                        AppSpace.lg, AppSpace.sm, AppSpace.lg, 0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _FocusableSearch(
-                            controller: _search,
-                            focusNode: _searchFocus,
-                            onChanged: _onSearchChanged,
-                          ),
-                        ),
-                        AnimatedSize(
-                          duration: const Duration(milliseconds: 220),
-                          curve: Curves.easeOutCubic,
-                          child: _searching
-                              ? GestureDetector(
-                                  onTap: _endSearch,
-                                  behavior: HitTestBehavior.opaque,
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(
-                                        left: AppSpace.md),
-                                    child: Text(
-                                      'Cancel',
-                                      style: AppText.body.copyWith(
-                                        fontSize: 17,
-                                        color: AppColors.ink,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                if (_searching)
-                  ..._searchSlivers()
-                else ...[
-                  // New work from people you follow, above everything else
-                  // on the unfiltered feed.
-                  if (filter.subject == null && filter.kind == null)
-                    const SliverToBoxAdapter(child: NewFromFollowedRail()),
-
-                  // Kinds.
-                  SliverToBoxAdapter(
-                    child: SizedBox(
-                      height: 32 + AppSpace.lg * 2,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpace.lg, vertical: AppSpace.lg),
-                        children: [
-                          GlassChip(
-                            label: 'All',
-                            selected: filter.kind == null,
-                            onTap: () =>
-                                _setFilter(filter.copyWith(clearKind: true)),
-                          ),
-                          for (final k in _chipOrder) ...[
-                            const SizedBox(width: AppSpace.sm),
-                            GlassChip(
-                              label: k.plural,
-                              selected: filter.kind == k,
-                              onTap: () => _setFilter(filter.kind == k
-                                  ? filter.copyWith(clearKind: true)
-                                  : filter.copyWith(kind: k)),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  if (filter.subject != null)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                            AppSpace.lg, 0, AppSpace.lg, AppSpace.lg),
-                        child: _SubjectBanner(
-                          subject: filter.subject!,
-                          onClear: () =>
-                              _setFilter(filter.copyWith(clearSubject: true)),
-                          onPost: _compose,
-                        ),
-                      ),
-                    ),
-
-                  // Section label + sort.
+                // Takes (the posts) or Lists (Selects and people's lists).
+                if (!_searching)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(
-                          AppSpace.xl, 0, AppSpace.lg, AppSpace.md),
+                          AppSpace.lg, AppSpace.xs, AppSpace.lg, AppSpace.sm),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: SizedBox(
+                          width: 220,
+                          child: GlassSegmentedControl(
+                            labels: const ['Takes', 'Lists'],
+                            index: showLists ? 1 : 0,
+                            onChanged: (i) {
+                              ref
+                                  .read(exploreShowsListsProvider.notifier)
+                                  .state = i == 1;
+                              if (_scroll.hasClients) _scroll.jumpTo(0);
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                if (showLists && !_searching)
+                  const ExploreListsSection()
+                else ...[
+                  // Search, with the iOS Cancel beside it while active.
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                          AppSpace.lg, AppSpace.sm, AppSpace.lg, 0),
                       child: Row(
                         children: [
                           Expanded(
-                            child: GlassSectionLabel(
-                              filter.kind?.plural ?? 'From everyone',
+                            child: _FocusableSearch(
+                              controller: _search,
+                              focusNode: _searchFocus,
+                              onChanged: _onSearchChanged,
                             ),
                           ),
-                          SizedBox(
-                            width: 150,
-                            child: GlassSegmentedControl(
-                              labels: const ['Latest', 'Top'],
-                              index: filter.sort == ExploreSort.top ? 1 : 0,
-                              onChanged: (i) => _setFilter(filter.copyWith(
-                                sort: i == 1
-                                    ? ExploreSort.top
-                                    : ExploreSort.latest,
-                              )),
-                            ),
+                          AnimatedSize(
+                            duration: const Duration(milliseconds: 220),
+                            curve: Curves.easeOutCubic,
+                            child: _searching
+                                ? GestureDetector(
+                                    onTap: _endSearch,
+                                    behavior: HitTestBehavior.opaque,
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(
+                                          left: AppSpace.md),
+                                      child: Text(
+                                        'Cancel',
+                                        style: AppText.body.copyWith(
+                                          fontSize: 17,
+                                          color: AppColors.ink,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
                           ),
                         ],
                       ),
                     ),
                   ),
 
-                  ..._feedSlivers(filter),
+                  if (_searching)
+                    ..._searchSlivers()
+                  else ...[
+                    // New work from people you follow, above everything else
+                    // on the unfiltered feed.
+                    if (filter.subject == null && filter.kind == null)
+                      const SliverToBoxAdapter(child: NewFromFollowedRail()),
+
+                    // Kinds.
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                        height: 32 + AppSpace.lg * 2,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpace.lg, vertical: AppSpace.lg),
+                          children: [
+                            GlassChip(
+                              label: 'All',
+                              selected: filter.kind == null,
+                              onTap: () =>
+                                  _setFilter(filter.copyWith(clearKind: true)),
+                            ),
+                            for (final k in _chipOrder) ...[
+                              const SizedBox(width: AppSpace.sm),
+                              GlassChip(
+                                label: k.plural,
+                                selected: filter.kind == k,
+                                onTap: () => _setFilter(filter.kind == k
+                                    ? filter.copyWith(clearKind: true)
+                                    : filter.copyWith(kind: k)),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    if (filter.subject != null)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                              AppSpace.lg, 0, AppSpace.lg, AppSpace.lg),
+                          child: _SubjectBanner(
+                            subject: filter.subject!,
+                            onClear: () =>
+                                _setFilter(filter.copyWith(clearSubject: true)),
+                            onPost: _compose,
+                          ),
+                        ),
+                      ),
+
+                    // Section label + sort.
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                            AppSpace.xl, 0, AppSpace.lg, AppSpace.md),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: GlassSectionLabel(
+                                filter.kind?.plural ?? 'From everyone',
+                              ),
+                            ),
+                            SizedBox(
+                              width: 150,
+                              child: GlassSegmentedControl(
+                                labels: const ['Latest', 'Top'],
+                                index: filter.sort == ExploreSort.top ? 1 : 0,
+                                onChanged: (i) => _setFilter(filter.copyWith(
+                                  sort: i == 1
+                                      ? ExploreSort.top
+                                      : ExploreSort.latest,
+                                )),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    ..._feedSlivers(filter),
+                  ],
                 ],
 
                 SliverToBoxAdapter(

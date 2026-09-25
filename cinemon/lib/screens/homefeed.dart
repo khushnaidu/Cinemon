@@ -34,6 +34,8 @@ import 'widgets/episode_card_front.dart';
 import 'widgets/sticker_picker_sheet.dart';
 import 'widgets/reactions_preview.dart' show showReactionsBreakdown;
 import 'widgets/review_editor.dart';
+import 'widgets/verified_mark.dart';
+import '../providers/user/verified_provider.dart';
 
 class HomeFeedPage extends ConsumerStatefulWidget {
   const HomeFeedPage({super.key});
@@ -133,6 +135,7 @@ class _HomeFeedPageState extends ConsumerState<HomeFeedPage> {
                 return RefreshIndicator(
                   onRefresh: () async {
                     ref.invalidate(homeFeedProvider);
+                    ref.invalidate(verifiedUsersProvider);
                     // Wait a bit for the refresh to complete
                     await Future.delayed(const Duration(milliseconds: 500));
                   },
@@ -292,6 +295,11 @@ class _PostAuthor extends StatelessWidget {
                           fontSize: 30,
                           color: AppColors.ink,
                         ),
+                      ),
+                      WidgetSpan(
+                        alignment: PlaceholderAlignment.middle,
+                        child: VerifiedMark(
+                            userId: activity.userId, size: 18, gap: 6),
                       ),
                     ],
                   ),

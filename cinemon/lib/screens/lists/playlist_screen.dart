@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:ui' show ImageFilter;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
@@ -16,11 +15,14 @@ import '../../models/explore_post_model.dart' show ExploreListRef;
 import '../../models/list_model.dart';
 import '../../providers/auth/auth_provider.dart';
 import '../../providers/feed/feed_provider.dart' show userProfileProvider;
+import '../../providers/library/library_provider.dart'
+    show myLibraryKeysProvider;
 import '../../providers/lists/list_provider.dart';
 import '../explore/explore_composer.dart'
     show confirmListRepost, showExploreComposer;
 import '../widgets/glass_panel.dart';
 import '../widgets/report_sheet.dart';
+import '../widgets/verified_mark.dart';
 import '../../share/share_sheet.dart';
 import '../../share/share_subject.dart';
 import 'add_films_panel.dart';
@@ -68,6 +70,9 @@ class PlaylistScreen extends ConsumerStatefulWidget {
 class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
   bool _reordering = false;
 
+  /// The poster wall; off for the numbered list (and while reordering).
+  bool _wall = true;
+
   /// While reordering, the order on screen; the server catches up per move.
   List<ListItem>? _order;
 
@@ -77,7 +82,8 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
     final result = await showPlaylistEditor(
       context,
       editing: list,
-      posters: [for (final i in items.take(4)) i.posterPath],
+      posters: [for (final i in items.take(6)) i.posterPath],
+      items: items,
     );
     if (!mounted) return;
     if (result is PlaylistDeleted) {
@@ -218,12 +224,16 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
     final saved = isOwner
         ? false
         : (ref.watch(listSavedProvider(list.id)).valueOrNull ?? false);
-    final posters = [for (final i in items.take(4)) i.posterPath];
+    final posters = [for (final i in items.take(6)) i.posterPath];
     final shown = _reordering ? (_order ?? items) : items;
+    final seenKeys = me == null
+        ? const <String>{}
+        : ref.watch(myLibraryKeysProvider).valueOrNull ?? const <String>{};
+    final seen = items.where((i) => seenKeys.contains(i.key)).length;
+    final wall = _wall && !_reordering;
 
     final header = _Header(
       list: list,
-      posters: posters,
       ownerName: owner?.username,
       onOwnerTap: () => context.push('/profile/${list.userId}'),
     );
@@ -232,7 +242,6 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
       builder: (buttonContext) => Wrap(
         spacing: AppSpace.sm,
         runSpacing: AppSpace.sm,
-        alignment: WrapAlignment.center,
         children: [
           if (isOwner) ...[
             GlassPillButton(
@@ -311,17 +320,19 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
       ),
     );
 
+    final width = MediaQuery.sizeOf(context).width;
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
+          // The cover the curator chose, across the top, fading to black.
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            height: 420,
-            child:
-                _Ambient(posterPath: posters.whereType<String>().firstOrNull),
+            height: _Banner.height,
+            child: _Banner(list: list, posters: posters, width: width),
           ),
           CustomScrollView(
             slivers: [
@@ -336,12 +347,48 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
               ),
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, AppSpace.lg),
+                  // The title sits over the foot of the banner.
+                  padding: const EdgeInsets.fromLTRB(
+                      AppSpace.lg,
+                      _Banner.height - kToolbarHeight - 150,
+                      AppSpace.lg,
+                      AppSpace.lg),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       header,
                       const SizedBox(height: AppSpace.lg),
                       actions,
+                      if (items.isNotEmpty) ...[
+                        const SizedBox(height: AppSpace.xl),
+                        Row(
+                          children: [
+                            SizedBox(
+                              width: 150,
+                              child: GlassSegmentedControl(
+                                labels: const ['Wall', 'List'],
+                                index: wall ? 0 : 1,
+                                onChanged: (i) => setState(() {
+                                  _wall = i == 0;
+                                  if (_wall) {
+                                    _reordering = false;
+                                    _order = null;
+                                  }
+                                }),
+                              ),
+                            ),
+                            const Spacer(),
+                            if (me != null && seen > 0)
+                              Text(
+                                seen == items.length
+                                    ? 'You\'ve seen them all'
+                                    : 'You\'ve seen $seen',
+                                style: AppText.footnote
+                                    .copyWith(color: AppColors.inkSecondary),
+                              ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -365,6 +412,26 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
                             .copyWith(color: AppColors.inkSecondary),
                         textAlign: TextAlign.center,
                       ),
+                    ),
+                  ),
+                )
+              else if (wall)
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
+                  sliver: SliverGrid.builder(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: AppSpace.lg,
+                      // A 2:3 poster and its number underneath.
+                      childAspectRatio: 0.58,
+                    ),
+                    itemCount: items.length,
+                    itemBuilder: (_, i) => _WallTile(
+                      item: items[i],
+                      rank: i + 1,
+                      seen: seenKeys.contains(items[i].key),
                     ),
                   ),
                 )
@@ -414,56 +481,225 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
 class _Header extends StatelessWidget {
   const _Header({
     required this.list,
-    required this.posters,
     required this.ownerName,
     required this.onOwnerTap,
   });
 
   final FilmList list;
-  final List<String?> posters;
   final String? ownerName;
   final VoidCallback onOwnerTap;
 
   @override
   Widget build(BuildContext context) {
     final count = list.itemCount;
+    final kicker = [
+      list.isSelect ? '35MM SELECTS' : 'PLAYLIST',
+      '$count ${count == 1 ? 'TITLE' : 'TITLES'}',
+    ].join(' · ');
     final meta = [
-      '$count title${count == 1 ? '' : 's'}',
+      if (list.saveCount > 0)
+        '${list.saveCount} save${list.saveCount == 1 ? '' : 's'}',
       if (list.updatedAt != null) 'updated ${_ago(list.updatedAt!)}',
       if (list.visibility != ListVisibility.public) list.visibility.label,
     ].join(' · ');
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        PlaylistCover(posters: posters, size: 190),
-        const SizedBox(height: AppSpace.lg),
+        Text(
+          kicker,
+          style: AppText.caption.copyWith(
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.9,
+            color: AppColors.inkSecondary,
+          ),
+        ),
+        const SizedBox(height: AppSpace.sm),
         Text(
           list.displayTitle,
-          style: AppText.title.copyWith(fontSize: 26),
-          textAlign: TextAlign.center,
+          style: AppText.largeTitle.copyWith(
+            fontSize: 36,
+            height: 1.0,
+            letterSpacing: -1,
+          ),
         ),
+        if (list.tagline != null) ...[
+          const SizedBox(height: AppSpace.sm),
+          Text(
+            list.tagline!,
+            style: AppText.body
+                .copyWith(fontSize: 16, color: AppColors.inkSecondary),
+          ),
+        ],
+        const SizedBox(height: AppSpace.md),
         if (ownerName != null)
           GestureDetector(
             onTap: onOwnerTap,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text('by @$ownerName',
-                  style: AppText.label.copyWith(color: AppColors.inkSecondary)),
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    ownerName!,
+                    style: const TextStyle(
+                      fontFamily: AppText.usernameFamily,
+                      fontSize: 24,
+                      height: 1.1,
+                      color: AppColors.ink,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                VerifiedMark(userId: list.userId, size: 14, gap: 6),
+              ],
             ),
           ),
-        const SizedBox(height: AppSpace.xs),
-        Text(meta,
-            style: AppText.footnote.copyWith(color: AppColors.inkTertiary)),
+        if (meta.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(meta,
+                style: AppText.footnote.copyWith(color: AppColors.inkTertiary)),
+          ),
         if (list.description != null) ...[
           const SizedBox(height: AppSpace.md),
           Text(
             list.description!,
-            style: AppText.body
-                .copyWith(color: AppColors.inkSecondary, fontSize: 14),
-            textAlign: TextAlign.center,
+            style: AppText.body.copyWith(
+                color: AppColors.inkSecondary, fontSize: 15, height: 1.45),
           ),
         ],
       ],
+    );
+  }
+}
+
+/// The list's cover as a banner behind the top of the page, fading into
+/// the black below: the six-strip, the film, or our artwork.
+class _Banner extends StatelessWidget {
+  const _Banner({
+    required this.list,
+    required this.posters,
+    required this.width,
+  });
+
+  final FilmList list;
+  final List<String?> posters;
+  final double width;
+
+  static const height = 330.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return ShaderMask(
+      shaderCallback: (rect) => const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        stops: [0.35, 1],
+        colors: [Colors.white, Colors.transparent],
+      ).createShader(rect),
+      blendMode: BlendMode.dstIn,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          PlaylistCover.of(list,
+              posters: posters, size: width, height: height, radius: 0),
+          // Enough shade for the back button and the title over its foot.
+          ColoredBox(color: Colors.black.withValues(alpha: 0.2)),
+        ],
+      ),
+    );
+  }
+}
+
+/// A title on the poster wall: the poster, its number, and a check if
+/// you've seen it.
+class _WallTile extends StatelessWidget {
+  const _WallTile({
+    required this.item,
+    required this.rank,
+    required this.seen,
+  });
+
+  final ListItem item;
+  final int rank;
+  final bool seen;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = ApiConstants.getPosterUrl(item.posterPath,
+        size: ApiConstants.posterSizeMedium);
+    return Semantics(
+      button: true,
+      label: '$rank. ${item.title}${seen ? ', seen' : ''}',
+      child: GlassPressable(
+        onTap: () => context.push('/film/${item.filmId}/${item.mediaType}'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AspectRatio(
+              aspectRatio: 2 / 3,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(5),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    url.isEmpty
+                        ? Container(
+                            color: AppColors.surfaceElevated,
+                            alignment: Alignment.center,
+                            padding: const EdgeInsets.all(AppSpace.xs),
+                            child: Text(
+                              item.title,
+                              style: AppText.footnote
+                                  .copyWith(color: AppColors.inkSecondary),
+                              textAlign: TextAlign.center,
+                              maxLines: 4,
+                            ),
+                          )
+                        : CachedNetworkImage(
+                            imageUrl: url,
+                            fit: BoxFit.cover,
+                            placeholder: (_, __) =>
+                                const ColoredBox(color: AppColors.surface),
+                            errorWidget: (_, __, ___) =>
+                                const ColoredBox(color: AppColors.surface),
+                          ),
+                    if (seen)
+                      Positioned(
+                        right: 5,
+                        bottom: 5,
+                        child: Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.black.withValues(alpha: 0.55),
+                            border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.35),
+                                width: 0.5),
+                          ),
+                          child: const Icon(CupertinoIcons.checkmark_alt,
+                              size: 12, color: Colors.white),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '$rank',
+              style: AppText.caption.copyWith(
+                fontWeight: FontWeight.w600,
+                color: AppColors.inkTertiary,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -549,49 +785,6 @@ class _Row extends StatelessWidget {
                 child: Icon(CupertinoIcons.line_horizontal_3,
                     color: AppColors.inkTertiary),
               ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The cover's first poster, blurred behind the header.
-class _Ambient extends StatelessWidget {
-  const _Ambient({required this.posterPath});
-
-  final String? posterPath;
-
-  @override
-  Widget build(BuildContext context) {
-    if (posterPath == null) return const SizedBox.shrink();
-    // Clipped: the poster is scaled up so the blur reaches the edges, and
-    // without a clip that overflow painted past the fade as a hard strip.
-    return ClipRect(
-      child: ShaderMask(
-        shaderCallback: (rect) => const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Colors.white, Colors.transparent],
-        ).createShader(rect),
-        blendMode: BlendMode.dstIn,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            ImageFiltered(
-              imageFilter: ImageFilter.blur(
-                  sigmaX: 40, sigmaY: 40, tileMode: TileMode.mirror),
-              child: Transform.scale(
-                scale: 1.3,
-                child: CachedNetworkImage(
-                  imageUrl: ApiConstants.getPosterUrl(posterPath,
-                      size: ApiConstants.posterSizeSmall),
-                  fit: BoxFit.cover,
-                  errorWidget: (_, __, ___) => const SizedBox.shrink(),
-                ),
-              ),
-            ),
-            ColoredBox(color: Colors.black.withValues(alpha: 0.45)),
           ],
         ),
       ),

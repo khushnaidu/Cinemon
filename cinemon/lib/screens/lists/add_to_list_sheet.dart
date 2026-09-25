@@ -114,7 +114,7 @@ class _AddToListState extends ConsumerState<_AddToList> {
                 data: (lists) => [
                   for (final p in lists) ...[
                     _ListRow(
-                      leading: PlaylistCover(
+                      leading: PlaylistCover.of(p.list,
                           posters: p.posters, size: 44, radius: 8),
                       title: p.list.displayTitle,
                       subtitle:

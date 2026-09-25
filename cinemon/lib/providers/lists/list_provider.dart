@@ -215,6 +215,7 @@ class PlaylistActions {
     required String title,
     String? description,
     required ListVisibility visibility,
+    List<ListMood> moods = const [],
     FilmModel? first,
   }) async {
     final me = _me;
@@ -225,6 +226,7 @@ class PlaylistActions {
         title: title,
         description: description,
         visibility: visibility,
+        moods: moods,
       );
       if (first != null) await _repo.addItem(list.id, first);
       _refresh(list.id);
@@ -239,10 +241,16 @@ class PlaylistActions {
     required String title,
     String? description,
     required ListVisibility visibility,
+    ({ListCoverStyle style, String? path})? cover,
+    List<ListMood>? moods,
   }) async {
     try {
       await _repo.updatePlaylist(list.id,
-          title: title, description: description, visibility: visibility);
+          title: title,
+          description: description,
+          visibility: visibility,
+          cover: cover,
+          moods: moods);
     } catch (_) {
       return false;
     }
@@ -329,12 +337,14 @@ class PlaylistActions {
     _ref.invalidate(listSavedProvider(listId));
     _ref.invalidate(listProvider(listId));
     _ref.invalidate(savedPlaylistsProvider);
+    _ref.invalidate(exploreListsProvider);
     return true;
   }
 
   void _refresh(String listId) {
     _ref.invalidate(playlistsProvider);
     _ref.invalidate(listsContainingProvider);
+    refreshExploreLists(_ref);
     _ref.read(watchlistActionsProvider).refresh(listId);
   }
 }
@@ -368,4 +378,30 @@ final playlistActionsProvider =
           : (before + after) / 2;
   order[to] = moving.withPosition(position);
   return (order: order, renumbered: false);
+}
+
+// ── Explore › Lists (migration 029) ─────────────────────────────
+
+/// 35mm Selects, in our order. The first is the one Explore features.
+final selectsProvider =
+    FutureProvider.autoDispose<List<ExploreListEntry>>((ref) {
+  return ref.watch(listRepositoryProvider).getSelects();
+});
+
+/// People's playlists, best this week first; with a mood, that mood's.
+final exploreListsProvider = FutureProvider.autoDispose
+    .family<List<ExploreListEntry>, ListMood?>((ref, mood) {
+  return ref.watch(listRepositoryProvider).getExploreLists(mood: mood);
+});
+
+final moodCountsProvider =
+    FutureProvider.autoDispose<Map<ListMood, int>>((ref) {
+  return ref.watch(listRepositoryProvider).getMoodCounts();
+});
+
+/// After a list changes, or on pull to refresh.
+void refreshExploreLists(Ref ref) {
+  ref.invalidate(selectsProvider);
+  ref.invalidate(exploreListsProvider);
+  ref.invalidate(moodCountsProvider);
 }

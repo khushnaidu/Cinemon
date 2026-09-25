@@ -13,6 +13,7 @@ import 'comment_thread.dart';
 import 'glass_panel.dart';
 import 'report_sheet.dart';
 import 'liquid_glass.dart' show GlassLens;
+import 'verified_mark.dart';
 
 /// Open the comments for a post as a tall glass panel.
 Future<void> showCommentsSheet(
@@ -391,6 +392,7 @@ class CommentRow extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      VerifiedMark(userId: comment.userId, size: 13),
                       if (isAuthor) ...[
                         const SizedBox(width: 6),
                         Container(

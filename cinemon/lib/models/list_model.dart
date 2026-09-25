@@ -16,6 +16,52 @@ enum ListVisibility {
       .firstWhere((v) => v.name == s, orElse: () => ListVisibility.public);
 }
 
+/// How a playlist's cover is drawn (migration 029).
+enum ListCoverStyle {
+  /// The first six posters side by side. The default.
+  strip,
+
+  /// One film the curator picked: its poster, or for a Select, a still.
+  film,
+
+  /// Our own artwork. 35mm Selects only.
+  artwork;
+
+  static ListCoverStyle parse(String? s) => ListCoverStyle.values
+      .firstWhere((v) => v.name == s, orElse: () => ListCoverStyle.strip);
+}
+
+/// The moods a playlist can have, up to three (migration 029,
+/// `list_moods()`). The slugs are what's stored.
+enum ListMood {
+  slowBurn('slow_burn', 'Slow-burn'),
+  tender('tender', 'Tender'),
+  neon('neon', 'Neon'),
+  epic('epic', 'Epic'),
+  unsettling('unsettling', 'Unsettling'),
+  rainyDay('rainy_day', 'Rainy day'),
+  sunlit('sunlit', 'Sunlit'),
+  lateNight('late_night', 'Late night'),
+  funny('funny', 'Funny'),
+  heartbreaking('heartbreaking', 'Heartbreaking'),
+  mindBending('mind_bending', 'Mind-bending'),
+  cozy('cozy', 'Cozy');
+
+  const ListMood(this.slug, this.label);
+
+  final String slug;
+  final String label;
+
+  static const maxPerList = 3;
+
+  static ListMood? parse(String? slug) {
+    for (final m in values) {
+      if (m.slug == slug) return m;
+    }
+    return null;
+  }
+}
+
 class FilmList {
   const FilmList({
     required this.id,
@@ -25,7 +71,14 @@ class FilmList {
     this.description,
     this.visibility = ListVisibility.public,
     this.itemCount = 0,
+    this.saveCount = 0,
     this.updatedAt,
+    this.coverStyle = ListCoverStyle.strip,
+    this.coverPath,
+    this.coverUrl,
+    this.moods = const [],
+    this.isSelect = false,
+    this.tagline,
   });
 
   final String id;
@@ -37,7 +90,24 @@ class FilmList {
   final String? description;
   final ListVisibility visibility;
   final int itemCount;
+  final int saveCount;
   final DateTime? updatedAt;
+
+  final ListCoverStyle coverStyle;
+
+  /// A TMDB image path for a one-film cover: a poster, or a backdrop on a
+  /// Select.
+  final String? coverPath;
+
+  /// The artwork's address, for a Select with its own.
+  final String? coverUrl;
+  final List<ListMood> moods;
+
+  /// One of ours: a 35mm Select.
+  final bool isSelect;
+
+  /// A Select's one line, under its title.
+  final String? tagline;
 
   bool get isWatchlist => kind == 'watchlist';
   String get displayTitle => title ?? (isWatchlist ? 'Watchlist' : 'Untitled');
@@ -50,7 +120,17 @@ class FilmList {
         description: row['description'] as String?,
         visibility: ListVisibility.parse(row['visibility'] as String?),
         itemCount: row['item_count'] as int? ?? 0,
+        saveCount: row['save_count'] as int? ?? 0,
         updatedAt: DateTime.tryParse(row['updated_at'] as String? ?? ''),
+        coverStyle: ListCoverStyle.parse(row['cover_style'] as String?),
+        coverPath: row['cover_path'] as String?,
+        coverUrl: row['cover_url'] as String?,
+        moods: [
+          for (final m in (row['moods'] as List?) ?? const [])
+            if (ListMood.parse(m as String?) case final mood?) mood,
+        ],
+        isSelect: row['is_select'] as bool? ?? false,
+        tagline: row['tagline'] as String?,
       );
 
   FilmList copyWith({ListVisibility? visibility, int? itemCount}) => FilmList(
@@ -61,7 +141,14 @@ class FilmList {
         description: description,
         visibility: visibility ?? this.visibility,
         itemCount: itemCount ?? this.itemCount,
+        saveCount: saveCount,
         updatedAt: updatedAt,
+        coverStyle: coverStyle,
+        coverPath: coverPath,
+        coverUrl: coverUrl,
+        moods: moods,
+        isSelect: isSelect,
+        tagline: tagline,
       );
 }
 
@@ -143,5 +230,36 @@ class ListItem {
         note: note,
         watchedAt: watched ? DateTime.now() : null,
         addedAt: addedAt,
+      );
+}
+
+/// A playlist as Explore › Lists shows it: the list, who made it, and its
+/// first posters (migration 029, `explore_lists`).
+class ExploreListEntry {
+  const ExploreListEntry({
+    required this.list,
+    this.ownerUsername,
+    this.weekSaves = 0,
+    this.posters = const [],
+  });
+
+  final FilmList list;
+  final String? ownerUsername;
+
+  /// Saves in the last seven days, which rank the community lists.
+  final int weekSaves;
+
+  /// Up to six poster paths, in list order.
+  final List<String> posters;
+
+  factory ExploreListEntry.fromRow(Map<String, dynamic> row) =>
+      ExploreListEntry(
+        list: FilmList.fromRow(row),
+        ownerUsername: row['owner_username'] as String?,
+        weekSaves: row['week_saves'] as int? ?? 0,
+        posters: [
+          for (final p in (row['posters'] as List?) ?? const [])
+            if (p is String) p,
+        ],
       );
 }

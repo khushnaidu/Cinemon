@@ -93,7 +93,7 @@ class ListsTab extends ConsumerWidget {
                 final n = p.list.itemCount;
                 return _Tile(
                   cover: LayoutBuilder(
-                    builder: (_, c) => PlaylistCover(
+                    builder: (_, c) => PlaylistCover.of(p.list,
                         posters: p.posters, size: c.maxWidth, radius: 14),
                   ),
                   title: p.list.displayTitle,
@@ -144,7 +144,7 @@ class _SavedPlaylists extends ConsumerWidget {
               final p = saved[i];
               return _Tile(
                 cover: LayoutBuilder(
-                  builder: (_, c) => PlaylistCover(
+                  builder: (_, c) => PlaylistCover.of(p.list,
                       posters: p.posters, size: c.maxWidth, radius: 14),
                 ),
                 title: p.list.displayTitle,

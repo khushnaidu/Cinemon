@@ -16,6 +16,7 @@ import '../widgets/comments_sheet.dart' show CommentAvatar;
 import '../widgets/glass_panel.dart';
 import '../widgets/liquid_glass.dart' show GlassLens;
 import '../widgets/star_input.dart' show GlassStar;
+import '../widgets/verified_mark.dart';
 
 // ─────────────────────────────────────────────────────────────
 // Type per kind
@@ -359,6 +360,7 @@ class _AuthorRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              VerifiedMark(userId: post.userId, size: 13),
             ],
           ),
         ),

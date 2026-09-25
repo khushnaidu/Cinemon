@@ -29,6 +29,7 @@ import '../../screens/lists/playlist_screen.dart';
 import '../../screens/person/person_screen.dart';
 import '../../screens/trailers/trailers_screen.dart';
 import '../../share/shared_link_screens.dart';
+import '../../screens/explore/explore_lists.dart' show MoodListsScreen;
 
 /// Pings the router to re-run its redirect.
 class _RouterRefresh extends ChangeNotifier {
@@ -256,6 +257,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/notifications',
         name: 'notifications',
         builder: (context, state) => const NotificationsScreen(),
+      ),
+      // Explore › Lists › a mood.
+      GoRoute(
+        path: '/explore/mood/:mood',
+        builder: (context, state) =>
+            MoodListsScreen(slug: state.pathParameters['mood']!),
       ),
       GoRoute(
         path: '/lists/:listId',

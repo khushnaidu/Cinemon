@@ -112,7 +112,7 @@ class ListRepository {
     ];
   }
 
-  /// The first four posters of each list, for covers. One query for a whole
+  /// The first six posters of each list, for covers. One query for a whole
   /// rail of lists.
   Future<Map<String, List<String?>>> getCoverPosters(
       List<String> listIds) async {
@@ -125,7 +125,7 @@ class ListRepository {
     final covers = <String, List<String?>>{};
     for (final r in rows) {
       final posters = covers.putIfAbsent(r['list_id'] as String, () => []);
-      if (posters.length < 4) posters.add(r['film_poster_path'] as String?);
+      if (posters.length < 6) posters.add(r['film_poster_path'] as String?);
     }
     return covers;
   }
@@ -135,6 +135,7 @@ class ListRepository {
     required String title,
     String? description,
     ListVisibility visibility = ListVisibility.public,
+    List<ListMood> moods = const [],
   }) async {
     final row = await _lists
         .insert({
@@ -143,23 +144,80 @@ class ListRepository {
           'title': title,
           'description': description,
           'visibility': visibility.name,
+          if (moods.isNotEmpty) 'moods': [for (final m in moods) m.slug],
         })
         .select()
         .single();
     return FilmList.fromRow(row);
   }
 
+  /// [cover] and [moods] are left alone when null, so an edit that doesn't
+  /// show them (the Post flow's make-public) can't clear them.
   Future<void> updatePlaylist(
     String listId, {
     required String title,
     String? description,
     required ListVisibility visibility,
+    ({ListCoverStyle style, String? path})? cover,
+    List<ListMood>? moods,
   }) =>
       _lists.update({
         'title': title,
         'description': description,
         'visibility': visibility.name,
+        if (cover != null) ...{
+          'cover_style': cover.style.name,
+          'cover_path': cover.path,
+        },
+        if (moods != null) 'moods': [for (final m in moods) m.slug],
       }).eq('id', listId);
+
+  // ── Explore › Lists (migration 029) ─────────────────────────
+
+  /// 35mm Selects, in our order.
+  Future<List<ExploreListEntry>> getSelects() async {
+    final rows = await _lists
+        .select()
+        .eq('is_select', true)
+        .eq('kind', 'playlist')
+        .order('select_rank', nullsFirst: false)
+        .order('updated_at', ascending: false)
+        .limit(20);
+    final lists = rows.map(FilmList.fromRow).toList();
+    final covers = await getCoverPosters([for (final l in lists) l.id]);
+    return [
+      for (final l in lists)
+        ExploreListEntry(
+          list: l,
+          posters: (covers[l.id] ?? const []).whereType<String>().toList(),
+        ),
+    ];
+  }
+
+  /// People's public playlists, best this week first; with [mood], every
+  /// list with that mood, Selects included.
+  Future<List<ExploreListEntry>> getExploreLists({
+    ListMood? mood,
+    int limit = 20,
+  }) async {
+    final rows = await _client.rpc('explore_lists', params: {
+      'p_mood': mood?.slug,
+      'p_limit': limit,
+    }) as List;
+    return [
+      for (final r in rows) ExploreListEntry.fromRow(r as Map<String, dynamic>)
+    ];
+  }
+
+  /// How many public playlists have each mood.
+  Future<Map<ListMood, int>> getMoodCounts() async {
+    final rows = await _client.rpc('explore_mood_counts') as List;
+    return {
+      for (final r in rows)
+        if (ListMood.parse((r as Map)['mood'] as String?) case final m?)
+          m: (r['n'] as num).toInt(),
+    };
+  }
 
   Future<void> deleteList(String listId) => _lists.delete().eq('id', listId);
 

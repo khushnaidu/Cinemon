@@ -12,6 +12,7 @@ import '../../providers/follow/follow_provider.dart';
 import '../follow_list_screen.dart' show confirmUnfollow;
 import '../widgets/arch_profile_frame.dart';
 import '../widgets/glass_panel.dart';
+import '../widgets/verified_mark.dart';
 
 /// The top of a profile: photo, names, bio, counts, and Edit or Follow.
 class ProfileHeader extends StatelessWidget {
@@ -47,14 +48,22 @@ class ProfileHeader extends StatelessWidget {
           // leaves below the letters.
           Transform.translate(
             offset: const Offset(0, -10),
-            child: Text(
-              '@${profile.username}',
-              style: AppText.footnote.copyWith(
-                fontSize: 15,
-                color: AppColors.inkTertiary,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    '@${profile.username}',
+                    style: AppText.footnote.copyWith(
+                      fontSize: 15,
+                      color: AppColors.inkTertiary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                VerifiedMark(userId: profile.uid, size: 15),
+              ],
             ),
           ),
 
