@@ -166,7 +166,8 @@ class ExploreRepository {
   }
 
   Future<void> deletePost(String id) async {
-    await _client.from(_table).delete().eq('id', id);
+    final gone = await _client.from(_table).delete().eq('id', id).select('id');
+    if (gone.isEmpty) throw StateError('post not deleted');
   }
 
   /// Set the viewer's vote. 0 clears it.
@@ -223,7 +224,12 @@ class ExploreRepository {
   }
 
   Future<void> deleteComment(String commentId) async {
-    await _client.from('explore_comments').delete().eq('id', commentId);
+    final gone = await _client
+        .from('explore_comments')
+        .delete()
+        .eq('id', commentId)
+        .select('id');
+    if (gone.isEmpty) throw StateError('reply not deleted');
   }
 
   CommentModel _commentFromRow(Map<String, dynamic> row) {

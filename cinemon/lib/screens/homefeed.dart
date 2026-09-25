@@ -813,7 +813,7 @@ class _ActivityCardState extends ConsumerState<_ActivityCard>
         if (currentUser == null) return;
         ref.read(likeNotifierProvider.notifier).toggleLike(
               widget.activity.id,
-              widget.activity.isLikedBy(currentUser.uid),
+              likedNow(ref, widget.activity, currentUser.uid),
             );
       },
     );

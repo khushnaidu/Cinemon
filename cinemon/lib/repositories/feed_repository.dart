@@ -386,7 +386,14 @@ class FeedRepository {
     required String activityId,
     required String commentId,
   }) async {
-    await _client.from('comments').delete().eq('id', commentId);
+    // Asks for the deleted row back: none means the server refused (it
+    // isn't yours, or it's already gone), which shouldn't look like success.
+    final gone = await _client
+        .from('comments')
+        .delete()
+        .eq('id', commentId)
+        .select('id');
+    if (gone.isEmpty) throw StateError('comment not deleted');
   }
 
   /// The user's existing post about a film, if any.

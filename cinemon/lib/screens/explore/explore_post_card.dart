@@ -113,8 +113,8 @@ class _ExplorePostCardState extends ConsumerState<ExplorePostCard> {
   /// The newest copy of the post, which may be newer than the one passed in
   /// if it was voted on or replied to from somewhere else. Build watches it;
   /// callbacks read it.
-  ExplorePost get post =>
-      ref.read(explorePostPatchesProvider)[widget.post.id] ?? widget.post;
+  ExplorePost get post => newerExplorePost(
+      widget.post, ref.read(explorePostPatchesProvider)[widget.post.id]);
   bool get _veiled => post.hasSpoilers && !_revealed;
 
   Future<void> _vote(int value) async {

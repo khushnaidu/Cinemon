@@ -231,12 +231,14 @@ class ExplorePost {
     this.myVote = 0,
     required this.createdAt,
     this.updatedAt,
+    this.fetchedAt,
   });
 
   factory ExplorePost.fromRow(Map<String, dynamic> row) {
     final filmId = row['film_id'] as int?;
     final listId = row['list_id'] as String?;
     return ExplorePost(
+      fetchedAt: DateTime.now(),
       id: row['id'] as String,
       userId: row['user_id'] as String,
       username: row['username'] as String? ?? 'unknown',
@@ -307,6 +309,14 @@ class ExplorePost {
   /// When the content was last edited; null if never.
   final DateTime? updatedAt;
 
+  /// When this copy was read from the server, or changed on this phone.
+  /// The newer of two copies of a post is the one to show
+  /// ([newerExplorePost]).
+  final DateTime? fetchedAt;
+
+  /// This copy, stamped as changed just now.
+  ExplorePost stamped() => _copy(fetchedAt: DateTime.now());
+
   bool get isEdited => updatedAt != null;
 
   int get totalVotes => agreeCount + disagreeCount;
@@ -346,6 +356,7 @@ class ExplorePost {
     int? disagreeCount,
     int? commentCount,
     int? myVote,
+    DateTime? fetchedAt,
   }) =>
       ExplorePost(
         id: id,
@@ -365,5 +376,17 @@ class ExplorePost {
         myVote: myVote ?? this.myVote,
         createdAt: createdAt,
         updatedAt: updatedAt,
+        fetchedAt: fetchedAt ?? this.fetchedAt,
       );
+}
+
+/// The newer of a post as a list loaded it and the viewer's own change to
+/// it. A change only wins until the server's copy catches up; after that the
+/// server's numbers (other people's votes and replies included) show.
+ExplorePost newerExplorePost(ExplorePost loaded, ExplorePost? changed) {
+  if (changed == null) return loaded;
+  final a = loaded.fetchedAt;
+  final b = changed.fetchedAt;
+  if (a != null && b != null && a.isAfter(b)) return loaded;
+  return changed;
 }

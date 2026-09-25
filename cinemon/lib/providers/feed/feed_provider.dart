@@ -619,39 +619,72 @@ final createActivityProvider =
   return CreateActivityNotifier(feedRepo, userRepo, ref);
 });
 
-/// State notifier for like/unlike actions
-class LikeNotifier extends StateNotifier<Set<String>> {
+/// Every list and page that shows reviews, refreshed after something that
+/// changes a review's counts (a like, a reaction, a comment). Home, profiles,
+/// a film's friends' reviews and your own review of it each hold their own
+/// copy; refreshing only Home left the others showing old numbers.
+void refreshActivityViews(Ref ref, {String? activityId}) {
+  ref.invalidate(homeFeedProvider);
+  ref.invalidate(userActivitiesProvider);
+  ref.invalidate(friendsFilmActivitiesProvider);
+  ref.invalidate(userFilmActivityProvider);
+  if (activityId != null) ref.invalidate(activityCommentsProvider(activityId));
+}
+
+/// Likes as you've just tapped them, ahead of the server: activity id →
+/// liked. Cards read [likedNow] and [likeCountNow] so the heart and the
+/// number move on the tap. An entry goes once the refreshed review arrives,
+/// or is rolled back if the write fails.
+class LikeNotifier extends StateNotifier<Map<String, bool>> {
   final FeedRepository _feedRepo;
   final String? _userId;
   final Ref _ref;
 
-  LikeNotifier(this._feedRepo, this._userId, this._ref) : super({});
+  LikeNotifier(this._feedRepo, this._userId, this._ref) : super(const {});
 
-  /// Toggle like on an activity.
-  ///
-  /// The recipient's notification is created (and retracted on unlike) by a
-  /// trigger on `activity_likes`, so there is nothing to do here beyond the
-  /// like itself.
+  /// Like or unlike. The notification is added or retracted by a trigger on
+  /// `activity_likes`.
   Future<void> toggleLike(String activityId, bool isCurrentlyLiked) async {
-    if (_userId == null) return;
-
-    // Optimistic update
-    if (isCurrentlyLiked) {
-      state = {...state}..remove(activityId);
-      await _feedRepo.unlikeActivity(activityId: activityId, userId: _userId!);
-    } else {
-      state = {...state, activityId};
-      await _feedRepo.likeActivity(activityId: activityId, userId: _userId!);
+    final uid = _userId;
+    if (uid == null) return;
+    final like = !isCurrentlyLiked;
+    state = {...state, activityId: like};
+    try {
+      if (like) {
+        await _feedRepo.likeActivity(activityId: activityId, userId: uid);
+      } else {
+        await _feedRepo.unlikeActivity(activityId: activityId, userId: uid);
+      }
+      refreshActivityViews(_ref);
+      // Hold the tap's value until Home has the server's copy.
+      try {
+        await _ref.read(homeFeedProvider.future);
+      } catch (_) {}
+    } catch (_) {
+      // Failed: the heart goes back to what the server has.
     }
-
-    // Refresh the feed to reflect the change
-    _ref.invalidate(homeFeedProvider);
+    if (mounted) state = {...state}..remove(activityId);
   }
+}
+
+/// Whether [a] is liked by [uid], counting a tap still on its way.
+bool likedNow(WidgetRef ref, ActivityModel a, String? uid) {
+  final pending = ref.watch(likeNotifierProvider)[a.id];
+  return pending ?? (uid != null && a.isLikedBy(uid));
+}
+
+/// [a]'s like count, counting a tap still on its way.
+int likeCountNow(WidgetRef ref, ActivityModel a, String? uid) {
+  final pending = ref.watch(likeNotifierProvider)[a.id];
+  if (pending == null || uid == null) return a.likeCount;
+  final server = a.isLikedBy(uid);
+  if (pending == server) return a.likeCount;
+  return (a.likeCount + (pending ? 1 : -1)).clamp(0, 1 << 30);
 }
 
 /// Provider for managing likes
 final likeNotifierProvider =
-    StateNotifierProvider<LikeNotifier, Set<String>>((ref) {
+    StateNotifierProvider<LikeNotifier, Map<String, bool>>((ref) {
   final feedRepo = ref.watch(feedRepositoryProvider);
   final currentUser = ref.watch(currentUserProvider);
   return LikeNotifier(feedRepo, currentUser?.uid, ref);
@@ -706,8 +739,7 @@ class ReactionNotifier extends StateNotifier<Map<String, String>> {
         stickerId: stickerId,
       );
 
-      // Refresh the feed to get updated data
-      _ref.invalidate(homeFeedProvider);
+      refreshActivityViews(_ref);
     } catch (e) {
       // Revert on error
       final newState = {...state};
@@ -734,7 +766,7 @@ class ReactionNotifier extends StateNotifier<Map<String, String>> {
         userId: _userId!,
       );
 
-      _ref.invalidate(homeFeedProvider);
+      refreshActivityViews(_ref);
     } catch (e) {
       // Revert on error
       if (oldValue != null) {
@@ -806,9 +838,7 @@ class CommentNotifier extends StateNotifier<AsyncValue<void>> {
       final created = await _feedRepo.addComment(comment);
       state = const AsyncValue.data(null);
 
-      // Refresh comments for this activity
-      _ref.invalidate(activityCommentsProvider(activityId));
-      _ref.invalidate(homeFeedProvider);
+      refreshActivityViews(_ref, activityId: activityId);
 
       return created;
     } catch (e, st) {
@@ -817,8 +847,9 @@ class CommentNotifier extends StateNotifier<AsyncValue<void>> {
     }
   }
 
-  /// Delete a comment
-  Future<void> deleteComment({
+  /// Delete a comment (and, on the server, its replies). False if it
+  /// didn't go.
+  Future<bool> deleteComment({
     required String activityId,
     required String commentId,
   }) async {
@@ -831,11 +862,11 @@ class CommentNotifier extends StateNotifier<AsyncValue<void>> {
       );
       state = const AsyncValue.data(null);
 
-      // Refresh comments
-      _ref.invalidate(activityCommentsProvider(activityId));
-      _ref.invalidate(homeFeedProvider);
+      refreshActivityViews(_ref, activityId: activityId);
+      return true;
     } catch (e, st) {
       state = AsyncValue.error(e, st);
+      return false;
     }
   }
 }

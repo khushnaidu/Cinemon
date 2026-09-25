@@ -8,7 +8,8 @@ import '../../models/activity_model.dart';
 import '../../models/sticker_model.dart';
 import '../../share/share_sheet.dart';
 import '../../share/share_subject.dart';
-import '../../providers/feed/feed_provider.dart' show homeFeedProvider;
+import '../../providers/feed/feed_provider.dart'
+    show homeFeedProvider, likedNow, likeCountNow;
 import 'report_sheet.dart';
 import 'review_photo_stack.dart';
 import 'voice_note_player.dart';
@@ -457,7 +458,7 @@ class _NoReview extends StatelessWidget {
 /// The labels are gone. "React / Comment / Like" under three unmistakable
 /// glyphs was three words of chrome on a card whose whole problem was that
 /// there was no room left for content.
-class _Tallies extends StatelessWidget {
+class _Tallies extends ConsumerWidget {
   const _Tallies({
     required this.activity,
     required this.currentUserId,
@@ -479,8 +480,10 @@ class _Tallies extends StatelessWidget {
   final VoidCallback? onMore;
 
   @override
-  Widget build(BuildContext context) {
-    final liked = currentUserId != null && activity.isLikedBy(currentUserId!);
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Including a tap still on its way to the server.
+    final liked = likedNow(ref, activity, currentUserId);
+    final likes = likeCountNow(ref, activity, currentUserId);
     final reaction =
         currentUserId != null ? activity.getReactionFrom(currentUserId!) : null;
     final sticker =
@@ -514,7 +517,7 @@ class _Tallies extends StatelessWidget {
           ),
           _Tally(
             icon: liked ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
-            count: activity.likeCount,
+            count: likes,
             active: liked,
             activeColor: AppColors.destructive,
             onTap: onLike,

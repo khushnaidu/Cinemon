@@ -150,10 +150,14 @@ class _CommentsSheetState extends ConsumerState<CommentsSheet> {
       destructive: true,
     );
     if (!confirmed || !mounted) return;
-    await ref.read(commentNotifierProvider.notifier).deleteComment(
+    final done = await ref.read(commentNotifierProvider.notifier).deleteComment(
           activityId: widget.activityId,
           commentId: comment.id,
         );
+    if (!done && mounted) {
+      showGlassToast(context, "Couldn't delete that comment. Try again.",
+          destructive: true);
+    }
   }
 
   @override

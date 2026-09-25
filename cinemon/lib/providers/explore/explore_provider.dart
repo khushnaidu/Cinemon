@@ -219,8 +219,8 @@ final explorePostPatchesProvider =
 });
 
 /// [post], or the newer copy of it if the viewer has changed it.
-ExplorePost watchLivePost(WidgetRef ref, ExplorePost post) =>
-    ref.watch(explorePostPatchesProvider.select((m) => m[post.id])) ?? post;
+ExplorePost watchLivePost(WidgetRef ref, ExplorePost post) => newerExplorePost(
+    post, ref.watch(explorePostPatchesProvider.select((m) => m[post.id])));
 
 /// Post count for the subject banner.
 final exploreSubjectCountProvider =
@@ -250,18 +250,34 @@ class ExploreActions {
   /// The newest copy of a post this session knows: patched, in the Explore
   /// feed, or the one the caller is holding.
   ExplorePost _current(ExplorePost post) {
-    final patched = _ref.read(explorePostPatchesProvider)[post.id];
-    if (patched != null) return patched;
+    var best = post;
     for (final p in _ref.read(exploreFeedProvider).posts) {
-      if (p.id == post.id) return p;
+      if (p.id == post.id) best = newerExplorePost(best, p);
     }
-    return post;
+    return newerExplorePost(
+        best, _ref.read(explorePostPatchesProvider)[post.id]);
   }
 
   void _patch(ExplorePost post) {
+    final stamped = post.stamped();
     final patches = _ref.read(explorePostPatchesProvider.notifier);
-    patches.state = {...patches.state, post.id: post};
-    _ref.read(exploreFeedProvider.notifier).replace(post);
+    patches.state = {...patches.state, post.id: stamped};
+    _ref.read(exploreFeedProvider.notifier).replace(stamped);
+  }
+
+  /// After a reply is added or deleted: the post as the server now counts
+  /// it (a deleted reply takes its answers with it), falling back to the
+  /// local guess if that read fails.
+  Future<void> _reconcile(ExplorePost post, int guess) async {
+    try {
+      final fresh = await _repo.getPost(post.id);
+      if (fresh != null) {
+        _patch(fresh);
+        _refreshElsewhere();
+        return;
+      }
+    } catch (_) {}
+    _patch(_current(post).withCommentDelta(guess));
   }
 
   /// Every list of posts that isn't Explore itself: profiles and Home.
@@ -385,6 +401,7 @@ class ExploreActions {
       );
       _ref.invalidate(exploreCommentsProvider(postId));
       _patch(_current(post).withCommentDelta(1));
+      await _reconcile(post, 0);
       return c;
     } catch (_) {
       return null;
@@ -397,6 +414,7 @@ class ExploreActions {
       await _repo.deleteComment(commentId);
       _ref.invalidate(exploreCommentsProvider(postId));
       _patch(_current(post).withCommentDelta(-1));
+      await _reconcile(post, 0);
       return true;
     } catch (_) {
       return false;
